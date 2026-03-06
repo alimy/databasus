@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import InstallationComponent from "../components/InstallationComponent";
 
 export const metadata: Metadata = {
@@ -156,7 +155,7 @@ export default function MysqlBackupPage() {
       <header className="fixed top-0 left-0 right-0 z-50 flex justify-center pt-3 md:pt-5 px-4 md:px-0">
         <div className="mx-auto w-full max-w-[1000px] 2xl:max-w-[1200px]">
           <nav className="relative flex items-center justify-between border backdrop-blur-md bg-[#0C0E13]/80 md:bg-[#0C0E13]/20 border-[#ffffff20] px-3 py-2 rounded-xl">
-            <Link href="/" className="flex items-center gap-2.5">
+            <a href="/" className="flex items-center gap-2.5">
               <img
                 src="/logo.svg"
                 alt="Databasus logo"
@@ -170,7 +169,7 @@ export default function MysqlBackupPage() {
               <span className="text-base md:text-lg font-semibold">
                 Databasus
               </span>
-            </Link>
+            </a>
 
             {/* Desktop Navigation */}
             <div className="absolute left-1/2 -translate-x-1/2 hidden lg:flex items-center gap-3">
@@ -1075,7 +1074,7 @@ export default function MysqlBackupPage() {
       <footer className="py-8 md:py-12 border-t border-[#ffffff20] px-4 md:px-6 lg:px-0">
         <div className="mx-auto w-full max-w-[1000px] 2xl:max-w-[1200px]">
           <div className="flex flex-col items-center">
-            <Link href="/" className="flex items-center gap-2.5 mb-6">
+            <a href="/" className="flex items-center gap-2.5 mb-6">
               <img
                 src="/logo.svg"
                 alt="Databasus logo"
@@ -1087,7 +1086,7 @@ export default function MysqlBackupPage() {
               <span className="text-base md:text-lg font-semibold">
                 Databasus
               </span>
-            </Link>
+            </a>
 
             <div className="flex flex-col gap-3 mb-4 text-sm md:text-base">
               {/* First row - Database backup links */}

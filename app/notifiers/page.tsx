@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import DocsNavbarComponent from "../components/DocsNavbarComponent";
 import DocsSidebarComponent from "../components/DocsSidebarComponent";
 import DocTableOfContentComponent from "../components/DocTableOfContentComponent";
@@ -88,12 +87,12 @@ export default function NotifiersPage() {
 
               <ul>
                 <li>
-                  <Link
+                  <a
                     href="/notifiers/slack"
                     className="font-semibold! text-blue-600 hover:text-blue-800"
                   >
                     Slack
-                  </Link>{" "}
+                  </a>{" "}
                   - Send notifications to Slack channels via webhooks
                 </li>
                 <li>
@@ -105,12 +104,12 @@ export default function NotifiersPage() {
                   Telegram bots
                 </li>
                 <li>
-                  <Link
+                  <a
                     href="/notifiers/teams"
                     className="font-semibold! text-blue-600 hover:text-blue-800"
                   >
                     Microsoft Teams
-                  </Link>{" "}
+                  </a>{" "}
                   - Notify your team via Microsoft Teams channels
                 </li>
                 <li>

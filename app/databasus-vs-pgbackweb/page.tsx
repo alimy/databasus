@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import DocsNavbarComponent from "../components/DocsNavbarComponent";
 import DocsSidebarComponent from "../components/DocsSidebarComponent";
 import DocTableOfContentComponent from "../components/DocTableOfContentComponent";
@@ -211,12 +210,12 @@ export default function DatabasusVsPgBackWebPage() {
               </ul>
 
               <p>
-                <Link
+                <a
                   href="/storages"
                   className="font-semibold text-blue-600 hover:text-blue-800"
                 >
                   View all Databasus storage options →
-                </Link>
+                </a>
               </p>
 
               <h2 id="security">Security</h2>
@@ -268,12 +267,12 @@ export default function DatabasusVsPgBackWebPage() {
               </ul>
 
               <p>
-                <Link
+                <a
                   href="/security"
                   className="font-semibold text-blue-600 hover:text-blue-800"
                 >
                   Learn more about Databasus security →
-                </Link>
+                </a>
               </p>
 
               <h2 id="notifications">Notifications</h2>
@@ -305,12 +304,12 @@ export default function DatabasusVsPgBackWebPage() {
               </ul>
 
               <p>
-                <Link
+                <a
                   href="/notifiers"
                   className="font-semibold text-blue-600 hover:text-blue-800"
                 >
                   View all Databasus notification channels →
-                </Link>
+                </a>
               </p>
 
               <h2 id="team-features">Team features</h2>
@@ -349,12 +348,12 @@ export default function DatabasusVsPgBackWebPage() {
               </p>
 
               <p>
-                <Link
+                <a
                   href="/access-management"
                   className="font-semibold text-blue-600 hover:text-blue-800"
                 >
                   Learn more about Databasus access management →
-                </Link>
+                </a>
               </p>
 
               <h2 id="ease-of-use">Ease of use</h2>
@@ -443,12 +442,12 @@ export default function DatabasusVsPgBackWebPage() {
               </ul>
 
               <p>
-                <Link
+                <a
                   href="/installation"
                   className="font-semibold text-blue-600 hover:text-blue-800"
                 >
                   View Databasus installation guide →
-                </Link>
+                </a>
               </p>
 
               <h3 id="install-pgbackweb">Installing PgBackWeb</h3>

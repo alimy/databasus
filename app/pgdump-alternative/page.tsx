@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import DocsNavbarComponent from "../components/DocsNavbarComponent";
 import DocsSidebarComponent from "../components/DocsSidebarComponent";
 import DocTableOfContentComponent from "../components/DocTableOfContentComponent";
@@ -408,12 +407,12 @@ fi`}</code>
               </p>
 
               <p>
-                <Link
+                <a
                   href="/storages"
                   className="font-semibold text-blue-600 hover:text-blue-800"
                 >
                   View all storage options →
-                </Link>
+                </a>
               </p>
 
               <h2 id="notifications">Notifications</h2>
@@ -454,12 +453,12 @@ fi`}</code>
               </p>
 
               <p>
-                <Link
+                <a
                   href="/notifiers"
                   className="font-semibold text-blue-600 hover:text-blue-800"
                 >
                   View all notification channels →
-                </Link>
+                </a>
               </p>
 
               <h2 id="team-features">Team features</h2>
@@ -493,12 +492,12 @@ fi`}</code>
               </ul>
 
               <p>
-                <Link
+                <a
                   href="/access-management"
                   className="font-semibold text-blue-600 hover:text-blue-800"
                 >
                   Learn more about access management →
-                </Link>
+                </a>
               </p>
 
               <h2 id="security">Security</h2>
@@ -545,12 +544,12 @@ fi`}</code>
               </ul>
 
               <p>
-                <Link
+                <a
                   href="/security"
                   className="font-semibold text-blue-600 hover:text-blue-800"
                 >
                   Learn more about Databasus security →
-                </Link>
+                </a>
               </p>
 
               <h2 id="restore-process">Restore process</h2>
@@ -628,12 +627,12 @@ fi`}</code>
               </ul>
 
               <p>
-                <Link
+                <a
                   href="/installation"
                   className="font-semibold text-blue-600 hover:text-blue-800"
                 >
                   View installation guide →
-                </Link>
+                </a>
               </p>
 
               <h2 id="conclusion">Conclusion</h2>

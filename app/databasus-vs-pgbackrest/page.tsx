@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import DocsNavbarComponent from "../components/DocsNavbarComponent";
 import DocsSidebarComponent from "../components/DocsSidebarComponent";
 import DocTableOfContentComponent from "../components/DocTableOfContentComponent";
@@ -371,12 +370,12 @@ export default function DatabasusVsPgBackRestPage() {
                   typically only required for mission-critical financial or
                   transactional systems where every transaction must be
                   recoverable.{" "}
-                  <Link
+                  <a
                     href="/faq#why-no-pitr"
                     className="text-blue-400 hover:text-blue-300"
                   >
                     Learn why Databasus doesn&apos;t support PITR →
-                  </Link>
+                  </a>
                 </p>
               </div>
 
@@ -440,12 +439,12 @@ export default function DatabasusVsPgBackRestPage() {
               </ul>
 
               <p>
-                <Link
+                <a
                   href="/installation"
                   className="font-semibold text-blue-600 hover:text-blue-800"
                 >
                   View Databasus installation guide →
-                </Link>
+                </a>
               </p>
 
               <h2 id="team-features">Team features</h2>
@@ -495,12 +494,12 @@ export default function DatabasusVsPgBackRestPage() {
               </ul>
 
               <p>
-                <Link
+                <a
                   href="/access-management"
                   className="font-semibold text-blue-600 hover:text-blue-800"
                 >
                   Learn more about Databasus access management →
-                </Link>
+                </a>
               </p>
 
               <h2 id="security">Security</h2>
@@ -545,12 +544,12 @@ export default function DatabasusVsPgBackRestPage() {
               </ul>
 
               <p>
-                <Link
+                <a
                   href="/security"
                   className="font-semibold text-blue-600 hover:text-blue-800"
                 >
                   Learn more about Databasus security →
-                </Link>
+                </a>
               </p>
 
               <h2 id="storage-options">Storage options</h2>
@@ -585,12 +584,12 @@ export default function DatabasusVsPgBackRestPage() {
               </ul>
 
               <p>
-                <Link
+                <a
                   href="/storages"
                   className="font-semibold text-blue-600 hover:text-blue-800"
                 >
                   View all Databasus storage options →
-                </Link>
+                </a>
               </p>
 
               <h2 id="notifications">Notifications</h2>
@@ -624,12 +623,12 @@ export default function DatabasusVsPgBackRestPage() {
               </ul>
 
               <p>
-                <Link
+                <a
                   href="/notifiers"
                   className="font-semibold text-blue-600 hover:text-blue-800"
                 >
                   View all Databasus notification channels →
-                </Link>
+                </a>
               </p>
 
               <h2 id="conclusion">Conclusion</h2>

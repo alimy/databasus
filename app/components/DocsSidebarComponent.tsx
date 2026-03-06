@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 
@@ -158,7 +157,7 @@ export default function DocsSidebarComponent() {
       {navItems.map((item) => (
         <div key={item.href}>
           <div className="flex items-center">
-            <Link
+            <a
               href={item.href}
               onClick={() => setIsMobileMenuOpen(false)}
               className={`flex-1 rounded-md px-2 py-1.5 text-sm transition-colors relative pl-4 ${
@@ -175,7 +174,7 @@ export default function DocsSidebarComponent() {
                 }`}
               />
               {item.title}
-            </Link>
+            </a>
             {item.children && (
               <button
                 onClick={() => toggleSection(item.href, !!item.children)}
@@ -214,7 +213,7 @@ export default function DocsSidebarComponent() {
             >
               <div className="ml-3 mt-0.5 space-y-0.5 border-l border-[#ffffff20] pl-3">
                 {item.children.map((child) => (
-                  <Link
+                  <a
                     key={child.href}
                     href={child.href}
                     onClick={() => setIsMobileMenuOpen(false)}
@@ -232,7 +231,7 @@ export default function DocsSidebarComponent() {
                       }`}
                     />
                     {child.title}
-                  </Link>
+                  </a>
                 ))}
               </div>
             </div>

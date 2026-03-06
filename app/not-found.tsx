@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import Image from "next/image";
 
 export const metadata: Metadata = {
@@ -14,7 +13,7 @@ export default function NotFound() {
       {/* Navbar */}
       <nav className="flex h-[60px] w-full justify-center border-b border-[#ffffff20] bg-[#0F1115] sm:h-[70px] md:h-[80px]">
         <div className="flex min-w-0 grow items-center px-4 sm:px-6 md:px-10">
-          <Link href="/" className="flex items-center">
+          <a href="/" className="flex items-center">
             <Image
               src="/logo.svg"
               alt="Databasus logo"
@@ -27,7 +26,7 @@ export default function NotFound() {
             <div className="ml-2 select-none text-lg font-bold text-white sm:ml-3 sm:text-xl md:ml-4 md:text-2xl">
               Databasus
             </div>
-          </Link>
+          </a>
 
           <div className="ml-auto mr-4 hidden gap-3 sm:mr-6 md:mr-10 lg:flex lg:gap-5">
             <a
@@ -102,19 +101,19 @@ export default function NotFound() {
         </p>
 
         <div className="flex flex-col gap-3 sm:flex-row">
-          <Link
+          <a
             href="/"
             className="rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-black transition-opacity hover:opacity-70 md:px-6 md:py-3 md:text-base"
           >
             Go to Homepage
-          </Link>
+          </a>
 
-          <Link
+          <a
             href="/installation"
             className="rounded-lg border border-[#ffffff20] bg-[#0C0E13] px-5 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-70 md:px-6 md:py-3 md:text-base"
           >
             View Documentation
-          </Link>
+          </a>
         </div>
       </div>
 

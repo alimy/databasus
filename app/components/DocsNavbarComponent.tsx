@@ -1,12 +1,10 @@
 "use client";
 
-import Link from "next/link";
-
 export default function DocsNavbarComponent() {
   return (
     <nav className="flex h-[60px] w-full justify-center border-b border-[#ffffff20] bg-[#0F1115] sm:h-[70px] md:h-[80px]">
       <div className="flex min-w-0 grow items-center px-4 sm:px-6 md:px-10">
-        <Link href="/" className="flex items-center">
+        <a href="/" className="flex items-center">
           <img
             src="/logo.svg"
             alt="Databasus logo"
@@ -18,7 +16,7 @@ export default function DocsNavbarComponent() {
           <div className="ml-4 select-none text-lg font-bold text-white sm:ml-3 sm:text-xl md:ml-4 md:text-2xl">
             Databasus
           </div>
-        </Link>
+        </a>
 
         <div className="ml-auto mr-4 hidden gap-3 sm:mr-6 md:mr-10 lg:flex lg:gap-5">
           <a

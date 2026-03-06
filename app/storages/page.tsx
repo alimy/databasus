@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import DocsNavbarComponent from "../components/DocsNavbarComponent";
 import DocsSidebarComponent from "../components/DocsSidebarComponent";
 import DocTableOfContentComponent from "../components/DocTableOfContentComponent";
@@ -100,21 +99,21 @@ export default function StoragesPage() {
                   services
                 </li>
                 <li>
-                  <Link
+                  <a
                     href="/storages/cloudflare-r2"
                     className="font-semibold! text-blue-600 hover:text-blue-800"
                   >
                     Cloudflare R2
-                  </Link>{" "}
+                  </a>{" "}
                   - S3-compatible object storage from Cloudflare
                 </li>
                 <li>
-                  <Link
+                  <a
                     href="/storages/google-drive"
                     className="font-semibold! text-blue-600 hover:text-blue-800"
                   >
                     Google Drive
-                  </Link>{" "}
+                  </a>{" "}
                   - Cloud storage from Google
                 </li>
                 <li>
