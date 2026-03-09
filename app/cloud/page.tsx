@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { CloudDashboardButton } from "../components/CloudDashboardButton";
 import { PriceCalculatorComponent } from "../components/PriceCalculatorComponent";
 
 export const metadata: Metadata = {
@@ -20,73 +21,6 @@ export const metadata: Metadata = {
 export default function Index() {
   return (
     <div className="overflow-x-hidden">
-      {/* JSON-LD Structured Data */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "SoftwareApplication",
-            name: "Databasus",
-            description:
-              "Free and open source tool for PostgreSQL scheduled backups (with MySQL and MongoDB support). Save them locally and to clouds. Notifications to Slack, Discord, Telegram, email, webhook, etc.",
-            url: "https://databasus.com",
-            image: "https://databasus.com/images/index/dashboard.png",
-            logo: "https://databasus.com/logo.svg",
-            publisher: {
-              "@type": "Organization",
-              name: "Databasus",
-              logo: {
-                "@type": "ImageObject",
-                url: "https://databasus.com/logo.svg",
-              },
-            },
-            featureList: [
-              "Scheduled PostgreSQL backups",
-              "Multiple storage destinations (S3, Google Drive, Dropbox, SFTP, rclone, etc.)",
-              "Real-time notifications (Slack, Telegram, Discord, Webhook, email, etc.)",
-              "Database health monitoring",
-              "Self-hosted via Docker",
-              "Open source and free",
-              "Support for PostgreSQL 12-18",
-              "Backup compression and AES-256-GCM encryption",
-              "Support for PostgreSQL, MySQL, MariaDB and MongoDB",
-              "Retention policies: time period, count, GFS and size limits",
-            ],
-            screenshot: "https://databasus.com/images/index/dashboard.png",
-            softwareVersion: "latest",
-          }),
-        }}
-      />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "Organization",
-            name: "Databasus",
-            url: "https://databasus.com/",
-            alternateName: ["databasus", "Databasus"],
-            logo: "https://databasus.com/logo.svg",
-            sameAs: ["https://github.com/databasus/databasus"],
-          }),
-        }}
-      />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "WebSite",
-            name: "Databasus",
-            alternateName: ["databasus", "Databasus"],
-            url: "https://databasus.com/",
-            description: "PostgreSQL backup tool",
-            publisher: { "@type": "Organization", name: "Databasus" },
-          }),
-        }}
-      />
-
       {/* HEADER */}
       <header className="fixed top-0 left-0 right-0 z-50 flex justify-center pt-3 md:pt-5 px-4 md:px-0">
         <div className="mx-auto w-full max-w-[1000px] 2xl:max-w-[1200px]">
@@ -149,14 +83,7 @@ export default function Index() {
               </a>
             </div>
 
-            <a
-              href="https://github.com/databasus/databasus"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 hover:opacity-70 rounded-lg px-2 md:px-3 py-2 text-[14px] border border-[#0d6efd] bg-[#0d6efd] transition-colors"
-            >
-              Dashboard
-            </a>
+            <CloudDashboardButton variant="navbar" />
           </nav>
         </div>
       </header>
@@ -187,29 +114,10 @@ export default function Index() {
 
             <div>
               <div className="flex flex-col sm:flex-row sm:flex-wrap items-center justify-center gap-2 sm:gap-2 max-w-[400px] mx-auto pb-0 sm:pb-[50px] lg:pb-0 lg:[0px]">
-                <a
-                  href="#installation"
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 sm:px-12 sm:py-2.5 bg-[#0d6efd] rounded-lg text-white font-medium hover:opacity-70 transition-opacity order-1"
-                >
-                  <span>Dashboard</span>
-                  <svg
-                    aria-hidden={true}
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M5 12h14M12 5l7 7-7 7" />
-                  </svg>
-                </a>
+                <CloudDashboardButton variant="hero" />
 
                 <a
                   href="#pricing"
-                  target="_blank"
                   rel="noopener noreferrer"
                   className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 sm:px-12 sm:py-2.5 rounded-lg font-medium border border-[#ffffff20] bg-white text-black hover:opacity-70 transition-opacity order-2"
                 >
@@ -217,7 +125,7 @@ export default function Index() {
                 </a>
 
                 <a
-                  href="https://app.databasus.com"
+                  href="https://databasus.com"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-full sm:max-w-[356px] inline-flex items-center justify-center px-4 py-2 sm:px-5 sm:py-2.5 bg-white rounded-lg text-black font-medium hover:opacity-70 transition-opacity order-3"
@@ -256,8 +164,8 @@ export default function Index() {
         </div>
       </main>
 
-      {/* FEATURES OVERVIEW SECTION */}
-      <section id="features" className="pb-12 md:pb-20 px-4 md:px-6 lg:px-0">
+      {/* PRICING SECTION */}
+      <section id="pricing" className="pb-12 md:pb-20 px-4 md:px-6 lg:px-0">
         <div className="mx-auto w-full max-w-[1000px] 2xl:max-w-[1200px]">
           <div className="text-center">
             <div className="inline-flex items-center justify-center px-3 md:px-4 py-1 md:py-1.5 rounded-lg border border-[#ffffff20] mb-4 md:mb-6">
@@ -269,15 +177,74 @@ export default function Index() {
             </h2>
 
             <p className="text-sm sm:text-lg text-gray-200 max-w-[650px] mx-auto mb-8 md:mb-10">
-              The price is depended on the space you can use to store backups.
-              We are really trying to provide affortable price for both small
-              and large DBs. Usually it is cheaper than maintaining your own
-              Databasus instance manually (with server, storage, monitoring,
-              reservation, spending time, etc.)
+              The price is depended on the space you can use to store backups
+              per DB. Usually it is cheaper than maintaining your own Databasus
+              instance manually (with server, storage, monitoring, reservation,
+              spending time, etc.)
+            </p>
+          </div>
+
+          <div className="mx-auto w-full max-w-[700px] mb-5 bg-[#1f2937]/50 border border-[#ffffff20] border-l-[3px] border-l-blue-500 rounded-lg px-4 py-3 flex items-start gap-3 text-left">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="text-blue-500 mt-0.5 shrink-0"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 16v-4M12 8h.01" />
+            </svg>
+            <p className="text-gray-300">
+              A calculator is used instead of fixed rates to keep the price low.
+              You can precisely configure the amount of storage you need, so you
+              only pay for what you use — at any DB size.
             </p>
           </div>
 
           <PriceCalculatorComponent />
+        </div>
+      </section>
+
+      {/* FAQ SECTION */}
+      <section id="faq" className="pb-12 md:pb-20 px-4 md:px-6 lg:px-0">
+        <div className="mx-auto w-full max-w-[1000px] 2xl:max-w-[1200px]">
+          <div className="text-center mb-8 md:mb-12">
+            <div className="inline-flex items-center justify-center px-3 md:px-4 py-1 md:py-1.5 rounded-lg border border-[#ffffff20] mb-4 md:mb-6">
+              <span className="text-sm font-medium">FAQ</span>
+            </div>
+
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4 md:mb-6">
+              Frequent questions
+            </h2>
+
+            <p className="text-base md:text-lg text-gray-200 max-w-[600px] mx-auto">
+              Common questions about Databasus Cloud, pricing and how it
+              compares to self-hosted
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
+            <CloudFaqItem
+              number="1"
+              question="Can I increase or decrease storage later?"
+              answer={"Yes, you can adjust your storage at any time. If you need more space as your databases grow, simply upgrade your plan and the additional storage becomes available immediately.\n\nLikewise, if you find you are using less than expected, you can downgrade to a smaller plan to reduce costs. There are no penalties or lock-in periods for changing your storage allocation."}
+            />
+            <CloudFaqItem
+              number="2"
+              question="Are there any differences between Databasus Cloud and self-hosted?"
+              answer={"No. Databasus Cloud offers the exact same features as the self-hosted version — there are no paywalled extras, no premium tiers and no hidden limitations. Databasus is fully open source under the Apache 2.0 license, not an 'open core' model.\n\nThe cloud option simply means we handle the infrastructure, uptime and updates for you, so you can focus on your work instead of maintaining servers. You can switch between cloud and self-hosted at any time with no vendor lock-in."}
+            />
+            <CloudFaqItem
+              number="3"
+              question="How can I reduce the cost of Databasus Cloud?"
+              answer={"The most effective way to lower your cloud bill is to use GFS (Grandfather-Father-Son) retention policy. GFS keeps daily, weekly, monthly and yearly backups on a rotating schedule. It dramatically reduces the total number of stored backups compared to keeping every single one.\n\nFor example, instead of storing 365 daily backups for a full year, GFS might keep 7 daily, 4 weekly, 12 monthly and 1 yearly — just 24 backups covering the same time span. This means you need significantly less storage, which directly lowers your monthly price."}
+            />
+          </div>
         </div>
       </section>
 
@@ -373,6 +340,36 @@ export default function Index() {
           </div>
         </div>
       </footer>
+    </div>
+  );
+}
+
+function CloudFaqItem({
+  number,
+  question,
+  answer,
+}: {
+  number: string;
+  question: string;
+  answer: string;
+}) {
+  const paragraphs = answer.split("\n\n");
+
+  return (
+    <div className="rounded-lg border border-[#ffffff20] p-4 md:p-6">
+      <div className="flex items-center justify-center w-6 h-6 rounded border border-[#ffffff20] text-sm font-semibold mb-3 md:mb-4">
+        {number}
+      </div>
+
+      <h3 className="text-base md:text-lg font-bold mb-2 md:mb-3">
+        {question}
+      </h3>
+
+      <div className="text-gray-400 text-sm md:text-base space-y-3">
+        {paragraphs.map((p, i) => (
+          <p key={i}>{p}</p>
+        ))}
+      </div>
     </div>
   );
 }
