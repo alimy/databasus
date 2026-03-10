@@ -1631,6 +1631,22 @@ export default function Index() {
                   Developer
                 </a>
               </div>
+
+              {/* Third row - Cloud legal links */}
+              <div className="flex flex-wrap items-center justify-center gap-4 md:gap-6">
+                <a
+                  href="/privacy-cloud"
+                  className="hover:text-gray-200 transition-colors"
+                >
+                  Privacy policy (cloud)
+                </a>
+                <a
+                  href="/terms-of-use-cloud"
+                  className="hover:text-gray-200 transition-colors"
+                >
+                  Terms of use (cloud)
+                </a>
+              </div>
             </div>
 
             <a

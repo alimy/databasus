@@ -313,13 +313,13 @@ export default function Index() {
                   href="/privacy-cloud"
                   className="hover:text-gray-200 transition-colors"
                 >
-                  Privacy Policy (cloud)
+                  Privacy policy (cloud)
                 </a>
                 <a
                   href="/terms-of-use-cloud"
                   className="hover:text-gray-200 transition-colors"
                 >
-                  Terms of Use (cloud)
+                  Terms of use (cloud)
                 </a>
               </div>
             </div>
