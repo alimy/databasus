@@ -396,14 +396,14 @@ export default function Index() {
                   <span>GitHub</span>
                 </a>
 
-                <a
+                {/*<a
                   href="https://app.databasus.com"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-full sm:max-w-[364px] inline-flex items-center justify-center px-4 py-2 sm:px-5 sm:py-2.5 bg-white rounded-lg text-black font-medium hover:opacity-70 transition-opacity order-2 sm:order-3"
                 >
                   Playground
-                </a>
+                </a>*/}
               </div>
             </div>
           </div>
