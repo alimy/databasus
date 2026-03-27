@@ -4,7 +4,7 @@ import { PriceCalculatorComponent } from "../components/PriceCalculatorComponent
 
 export const metadata: Metadata = {
   title: "Databasus Cloud",
-  robots: "noindex, nofollow",
+  robots: "index, follow",
   alternates: {
     canonical: "https://databasus.com/cloud",
   },
@@ -332,7 +332,7 @@ export default function Index() {
             </a>
 
             <p className="text-gray-400 text-sm md:text-base text-center">
-              © 2026 Databasus. All rights reserved.
+              © 2026 Databasus™. All rights reserved.
             </p>
           </div>
         </div>

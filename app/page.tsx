@@ -351,7 +351,7 @@ export default function Index() {
             </p>
 
             <div>
-              <div className="flex flex-col sm:flex-row sm:flex-wrap items-center justify-center gap-2 sm:gap-2 max-w-[400px] mx-auto">
+              <div className="flex flex-col sm:flex-row sm:flex-wrap items-center justify-center gap-2 sm:gap-2 max-w-[400px] mx-auto pb-0 sm:pb-[50px] lg:pb-0 lg:[0px]">
                 <a
                   href="#installation"
                   className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 sm:px-5 sm:py-2.5 bg-white rounded-lg text-black font-medium hover:opacity-70 transition-opacity order-1"
@@ -404,14 +404,31 @@ export default function Index() {
                   <span>GitHub</span>
                 </a>
 
-                {/*<a
-                  href="https://app.databasus.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full sm:max-w-[364px] inline-flex items-center justify-center px-4 py-2 sm:px-5 sm:py-2.5 bg-white rounded-lg text-black font-medium hover:opacity-70 transition-opacity order-2 sm:order-3"
+                <div className="w-full flex items-center gap-3 order-4 sm:max-w-[364px]">
+                  <div className="flex-1 h-px bg-[#ffffff20]" />
+                  <span className="text-sm text-gray-400">or</span>
+                  <div className="flex-1 h-px bg-[#ffffff20]" />
+                </div>
+
+                <a
+                  href="/cloud"
+                  className="w-full sm:max-w-[364px] inline-flex items-center justify-center px-4 py-2 sm:px-5 sm:py-2.5 bg-white rounded-lg text-black font-medium hover:opacity-70 transition-opacity order-5"
                 >
-                  Playground
-                </a>*/}
+                  Use cloud from $9/mo
+                </a>
+
+                <img
+                  src="/images/cloud/arrow.svg"
+                  className="absolute hidden sm:block mt-[200px] ml-[-210px] sm:mt-[190px] sm:ml-[-260px] rotate-30 lg:ml-[445px] lg:mt-[90px] lg:rotate-0"
+                  alt="Arrow"
+                />
+
+                <div className="text-sm sm:ml-[75px] sm:mt-[200px] max-w-[250px] text-center sm:text-left sm:absolute lg:ml-[690px] lg:mt-[25px] text-gray-200 order-6 sm:order-0">
+                  You can always switch to self-hosted, because we are{" "}
+                  <a href="" target="_blank" className="underline">
+                    truly open source
+                  </a>
+                </div>
               </div>
             </div>
           </div>
@@ -1330,8 +1347,38 @@ export default function Index() {
             />
             <FaqItem
               number="7"
-              question="Who is Databasus suitable for?"
-              answer="Databasus is designed for single developers, DevOps teams, organizations, startups, system administrators and IT departments who need reliable databases backups. Whether you're managing personal projects or production databases, Databasus provides enterprise-grade backup capabilities with a simple, intuitive interface."
+              question="You have a cloud version — are you truly open source?"
+              answer={
+                <>
+                  Yes. Every feature available in Databasus Cloud is equally
+                  available in the self-hosted version with no restrictions, no
+                  feature gates and no usage limits. The entire codebase is
+                  Apache 2.0 licensed and always will be.
+                  <br />
+                  <br />
+                  Databasus is not &quot;open core.&quot; We do not withhold
+                  features behind a paid tier and then call the limited
+                  remainder &quot;open source,&quot; as projects like GitLab or
+                  Sentry do. We believe open source means the complete product
+                  is open, not just a marketing label on a stripped-down
+                  edition.
+                  <br />
+                  <br />
+                  Databasus Cloud runs the exact same code as the self-hosted
+                  version. The only difference is that we take care of
+                  infrastructure, availability, backups, reservations,
+                  monitoring and updates for you — so you don&apos;t have to. If
+                  you are using cloud, you can always move your databases from
+                  cloud to self-hosted if you wish.
+                  <br />
+                  <br />
+                  Revenue from Cloud funds full-time development of the project.
+                  Most large open-source projects rely on corporate backing or
+                  sponsorship to survive. We chose a different path: Databasus
+                  sustains itself so it can grow and improve independently,
+                  without being tied to any enterprise or sponsor.
+                </>
+              }
             />
             <FaqItem
               number="8"
@@ -1724,7 +1771,7 @@ export default function Index() {
             </a>
 
             <p className="text-gray-400 text-sm md:text-base text-center">
-              © 2026 Databasus. All rights reserved.
+              © 2026 Databasus™. All rights reserved.
             </p>
           </div>
         </div>
