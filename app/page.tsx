@@ -425,7 +425,11 @@ export default function Index() {
 
                 <div className="text-sm sm:ml-[75px] sm:mt-[200px] max-w-[250px] text-center sm:text-left sm:absolute lg:ml-[690px] lg:mt-[25px] text-gray-200 order-6 sm:order-0">
                   You can always switch to self-hosted, because we are{" "}
-                  <a href="" target="_blank" className="underline">
+                  <a
+                    href="https://github.com/databasus/databasus?tab=readme-ov-file#you-have-a-cloud-version--are-you-truly-open-source"
+                    target="_blank"
+                    className="underline"
+                  >
                     truly open source
                   </a>
                 </div>
