@@ -1,7 +1,7 @@
 <div align="center">
   <img src="assets/logo.svg" alt="Databasus Logo" width="250"/>
 
-  <h3>Database backup tool (PostgreSQL, MySQL\MariaDB and MongoDB)</h3>
+  <h3>PostgreSQL backup tool (with MySQL\MariaDB and MongoDB support)</h3>
   <p>Databasus is a free, open source and self-hosted tool to backup databases (with primary focus on PostgreSQL). Make backups with different storages (S3, Google Drive, FTP, etc.) and notifications about progress (Slack, Discord, Telegram, etc.)</p>
   
   <!-- Badges -->
