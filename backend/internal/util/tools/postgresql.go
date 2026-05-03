@@ -3,45 +3,40 @@ package tools
 import (
 	"fmt"
 	"log/slog"
-	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
-
-	env_utils "databasus-backend/internal/util/env"
 )
 
-// GetPostgresqlExecutable returns the full path to a specific PostgreSQL executable
-// for the given version. Common executables include: pg_dump, psql, etc.
-// On Windows, automatically appends .exe extension.
+// GetPostgresqlExecutable returns the absolute path to a PostgreSQL client
+// binary for the given version (e.g. pg_dump, pg_restore, psql).
 func GetPostgresqlExecutable(
 	version PostgresqlVersion,
 	executable PostgresqlExecutable,
-	envMode env_utils.EnvMode,
-	postgresesInstallDir string,
 ) string {
-	basePath := getPostgresqlBasePath(version, envMode, postgresesInstallDir)
-	executableName := string(executable)
-
-	// Add .exe extension on Windows
-	if runtime.GOOS == "windows" {
-		executableName += ".exe"
-	}
-
-	return filepath.Join(basePath, executableName)
+	return filepath.Join(getPostgresqlBinDir(version), withExeOnWindows(string(executable)))
 }
 
-// VerifyPostgresesInstallation verifies that PostgreSQL versions 12-18 are installed
-// in the current environment. Each version should be installed with the required
-// client tools (pg_dump, psql) available.
-// In development: ./tools/postgresql/postgresql-{VERSION}/bin
-// In production: /usr/pgsql-{VERSION}/bin
-func VerifyPostgresesInstallation(
-	logger *slog.Logger,
-	envMode env_utils.EnvMode,
-	postgresesInstallDir string,
-	isShowLogs bool,
-) {
+func getPostgresqlBinDir(version PostgresqlVersion) string {
+	// Windows pg 12/13 have a piping bug on restore — fall through to the v14
+	// client which speaks the older wire formats fine.
+	if runtime.GOOS == "windows" {
+		if version == PostgresqlVersion12 || version == PostgresqlVersion13 {
+			version = PostgresqlVersion14
+		}
+	}
+
+	return filepath.Join(
+		AssetsToolsDir(),
+		"postgresql",
+		fmt.Sprintf("postgresql-%s", version),
+		"bin",
+	)
+}
+
+// VerifyPostgresqlInstallation is fatal — the app needs every PG version
+// because we read the version from each managed database.
+func VerifyPostgresqlInstallation(logger *slog.Logger, isShowLogs bool) {
 	versions := []PostgresqlVersion{
 		PostgresqlVersion12,
 		PostgresqlVersion13,
@@ -52,156 +47,25 @@ func VerifyPostgresesInstallation(
 		PostgresqlVersion18,
 	}
 
-	requiredCommands := []PostgresqlExecutable{
-		PostgresqlExecutablePgDump,
-		PostgresqlExecutablePsql,
+	required := []string{
+		string(PostgresqlExecutablePgDump),
+		string(PostgresqlExecutablePsql),
 	}
 
-	for _, version := range versions {
-		binDir := getPostgresqlBasePath(version, envMode, postgresesInstallDir)
-
-		if isShowLogs {
-			logger.Info(
-				"Verifying PostgreSQL installation",
-				"version",
-				string(version),
-				"path",
-				binDir,
-			)
-		}
-
-		if _, err := os.Stat(binDir); os.IsNotExist(err) {
-			if envMode == env_utils.EnvModeDevelopment {
-				logger.Error(
-					"PostgreSQL bin directory not found. Make sure PostgreSQL is installed. Read ./tools/readme.md for details",
-					"version",
-					string(version),
-					"path",
-					binDir,
-				)
-			} else {
-				logger.Error(
-					"PostgreSQL bin directory not found. Please ensure PostgreSQL client tools are installed.",
-					"version",
-					string(version),
-					"path",
-					binDir,
-				)
-			}
-			os.Exit(1)
-		}
-
-		for _, cmd := range requiredCommands {
-			cmdPath := GetPostgresqlExecutable(
-				version,
-				cmd,
-				envMode,
-				postgresesInstallDir,
-			)
-
-			if isShowLogs {
-				logger.Info(
-					"Checking for PostgreSQL command",
-					"command",
-					cmd,
-					"version",
-					string(version),
-					"path",
-					cmdPath,
-				)
-			}
-
-			if _, err := os.Stat(cmdPath); os.IsNotExist(err) {
-				if envMode == env_utils.EnvModeDevelopment {
-					logger.Error(
-						"PostgreSQL command not found. Make sure PostgreSQL is installed. Read ./tools/readme.md for details",
-						"command",
-						cmd,
-						"version",
-						string(version),
-						"path",
-						cmdPath,
-					)
-				} else {
-					logger.Error(
-						"PostgreSQL command not found. Please ensure PostgreSQL client tools are properly installed.",
-						"command",
-						cmd,
-						"version",
-						string(version),
-						"path",
-						cmdPath,
-					)
-				}
-				os.Exit(1)
-			}
-
-			if isShowLogs {
-				logger.Info(
-					"PostgreSQL command found",
-					"command",
-					cmd,
-					"version",
-					string(version),
-				)
-			}
-		}
-
-		if isShowLogs {
-			logger.Info(
-				"Installation of PostgreSQL verified",
-				"version",
-				string(version),
-				"path",
-				binDir,
-			)
-		}
-	}
-
-	if isShowLogs {
-		logger.Info(
-			"All PostgreSQL version-specific client tools verification completed successfully!",
-		)
+	for _, v := range versions {
+		verifyBinDir(logger, "postgresql", string(v), getPostgresqlBinDir(v),
+			required, true, isShowLogs)
 	}
 }
 
-// EscapePgpassField escapes special characters in a field value for .pgpass file format.
-// According to PostgreSQL documentation, the .pgpass file format requires:
-// - Backslash (\) must be escaped as \\
-// - Colon (:) must be escaped as \:
-// Additionally, newlines and carriage returns are removed to prevent format corruption.
+// EscapePgpassField escapes special characters for the .pgpass file format.
+// PostgreSQL requires backslash → \\ and colon → \:; newlines and carriage
+// returns are stripped to prevent format corruption.
 func EscapePgpassField(field string) string {
-	// Remove newlines and carriage returns that would break .pgpass format
 	field = strings.ReplaceAll(field, "\r", "")
 	field = strings.ReplaceAll(field, "\n", "")
-
-	// Escape backslashes first (order matters!)
-	// Then escape colons
 	field = strings.ReplaceAll(field, "\\", "\\\\")
 	field = strings.ReplaceAll(field, ":", "\\:")
 
 	return field
-}
-
-func getPostgresqlBasePath(
-	version PostgresqlVersion,
-	envMode env_utils.EnvMode,
-	postgresesInstallDir string,
-) string {
-	if envMode == env_utils.EnvModeDevelopment {
-		// On Windows, PostgreSQL 12 and 13 have issues with piping over restore
-		if runtime.GOOS == "windows" {
-			if version == PostgresqlVersion12 || version == PostgresqlVersion13 {
-				version = PostgresqlVersion14
-			}
-		}
-
-		return filepath.Join(
-			postgresesInstallDir,
-			fmt.Sprintf("postgresql-%s", string(version)),
-			"bin",
-		)
-	} else {
-		return fmt.Sprintf("/usr/lib/postgresql/%s/bin", string(version))
-	}
 }

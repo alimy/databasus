@@ -23,27 +23,22 @@ const (
 )
 
 type EnvVariables struct {
-	IsTesting            bool
-	EnvMode              env_utils.EnvMode `env:"ENV_MODE"             required:"true"`
-	PostgresesInstallDir string            `env:"POSTGRES_INSTALL_DIR"`
-	MysqlInstallDir      string            `env:"MYSQL_INSTALL_DIR"`
-	MariadbInstallDir    string            `env:"MARIADB_INSTALL_DIR"`
-	MongodbInstallDir    string            `env:"MONGODB_INSTALL_DIR"`
+	IsTesting bool
+	EnvMode   env_utils.EnvMode `env:"ENV_MODE" required:"true"`
 
 	// Internal database
 	DatabaseDsn string `env:"DATABASE_DSN" required:"true"`
 	// Internal Valkey
 	ValkeyHost     string `env:"VALKEY_HOST"     required:"true"`
 	ValkeyPort     string `env:"VALKEY_PORT"     required:"true"`
-	ValkeyUsername string `env:"VALKEY_USERNAME" required:"true"`
-	ValkeyPassword string `env:"VALKEY_PASSWORD" required:"true"`
+	ValkeyUsername string `env:"VALKEY_USERNAME"`
+	ValkeyPassword string `env:"VALKEY_PASSWORD"`
 	ValkeyIsSsl    bool   `env:"VALKEY_IS_SSL"   required:"true"`
 
 	IsCloud       bool   `env:"IS_CLOUD"`
 	TestLocalhost string `env:"TEST_LOCALHOST"`
 
 	ShowDbInstallationVerificationLogs bool `env:"SHOW_DB_INSTALLATION_VERIFICATION_LOGS"`
-	IsSkipExternalResourcesTests       bool `env:"IS_SKIP_EXTERNAL_RESOURCES_TESTS"`
 
 	IsManyNodesMode          bool `env:"IS_MANY_NODES_MODE"`
 	IsPrimaryNode            bool `env:"IS_PRIMARY_NODE"`
@@ -57,7 +52,7 @@ type EnvVariables struct {
 
 	IsDisableAnonymousTelemetry bool `env:"IS_DISABLE_ANONYMOUS_TELEMETRY"`
 
-	// Billing (always tax-exclusive)
+	// Billing (tax-exclusive)
 	PricePerGBCents int64 `env:"PRICE_PER_GB_CENTS"`
 	MinStorageGB    int
 	MaxStorageGB    int
@@ -70,10 +65,6 @@ type EnvVariables struct {
 	PaddleWebhookSecret string `env:"PADDLE_WEBHOOK_SECRET"`
 	PaddlePriceID       string `env:"PADDLE_PRICE_ID"`
 	PaddleClientToken   string `env:"PADDLE_CLIENT_TOKEN"`
-
-	TestGoogleDriveClientID     string `env:"TEST_GOOGLE_DRIVE_CLIENT_ID"`
-	TestGoogleDriveClientSecret string `env:"TEST_GOOGLE_DRIVE_CLIENT_SECRET"`
-	TestGoogleDriveTokenJSON    string `env:"TEST_GOOGLE_DRIVE_TOKEN_JSON"`
 
 	TestPostgres12Port string `env:"TEST_POSTGRES_12_PORT"`
 	TestPostgres13Port string `env:"TEST_POSTGRES_13_PORT"`
@@ -127,13 +118,6 @@ type EnvVariables struct {
 	CloudflareTurnstileSecretKey string `env:"CLOUDFLARE_TURNSTILE_SECRET_KEY"`
 	CloudflareTurnstileSiteKey   string `env:"CLOUDFLARE_TURNSTILE_SITE_KEY"`
 
-	// testing Supabase
-	TestSupabaseHost     string `env:"TEST_SUPABASE_HOST"`
-	TestSupabasePort     string `env:"TEST_SUPABASE_PORT"`
-	TestSupabaseUsername string `env:"TEST_SUPABASE_USERNAME"`
-	TestSupabasePassword string `env:"TEST_SUPABASE_PASSWORD"`
-	TestSupabaseDatabase string `env:"TEST_SUPABASE_DATABASE"`
-
 	// SMTP configuration (optional)
 	SMTPHost     string `env:"SMTP_HOST"`
 	SMTPPort     int    `env:"SMTP_PORT"`
@@ -155,7 +139,6 @@ func GetEnv() *EnvVariables {
 }
 
 func loadEnvVariables() {
-	// Get current working directory
 	cwd, err := os.Getwd()
 	if err != nil {
 		log.Warn("could not get current working directory", "error", err)
@@ -176,25 +159,18 @@ func loadEnvVariables() {
 		backendRoot = parent
 	}
 
-	envPaths := []string{
-		filepath.Join(cwd, ".env"),
-		filepath.Join(backendRoot, ".env"),
-	}
+	envPath := filepath.Join(filepath.Dir(backendRoot), ".env")
 
-	var loaded bool
-	for _, path := range envPaths {
-		log.Info("Trying to load .env", "path", path)
-		if err := godotenv.Load(path); err == nil {
-			log.Info("Successfully loaded .env", "path", path)
-			loaded = true
-			break
-		}
-	}
-
-	if !loaded {
-		log.Error("Error loading .env file: could not find .env in any location")
+	log.Info("Trying to load .env", "path", envPath)
+	if err := godotenv.Load(envPath); err != nil {
+		log.Error("Error loading .env file from repo root", "path", envPath, "error", err)
 		os.Exit(1)
 	}
+	log.Info("Successfully loaded .env", "path", envPath)
+
+	// Empty values for non-string fields (e.g. SMTP_PORT=) crash cleanenv's
+	// strconv parsing. Drop them so cleanenv falls back to the Go zero value.
+	unsetEmptyEnvVars()
 
 	err = cleanenv.ReadEnv(&env)
 	if err != nil {
@@ -202,14 +178,14 @@ func loadEnvVariables() {
 		os.Exit(1)
 	}
 
+	if env.SMTPHost != "" && env.SMTPPort <= 0 {
+		log.Error("SMTP_PORT must be a positive integer when SMTP_HOST is set", "value", env.SMTPPort)
+		os.Exit(1)
+	}
+
 	// Set default value for ShowDbInstallationVerificationLogs if not defined
 	if os.Getenv("SHOW_DB_INSTALLATION_VERIFICATION_LOGS") == "" {
 		env.ShowDbInstallationVerificationLogs = true
-	}
-
-	// Set default value for IsSkipExternalTests if not defined
-	if os.Getenv("IS_SKIP_EXTERNAL_RESOURCES_TESTS") == "" {
-		env.IsSkipExternalResourcesTests = false
 	}
 
 	// Set default value for IsCloud if not defined
@@ -247,37 +223,7 @@ func loadEnvVariables() {
 	}
 	log.Info("ENV_MODE loaded", "mode", env.EnvMode)
 
-	env.PostgresesInstallDir = filepath.Join(backendRoot, "tools", "postgresql")
-	tools.VerifyPostgresesInstallation(
-		log,
-		env.EnvMode,
-		env.PostgresesInstallDir,
-		env.ShowDbInstallationVerificationLogs,
-	)
-
-	env.MysqlInstallDir = filepath.Join(backendRoot, "tools", "mysql")
-	tools.VerifyMysqlInstallation(
-		log,
-		env.EnvMode,
-		env.MysqlInstallDir,
-		env.ShowDbInstallationVerificationLogs,
-	)
-
-	env.MariadbInstallDir = filepath.Join(backendRoot, "tools", "mariadb")
-	tools.VerifyMariadbInstallation(
-		log,
-		env.EnvMode,
-		env.MariadbInstallDir,
-		env.ShowDbInstallationVerificationLogs,
-	)
-
-	env.MongodbInstallDir = filepath.Join(backendRoot, "tools", "mongodb")
-	tools.VerifyMongodbInstallation(
-		log,
-		env.EnvMode,
-		env.MongodbInstallDir,
-		env.ShowDbInstallationVerificationLogs,
-	)
+	tools.VerifyAllClientTools(log, env.ShowDbInstallationVerificationLogs)
 
 	if env.NodeNetworkThroughputMBs == 0 {
 		env.NodeNetworkThroughputMBs = 125 // 1 Gbit/s
@@ -385,8 +331,8 @@ func loadEnvVariables() {
 
 	// Billing
 	if env.IsCloud {
-		if env.PricePerGBCents == 0 {
-			log.Error("PRICE_PER_GB_CENTS is empty or zero")
+		if env.PricePerGBCents <= 0 {
+			log.Error("PRICE_PER_GB_CENTS must be a positive integer in cloud mode", "value", env.PricePerGBCents)
 			os.Exit(1)
 		}
 
@@ -418,4 +364,17 @@ func loadEnvVariables() {
 	env.GracePeriod = 30 * 24 * time.Hour
 
 	log.Info("Environment variables loaded successfully!")
+}
+
+func unsetEmptyEnvVars() {
+	for _, kv := range os.Environ() {
+		key, value, ok := strings.Cut(kv, "=")
+		if !ok {
+			continue
+		}
+
+		if value == "" {
+			_ = os.Unsetenv(key)
+		}
+	}
 }
