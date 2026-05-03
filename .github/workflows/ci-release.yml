@@ -339,7 +339,7 @@ jobs:
           echo "Waiting for MariaDB 12.0..."
           timeout 120 bash -c 'until docker exec test-mariadb-120 healthcheck.sh --connect --innodb_initialized 2>/dev/null; do sleep 2; done'
 
-          # Wait for MongoDB containers
+          # Wait for MongoDB containers 
           echo "Waiting for MongoDB 4.2..."
           timeout 120 bash -c 'until docker exec test-mongodb-42 mongo --eval "db.adminCommand(\"ping\")" -u root -p rootpassword --authenticationDatabase admin 2>/dev/null; do sleep 2; done'
           echo "Waiting for MongoDB 4.4..."
@@ -748,8 +748,13 @@ jobs:
             COMMITS=$(git log ${LATEST_TAG}..HEAD --pretty=format:"%s|%H|%an|%ad" --date=short --no-merges)
           fi
 
-          # Create changelog
-          CHANGELOG="# Changelog\n\n## [${NEW_VERSION}] - $(date +%Y-%m-%d)\n\n"
+          # Build the changelog with real newlines (NL) instead of \n literals
+          # so we don't have to round-trip through `echo -e`. echo -e interprets
+          # backslash sequences inside commit subjects (e.g. "\c" suppresses
+          # further output) which can silently truncate the changelog and break
+          # the GitHub Actions multiline-output heredoc parser.
+          NL=$'\n'
+          CHANGELOG="# Changelog${NL}${NL}## [${NEW_VERSION}] - $(date +%Y-%m-%d)${NL}${NL}"
 
           # Group commits by type and area
           FEATURES=""
@@ -762,7 +767,7 @@ jobs:
               COMMIT_MSG=$(echo "$line" | cut -d'|' -f1)
               COMMIT_HASH=$(echo "$line" | cut -d'|' -f2)
               SHORT_HASH=${COMMIT_HASH:0:7}
-              
+
               # Parse commit message format: TYPE (area): description
               if [[ "$COMMIT_MSG" == FEATURE* ]]; then
                 TEMP="${COMMIT_MSG#FEATURE}"
@@ -770,7 +775,7 @@ jobs:
                 if [[ "$TEMP" == \(* ]]; then
                   AREA=$(echo "$TEMP" | sed 's/^(\([^)]*\)).*/\1/')
                   DESC=$(echo "$TEMP" | sed 's/^([^)]*):[[:space:]]*//')
-                  FEATURES="${FEATURES}- **${AREA}**: ${DESC} ([${SHORT_HASH}](https://github.com/${{ github.repository }}/commit/${COMMIT_HASH}))\n"
+                  FEATURES="${FEATURES}- **${AREA}**: ${DESC} ([${SHORT_HASH}](https://github.com/${{ github.repository }}/commit/${COMMIT_HASH}))${NL}"
                 fi
               elif [[ "$COMMIT_MSG" == FIX* ]]; then
                 TEMP="${COMMIT_MSG#FIX}"
@@ -778,7 +783,7 @@ jobs:
                 if [[ "$TEMP" == \(* ]]; then
                   AREA=$(echo "$TEMP" | sed 's/^(\([^)]*\)).*/\1/')
                   DESC=$(echo "$TEMP" | sed 's/^([^)]*):[[:space:]]*//')
-                  FIXES="${FIXES}- **${AREA}**: ${DESC} ([${SHORT_HASH}](https://github.com/${{ github.repository }}/commit/${COMMIT_HASH}))\n"
+                  FIXES="${FIXES}- **${AREA}**: ${DESC} ([${SHORT_HASH}](https://github.com/${{ github.repository }}/commit/${COMMIT_HASH}))${NL}"
                 fi
               elif [[ "$COMMIT_MSG" == REFACTOR* ]]; then
                 TEMP="${COMMIT_MSG#REFACTOR}"
@@ -786,7 +791,7 @@ jobs:
                 if [[ "$TEMP" == \(* ]]; then
                   AREA=$(echo "$TEMP" | sed 's/^(\([^)]*\)).*/\1/')
                   DESC=$(echo "$TEMP" | sed 's/^([^)]*):[[:space:]]*//')
-                  REFACTORS="${REFACTORS}- **${AREA}**: ${DESC} ([${SHORT_HASH}](https://github.com/${{ github.repository }}/commit/${COMMIT_HASH}))\n"
+                  REFACTORS="${REFACTORS}- **${AREA}**: ${DESC} ([${SHORT_HASH}](https://github.com/${{ github.repository }}/commit/${COMMIT_HASH}))${NL}"
                 fi
               fi
             fi
@@ -794,28 +799,31 @@ jobs:
 
           # Build changelog sections
           if [ -n "$FEATURES" ]; then
-            CHANGELOG="${CHANGELOG}### ✨ Features\n${FEATURES}\n"
+            CHANGELOG="${CHANGELOG}### ✨ Features${NL}${FEATURES}${NL}"
           fi
 
           if [ -n "$FIXES" ]; then
-            CHANGELOG="${CHANGELOG}### 🐛 Bug Fixes\n${FIXES}\n"
+            CHANGELOG="${CHANGELOG}### 🐛 Bug Fixes${NL}${FIXES}${NL}"
           fi
 
           if [ -n "$REFACTORS" ]; then
-            CHANGELOG="${CHANGELOG}### 🔨 Refactoring\n${REFACTORS}\n"
+            CHANGELOG="${CHANGELOG}### 🔨 Refactoring${NL}${REFACTORS}${NL}"
           fi
 
           # Add Docker image info
-          CHANGELOG="${CHANGELOG}### 🐳 Docker\n"
-          CHANGELOG="${CHANGELOG}- **Image**: \`databasus/databasus:v${NEW_VERSION}\`\n"
-          CHANGELOG="${CHANGELOG}- **Platforms**: linux/amd64, linux/arm64\n\n"
+          CHANGELOG="${CHANGELOG}### 🐳 Docker${NL}"
+          CHANGELOG="${CHANGELOG}- **Image**: \`databasus/databasus:v${NEW_VERSION}\`${NL}"
+          CHANGELOG="${CHANGELOG}- **Platforms**: linux/amd64, linux/arm64${NL}"
 
-          # Set output for GitHub release
+          # Use a random delimiter so any literal "EOF" line inside the
+          # changelog (e.g. inside a commit subject) cannot prematurely
+          # terminate the multiline output heredoc.
+          DELIMITER="EOF_$(openssl rand -hex 16)"
           {
-            echo 'changelog<<EOF'
-            echo -e "$CHANGELOG"
-            echo EOF
-          } >> $GITHUB_OUTPUT
+            printf '%s<<%s\n' 'changelog' "$DELIMITER"
+            printf '%s\n' "$CHANGELOG"
+            printf '%s\n' "$DELIMITER"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
         uses: actions/create-release@v1
