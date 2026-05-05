@@ -4,6 +4,8 @@ run:
 	go run cmd/main.go
 
 test:
+	go run ./cmd/cleanup_test_db
+	goose -dir ./migrations postgres "$(GOOSE_TEST_DBSTRING)" up
 	go test -p=1 -count=1 -failfast -timeout 15m ./internal/...
 
 lint:
@@ -14,6 +16,9 @@ migration-create:
 
 migration-up:
 	goose -dir ./migrations postgres "$(GOOSE_DBSTRING)" up
+
+migration-up-test:
+	goose -dir ./migrations postgres "$(GOOSE_TEST_DBSTRING)" up
 
 migration-down:
 	goose -dir ./migrations postgres "$(GOOSE_DBSTRING)" down

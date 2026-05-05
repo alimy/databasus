@@ -2,6 +2,7 @@ ansible/
 databasus-data/
 .env
 pgdata/
+pgdata-test/
 mysqldata/
 mariadbdata/
 valkey-data/

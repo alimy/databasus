@@ -27,7 +27,8 @@ type EnvVariables struct {
 	EnvMode   env_utils.EnvMode `env:"ENV_MODE" required:"true"`
 
 	// Internal database
-	DatabaseDsn string `env:"DATABASE_DSN" required:"true"`
+	DatabaseDsn     string `env:"DATABASE_DSN"      required:"true"`
+	TestDatabaseDsn string `env:"TEST_DATABASE_DSN"`
 	// Internal Valkey
 	ValkeyHost     string `env:"VALKEY_HOST"     required:"true"`
 	ValkeyPort     string `env:"VALKEY_PORT"     required:"true"`
@@ -197,6 +198,15 @@ func loadEnvVariables() {
 			env.IsTesting = true
 			break
 		}
+	}
+
+	if env.IsTesting {
+		if env.TestDatabaseDsn == "" {
+			log.Error("TEST_DATABASE_DSN is empty")
+			os.Exit(1)
+		}
+
+		env.DatabaseDsn = env.TestDatabaseDsn
 	}
 
 	// Check for external database override

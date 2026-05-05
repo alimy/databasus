@@ -19,6 +19,21 @@ services:
     command: -p 5437
     shm_size: 10gb
 
+  # Dedicated test DB so `make test` doesn't pollute the dev DB
+  backend-db-test:
+    image: postgres:17
+    ports:
+      - "5438:5438"
+    environment:
+      - POSTGRES_DB=${DEV_DB_NAME}
+      - POSTGRES_USER=${DEV_DB_USERNAME}
+      - POSTGRES_PASSWORD=${DEV_DB_PASSWORD}
+    volumes:
+      - ./pgdata-test:/var/lib/postgresql/data
+    container_name: backend-db-test
+    command: -p 5438
+    shm_size: 10gb
+
   # Valkey for caching
   backend-valkey:
     image: valkey/valkey:9.0.1-alpine
