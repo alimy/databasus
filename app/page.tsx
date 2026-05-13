@@ -172,7 +172,7 @@ export default function Index() {
                 name: "How does Databasus ensure security?",
                 acceptedAnswer: {
                   "@type": "Answer",
-                  text: "Databasus enforces security on three levels: (1) Sensitive data encryption — all passwords, tokens and credentials are encrypted with AES-256-GCM and stored separately from the database; (2) Backup encryption — each backup file is encrypted with a unique key derived from a master key, backup ID and random salt, making backups useless without your encryption key even if someone gains storage access; (3) Read-only database access — Databasus only requires SELECT permissions and performs comprehensive checks to ensure no write privileges exist, preventing data corruption even if the tool is compromised. All operations run in containers you control on servers you own, and because it's open source, your security team can audit every line of code before deployment.",
+                  text: "Databasus enforces security on three levels: (1) Sensitive data encryption — all passwords, tokens and credentials are encrypted with AES-256-GCM and stored separately from the database; (2) Backup encryption — each backup file is encrypted with a unique key derived from a master key, backup ID and random salt, making backups useless without your encryption key even if someone gains storage access; (3) Read-only database access — Databasus only requires SELECT permissions and performs comprehensive checks to ensure no write privileges exist, preventing data corruption even if the tool is compromised. Beyond runtime, security and reliability are engineered into every commit and PR: CodeQL static analysis, CodeRabbit with gitleaks and semgrep, Dependabot CVE monitoring, Trivy image and Dockerfile scans, and periodic Codex Security audits from OpenAI. Integration tests run against real PostgreSQL, MySQL, MariaDB and MongoDB containers and verify full backup-then-restore cycles on every PR. GitHub Actions are pinned to commit SHAs and workflows follow least-privilege permissions. All operations run in containers you control on servers you own, and because it's open source, your security team can audit every line of code before deployment.",
                 },
               },
               {
@@ -1303,7 +1303,42 @@ export default function Index() {
             <FaqItem
               number="4"
               question="How does Databasus ensure security?"
-              answer="Databasus enforces security on three levels: (1) Sensitive data encryption — all passwords, tokens and credentials are encrypted with AES-256-GCM and stored separately from the database; (2) Backup encryption — each backup file is encrypted with a unique key derived from a master key, backup ID and random salt, making backups useless without your encryption key even if someone gains storage access; (3) Read-only database access — Databasus only requires SELECT permissions and performs comprehensive checks to ensure no write privileges exist, preventing data corruption even if the tool is compromised."
+              answer={
+                <>
+                  Databasus enforces security on three levels: (1) Sensitive
+                  data encryption — all passwords, tokens and credentials are
+                  encrypted with AES-256-GCM and stored separately from the
+                  database; (2) Backup encryption — each backup file is
+                  encrypted with a unique key derived from a master key,
+                  backup ID and random salt, making backups useless without
+                  your encryption key even if someone gains storage access;
+                  (3) Read-only database access — Databasus only requires
+                  SELECT permissions and performs comprehensive checks to
+                  ensure no write privileges exist, preventing data
+                  corruption even if the tool is compromised.
+                  <br />
+                  <br />
+                  Beyond runtime, security and reliability are engineered into
+                  every commit and PR: CodeQL static analysis, CodeRabbit with
+                  gitleaks and semgrep, Dependabot CVE monitoring, Trivy image
+                  and Dockerfile scans, and periodic Codex Security audits
+                  from OpenAI. Integration tests run against real PostgreSQL,
+                  MySQL, MariaDB and MongoDB containers and verify full
+                  backup-then-restore cycles on every PR. GitHub Actions are
+                  pinned to commit SHAs and workflows follow least-privilege
+                  permissions.
+                  <br />
+                  <br />
+                  See{" "}
+                  <a
+                    href="/security#security-and-reliability-engineering"
+                    className="text-blue-400 hover:text-blue-600"
+                  >
+                    Security &amp; reliability engineering
+                  </a>{" "}
+                  for the full pipeline.
+                </>
+              }
             />
             <FaqItem
               number="5"

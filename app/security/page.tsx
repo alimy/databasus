@@ -263,6 +263,124 @@ export default function SecurityPage() {
                 server is hacked, secret key is stolen and credentials are
                 decrypted, attackers cannot corrupt your database.
               </p>
+
+              <h2 id="security-and-reliability-engineering">
+                🛡️ Security &amp; reliability engineering
+              </h2>
+
+              <p>
+                Databasus works with sensitive data, so preventing
+                vulnerabilities, unauthorised access and data leaks is a primary
+                concern. We invest in this on both sides of the system: in the
+                code itself (permission checks, encryption, careful handling of
+                secrets) and in the infrastructure around it (dependency
+                analysis, CVE response, DevSecOps practices). The pipeline below
+                runs automatically on every commit and PR — no single layer is
+                enough on its own, but together they reduce the chance of
+                vulnerable code, unsafe dependencies, broken images, or
+                non-restorable backups reaching a release.
+              </p>
+
+              <h3 id="static-analysis">Static analysis</h3>
+
+              <p>
+                Static analysis runs in several independent passes. CodeQL
+                scans the full codebase for security issues. CodeRabbit reviews
+                every PR and runs <strong>gitleaks</strong> for secret scanning
+                and <strong>semgrep</strong> for security rules inline.
+                Dockerfiles and CI workflows get extra rules of their own
+                (pinned action references, least-privilege permissions,
+                suspicious base images), so insecure patterns are flagged
+                before they ever merge.
+              </p>
+
+              <p>
+                On top of these per-PR checks,{" "}
+                <strong>Codex Security</strong> from OpenAI runs regular,
+                deeper audits of the whole codebase. It is a separate program
+                that catches architectural and cross-cutting issues which
+                narrow PR-time scans miss.
+              </p>
+
+              <h3 id="dependency-management">Dependency management</h3>
+
+              <p>
+                Dependabot watches all of our dependencies against the GitHub
+                Advisory Database and surfaces CVEs within minutes of
+                publication. Updates run through a cooldown so newly-published
+                versions get a chance to mature before we adopt them — a
+                deliberate defence against compromised-package incidents like
+                supply-chain attacks.
+              </p>
+
+              <p>
+                The <strong>Dependency Review Action</strong> blocks any PR
+                that introduces a new <strong>HIGH</strong> or{" "}
+                <strong>CRITICAL</strong> CVE outright.
+              </p>
+
+              <h3 id="container-and-ci-hardening">
+                Container &amp; CI hardening
+              </h3>
+
+              <ul>
+                <li>
+                  Container images are scanned with <strong>Trivy</strong> on
+                  every build.
+                </li>
+                <li>
+                  A separate Trivy pass on the Dockerfile catches
+                  misconfigurations before they make it into an image.
+                </li>
+                <li>
+                  All GitHub Actions are pinned to full commit SHAs rather than
+                  floating tags like <code>@v4</code> or <code>@main</code>,
+                  which have been an active attack vector in 2025.
+                </li>
+                <li>
+                  Workflows default to least-privilege permissions and only
+                  elevate per-job when genuinely needed.
+                </li>
+              </ul>
+
+              <h3 id="testing-and-verification">Testing &amp; verification</h3>
+
+              <p>
+                Critical paths are covered by both unit and integration tests,
+                run against real database containers for every supported engine
+                and major version.
+              </p>
+
+              <p>
+                Restore is the path that matters most for a backup tool, so we
+                test it explicitly: every PR runs full backup-then-restore
+                cycles against those same real containers, verifying that
+                backups can actually be restored end-to-end — not just written
+                successfully.
+              </p>
+
+              <p>
+                The rest of the CI/CD pipeline runs lint, type-check, the full
+                test suite, image smoke tests and multi-architecture builds on
+                every PR. A release only ships if all of it passes.
+              </p>
+
+              <h3 id="reporting-a-vulnerability">
+                Reporting a vulnerability
+              </h3>
+
+              <p>
+                Found a vulnerability? Report it via the GitHub Security tab —
+                see{" "}
+                <a
+                  href="https://github.com/databasus/databasus?tab=security-ov-file#readme"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  SECURITY.md
+                </a>
+                . Security reports are the highest-priority work queue.
+              </p>
             </article>
           </div>
         </main>
