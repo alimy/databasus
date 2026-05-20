@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/smtp"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -139,13 +140,29 @@ func encodeRFC2047(s string) string {
 	return mime.QEncoding.Encode("UTF-8", s)
 }
 
+// sanitizeHeaderValue strips CR, LF, and NUL to prevent SMTP header injection:
+// a CRLF inside a header value would start a new header (e.g. Bcc:) or
+// terminate the header block, letting an attacker rewrite the envelope.
+func sanitizeHeaderValue(value string) string {
+	value = strings.ReplaceAll(value, "\r", "")
+	value = strings.ReplaceAll(value, "\n", "")
+	value = strings.ReplaceAll(value, "\x00", "")
+
+	return value
+}
+
 func (e *EmailNotifier) buildEmailContent(heading, message, from string) []byte {
+	safeHeading := sanitizeHeaderValue(heading)
+	safeFrom := sanitizeHeaderValue(from)
+	safeTargetEmail := sanitizeHeaderValue(e.TargetEmail)
+	safeSMTPHost := sanitizeHeaderValue(e.SMTPHost)
+
 	// Encode Subject header using RFC 2047 to avoid SMTPUTF8 requirement
 	// This ensures compatibility with SMTP servers that don't support SMTPUTF8
-	encodedSubject := encodeRFC2047(heading)
+	encodedSubject := encodeRFC2047(safeHeading)
 	subject := fmt.Sprintf("Subject: %s\r\n", encodedSubject)
 	dateHeader := fmt.Sprintf("Date: %s\r\n", time.Now().UTC().Format(time.RFC1123Z))
-	messageID := fmt.Sprintf("Message-ID: <%s@%s>\r\n", uuid.New().String(), e.SMTPHost)
+	messageID := fmt.Sprintf("Message-ID: <%s@%s>\r\n", uuid.New().String(), safeSMTPHost)
 
 	mimeHeaders := fmt.Sprintf(
 		"MIME-version: 1.0;\nContent-Type: %s; charset=\"%s\";\n\n",
@@ -154,10 +171,10 @@ func (e *EmailNotifier) buildEmailContent(heading, message, from string) []byte 
 	)
 
 	// Encode From header display name if it contains non-ASCII
-	encodedFrom := encodeRFC2047(from)
+	encodedFrom := encodeRFC2047(safeFrom)
 	fromHeader := fmt.Sprintf("From: %s\r\n", encodedFrom)
 
-	toHeader := fmt.Sprintf("To: %s\r\n", e.TargetEmail)
+	toHeader := fmt.Sprintf("To: %s\r\n", safeTargetEmail)
 
 	return []byte(fromHeader + toHeader + subject + dateHeader + messageID + mimeHeaders + message)
 }
