@@ -4,11 +4,17 @@ import { useEffect } from 'react';
 
 import { IS_CLOUD } from '../../../constants';
 import { backupsApi } from '../../../entity/backups';
-import { type Database, PostgresBackupType, databaseApi } from '../../../entity/databases';
+import {
+  type Database,
+  DatabaseType,
+  PostgresBackupType,
+  databaseApi,
+} from '../../../entity/databases';
 import type { UserProfile } from '../../../entity/users';
 import { BackupsComponent } from '../../backups';
 import { BillingComponent } from '../../billing';
 import { HealthckeckAttemptsComponent } from '../../healthcheck';
+import { VerificationsComponent } from '../../verification/runs';
 import { AgentInstallationComponent } from './AgentInstallationComponent';
 import { DatabaseConfigComponent } from './DatabaseConfigComponent';
 
@@ -29,9 +35,9 @@ export const DatabaseComponent = ({
   onDatabaseDeleted,
   isCanManageDBs,
 }: Props) => {
-  const [currentTab, setCurrentTab] = useState<'config' | 'backups' | 'installation' | 'billing'>(
-    'backups',
-  );
+  const [currentTab, setCurrentTab] = useState<
+    'config' | 'backups' | 'verifications' | 'installation' | 'billing'
+  >('backups');
 
   const [database, setDatabase] = useState<Database | undefined>();
   const [editDatabase, setEditDatabase] = useState<Database | undefined>();
@@ -45,6 +51,9 @@ export const DatabaseComponent = ({
   };
 
   const isWalDatabase = database?.postgresql?.backupType === PostgresBackupType.WAL_V1;
+  const isPostgresLogicalDatabase =
+    database?.type === DatabaseType.POSTGRES &&
+    database?.postgresql?.backupType !== PostgresBackupType.WAL_V1;
 
   const loadSettings = () => {
     setDatabase(undefined);
@@ -58,6 +67,10 @@ export const DatabaseComponent = ({
 
   useEffect(() => {
     if (!database) return;
+
+    if (!isPostgresLogicalDatabase) {
+      setCurrentTab((prev) => (prev === 'verifications' ? 'backups' : prev));
+    }
 
     if (!isWalDatabase) {
       setCurrentTab((prev) => (prev === 'installation' ? 'backups' : prev));
@@ -95,6 +108,15 @@ export const DatabaseComponent = ({
         >
           Backups
         </div>
+
+        {isPostgresLogicalDatabase && (
+          <div
+            className={`mr-2 cursor-pointer rounded-tl-md rounded-tr-md px-6 py-2 ${currentTab === 'verifications' ? 'bg-white dark:bg-gray-800' : 'bg-gray-200 dark:bg-gray-700'}`}
+            onClick={() => setCurrentTab('verifications')}
+          >
+            Verifications
+          </div>
+        )}
 
         {isWalDatabase && (
           <div
@@ -142,8 +164,18 @@ export const DatabaseComponent = ({
             isDirectlyUnderTab={isWalDatabase || !isHealthcheckVisible}
             scrollContainerRef={scrollContainerRef}
             onNavigateToBilling={() => setCurrentTab('billing')}
+            onNavigateToVerifications={() => setCurrentTab('verifications')}
           />
         </>
+      )}
+
+      {currentTab === 'verifications' && isPostgresLogicalDatabase && (
+        <VerificationsComponent
+          database={database}
+          isCanManageDBs={isCanManageDBs}
+          isDirectlyUnderTab={true}
+          scrollContainerRef={scrollContainerRef}
+        />
       )}
 
       {currentTab === 'installation' && isWalDatabase && (

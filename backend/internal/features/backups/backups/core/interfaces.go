@@ -3,6 +3,8 @@ package backups_core
 import (
 	"context"
 
+	"github.com/google/uuid"
+
 	usecases_common "databasus-backend/internal/features/backups/backups/common"
 	backups_config "databasus-backend/internal/features/backups/config"
 	"databasus-backend/internal/features/databases"
@@ -31,4 +33,8 @@ type CreateBackupUsecase interface {
 
 type BackupRemoveListener interface {
 	OnBeforeBackupRemove(backup *Backup) error
+}
+
+type BackupCompletionListener interface {
+	OnBackupCompleted(backupID uuid.UUID)
 }

@@ -624,14 +624,14 @@ func Test_GetNextFullBackupTime_WithValidToken_HasFullBackup_ReturnsTime(t *test
 		{
 			name: "hourly interval returns future time",
 			interval: &intervals.Interval{
-				Interval: intervals.IntervalHourly,
+				Type: intervals.IntervalHourly,
 			},
 			checkHourMin: false,
 		},
 		{
 			name: "cron interval returns future time",
 			interval: &intervals.Interval{
-				Interval:       intervals.IntervalCron,
+				Type:           intervals.IntervalCron,
 				CronExpression: &cronExpr,
 			},
 			checkHourMin: false,
@@ -639,7 +639,7 @@ func Test_GetNextFullBackupTime_WithValidToken_HasFullBackup_ReturnsTime(t *test
 		{
 			name: "daily interval with custom time 14:30",
 			interval: &intervals.Interval{
-				Interval:  intervals.IntervalDaily,
+				Type:      intervals.IntervalDaily,
 				TimeOfDay: &customTime,
 			},
 			expectedHour: 14,
@@ -662,7 +662,7 @@ func Test_GetNextFullBackupTime_WithValidToken_HasFullBackup_ReturnsTime(t *test
 					http.StatusOK, &cfg,
 				)
 
-				cfg.BackupInterval = tt.interval
+				cfg.BackupInterval = *tt.interval
 
 				test_utils.MakePostRequestAndUnmarshal(
 					t, router,
@@ -1668,6 +1668,6 @@ func setBackupsEnabled(
 
 func setHourlyInterval(t *testing.T, router *gin.Engine, databaseID uuid.UUID, ownerToken string) {
 	mutateBackupConfig(t, router, databaseID, ownerToken, func(cfg *backups_config.BackupConfig) {
-		cfg.BackupInterval = &intervals.Interval{Interval: intervals.IntervalHourly}
+		cfg.BackupInterval = intervals.Interval{Type: intervals.IntervalHourly}
 	})
 }

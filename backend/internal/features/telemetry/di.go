@@ -9,6 +9,8 @@ import (
 	"databasus-backend/internal/features/notifiers"
 	"databasus-backend/internal/features/storages"
 	system_version "databasus-backend/internal/features/system/version"
+	verification_agents "databasus-backend/internal/features/verification/agents"
+	verification_config "databasus-backend/internal/features/verification/config"
 	"databasus-backend/internal/util/logger"
 )
 
@@ -27,6 +29,8 @@ var (
 		storages.GetStorageService(),
 		notifiers.GetNotifierService(),
 		backups_services.GetBackupService(),
+		verification_agents.GetAgentService(),
+		verification_config.GetVerificationConfigService(),
 		system_version.GetAppVersion(),
 		telemetryLogger,
 	)

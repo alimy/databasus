@@ -1,7 +1,7 @@
 import { CopyOutlined } from '@ant-design/icons';
 import { App, Tooltip } from 'antd';
 import dayjs from 'dayjs';
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 
 import { getApplicationServer } from '../../../constants';
 import { type Backup, PgWalBackupType } from '../../../entity/backups';
@@ -17,10 +17,24 @@ interface Props {
 type Architecture = 'amd64' | 'arm64';
 type DeploymentType = 'host' | 'docker';
 
+const SUPPORTED_PG_VERSIONS = ['15', '16', '17', '18'] as const;
+const DEFAULT_PG_VERSION = '17';
+
+const isSupportedPgVersion = (
+  value: string | undefined,
+): value is (typeof SUPPORTED_PG_VERSIONS)[number] =>
+  SUPPORTED_PG_VERSIONS.includes(value as (typeof SUPPORTED_PG_VERSIONS)[number]);
+
 export const AgentRestoreComponent = ({ database, backup }: Props) => {
   const { message } = App.useApp();
   const [selectedArch, setSelectedArch] = useState<Architecture>('amd64');
   const [deploymentType, setDeploymentType] = useState<DeploymentType>('host');
+
+  const detectedPgVersion = database.postgresql?.version;
+  const initialPgVersion = isSupportedPgVersion(detectedPgVersion)
+    ? detectedPgVersion
+    : DEFAULT_PG_VERSION;
+  const [selectedPgVersion, setSelectedPgVersion] = useState<string>(initialPgVersion);
 
   const databasusHost = getApplicationServer();
   const isDocker = deploymentType === 'docker';
@@ -66,6 +80,12 @@ export const AgentRestoreComponent = ({ database, backup }: Props) => {
   const isWalSegment = backup.pgWalBackupType === PgWalBackupType.PG_WAL_SEGMENT;
   const isFullBackup = backup.pgWalBackupType === PgWalBackupType.PG_FULL_BACKUP;
 
+  const pgMajor = Number.parseInt(selectedPgVersion, 10);
+  const containerPgDataPath =
+    Number.isFinite(pgMajor) && pgMajor >= 18
+      ? `/var/lib/postgresql/${pgMajor}/docker`
+      : '/var/lib/postgresql/data';
+
   const downloadCommand = `curl -L -o databasus-agent "${databasusHost}/api/v1/system/agent?arch=${selectedArch}" && chmod +x databasus-agent`;
 
   const targetDirPlaceholder = isDocker ? '<HOST_PGDATA_PATH>' : '<PGDATA_DIR>';
@@ -92,11 +112,11 @@ export const AgentRestoreComponent = ({ database, backup }: Props) => {
   ].join('\n');
 
   const dockerVolumeExample = `# In your docker run command:
-docker run ... -v <HOST_PGDATA_PATH>:/var/lib/postgresql/data ...
+docker run ... -v <HOST_PGDATA_PATH>:${containerPgDataPath} ...
 
 # Or in docker-compose.yml:
 volumes:
-  - <HOST_PGDATA_PATH>:/var/lib/postgresql/data`;
+  - <HOST_PGDATA_PATH>:${containerPgDataPath}`;
 
   const formatSize = (sizeMb: number) => {
     if (sizeMb >= 1024) {
@@ -150,6 +170,28 @@ volumes:
           )}
         </div>
       </div>
+
+      {isDocker && (
+        <div>
+          <div className="mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+            PostgreSQL major version
+          </div>
+          <div className="flex flex-wrap gap-y-2">
+            {SUPPORTED_PG_VERSIONS.map((version) => (
+              <Fragment key={version}>
+                {renderTabButton(version, selectedPgVersion === version, () =>
+                  setSelectedPgVersion(version),
+                )}
+              </Fragment>
+            ))}
+          </div>
+          <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            Affects the Docker volume mount path (PG 18+ uses{' '}
+            <code>/var/lib/postgresql/&lt;major&gt;/docker</code>; earlier versions use{' '}
+            <code>/var/lib/postgresql/data</code>).
+          </div>
+        </div>
+      )}
 
       <div>
         <div className="font-semibold dark:text-white">Step 1 — Download the agent</div>

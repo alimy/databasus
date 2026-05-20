@@ -30,6 +30,22 @@ func (r *BackupRepository) Save(backup *Backup) error {
 		Error
 }
 
+func (r *BackupRepository) UpdateRestoreVerificationStatus(
+	backupID uuid.UUID,
+	status RestoreVerificationStatus,
+) error {
+	if backupID == uuid.Nil {
+		return errors.New("backup ID is required")
+	}
+
+	return storage.
+		GetDb().
+		Model(&Backup{}).
+		Where("id = ?", backupID).
+		Update("restore_verification_status", status).
+		Error
+}
+
 func (r *BackupRepository) ExistsCompletedSince(
 	databaseID uuid.UUID,
 	since time.Time,
@@ -325,6 +341,29 @@ func (r *BackupRepository) FindLatestCompleted(
 		GetDb().
 		Where("database_id = ? AND status = ?",
 			databaseID, BackupStatusCompleted).
+		Order("created_at DESC").
+		First(&backup).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+
+		return nil, err
+	}
+
+	return &backup, nil
+}
+
+func (r *BackupRepository) FindLatestVerifiableBackup(
+	databaseID uuid.UUID,
+) (*Backup, error) {
+	var backup Backup
+
+	err := storage.GetDb().
+		Where(
+			"database_id = ? AND status = ? AND pg_wal_backup_type IS NULL",
+			databaseID, BackupStatusCompleted,
+		).
 		Order("created_at DESC").
 		First(&backup).Error
 	if err != nil {

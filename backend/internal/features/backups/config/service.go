@@ -306,8 +306,8 @@ func (s *BackupConfigService) initializeDefaultConfig(
 		IsBackupsEnabled:    false,
 		RetentionPolicyType: RetentionPolicyTypeTimePeriod,
 		RetentionTimePeriod: period.Period3Month,
-		BackupInterval: &intervals.Interval{
-			Interval:  intervals.IntervalDaily,
+		BackupInterval: intervals.Interval{
+			Type:      intervals.IntervalDaily,
 			TimeOfDay: &timeOfDay,
 		},
 		SendNotificationsOn: []BackupNotificationType{

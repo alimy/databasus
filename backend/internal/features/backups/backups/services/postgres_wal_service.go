@@ -331,10 +331,6 @@ func (s *PostgreWalBackupService) GetNextFullBackupTime(
 		return &backups_dto.GetNextFullBackupTimeResponse{NextFullBackupTime: nil}, nil
 	}
 
-	if backupConfig.BackupInterval == nil {
-		return nil, fmt.Errorf("no backup interval configured for database %s", database.ID)
-	}
-
 	lastFullBackup, err := s.backupRepository.FindLastCompletedFullWalBackupByDatabaseID(
 		database.ID,
 	)

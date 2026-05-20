@@ -21,7 +21,6 @@ import (
 	users_enums "databasus-backend/internal/features/users/enums"
 	users_testing "databasus-backend/internal/features/users/testing"
 	workspaces_testing "databasus-backend/internal/features/workspaces/testing"
-	"databasus-backend/internal/storage"
 	"databasus-backend/internal/util/logger"
 	"databasus-backend/internal/util/period"
 )
@@ -55,7 +54,6 @@ func Test_CleanOldBackups_DeletesBackupsOlderThanRetentionTimePeriod(t *testing.
 		RetentionPolicyType: backups_config.RetentionPolicyTypeTimePeriod,
 		RetentionTimePeriod: period.PeriodWeek,
 		StorageID:           &storage.ID,
-		BackupIntervalID:    interval.ID,
 		BackupInterval:      interval,
 		Encryption:          backups_config.BackupEncryptionEncrypted,
 	}
@@ -134,7 +132,6 @@ func Test_CleanOldBackups_SkipsDatabaseWithForeverRetentionPeriod(t *testing.T) 
 		RetentionPolicyType: backups_config.RetentionPolicyTypeTimePeriod,
 		RetentionTimePeriod: period.PeriodForever,
 		StorageID:           &storage.ID,
-		BackupIntervalID:    interval.ID,
 		BackupInterval:      interval,
 		Encryption:          backups_config.BackupEncryptionEncrypted,
 	}
@@ -192,7 +189,6 @@ func Test_CleanExceededBackups_WhenUnderStorageLimit_NoBackupsDeleted(t *testing
 		RetentionPolicyType: backups_config.RetentionPolicyTypeTimePeriod,
 		RetentionTimePeriod: period.PeriodForever,
 		StorageID:           &storage.ID,
-		BackupIntervalID:    interval.ID,
 		BackupInterval:      interval,
 		Encryption:          backups_config.BackupEncryptionEncrypted,
 	}
@@ -254,7 +250,6 @@ func Test_CleanExceededBackups_WhenOverStorageLimit_DeletesOldestBackups(t *test
 		RetentionPolicyType: backups_config.RetentionPolicyTypeTimePeriod,
 		RetentionTimePeriod: period.PeriodForever,
 		StorageID:           &storage.ID,
-		BackupIntervalID:    interval.ID,
 		BackupInterval:      interval,
 		Encryption:          backups_config.BackupEncryptionEncrypted,
 	}
@@ -331,7 +326,6 @@ func Test_CleanExceededBackups_SkipsInProgressBackups(t *testing.T) {
 		RetentionPolicyType: backups_config.RetentionPolicyTypeTimePeriod,
 		RetentionTimePeriod: period.PeriodForever,
 		StorageID:           &storage.ID,
-		BackupIntervalID:    interval.ID,
 		BackupInterval:      interval,
 		Encryption:          backups_config.BackupEncryptionEncrypted,
 	}
@@ -418,7 +412,6 @@ func Test_CleanExceededBackups_WithZeroStorageLimit_RemovesAllBackups(t *testing
 		RetentionPolicyType: backups_config.RetentionPolicyTypeTimePeriod,
 		RetentionTimePeriod: period.PeriodForever,
 		StorageID:           &storage.ID,
-		BackupIntervalID:    interval.ID,
 		BackupInterval:      interval,
 		Encryption:          backups_config.BackupEncryptionEncrypted,
 	}
@@ -550,7 +543,6 @@ func Test_CleanByCount_KeepsNewestNBackups_DeletesOlder(t *testing.T) {
 		RetentionPolicyType: backups_config.RetentionPolicyTypeCount,
 		RetentionCount:      3,
 		StorageID:           &storage.ID,
-		BackupIntervalID:    interval.ID,
 		BackupInterval:      interval,
 		Encryption:          backups_config.BackupEncryptionEncrypted,
 	}
@@ -623,7 +615,6 @@ func Test_CleanByCount_WhenUnderLimit_NoBackupsDeleted(t *testing.T) {
 		RetentionPolicyType: backups_config.RetentionPolicyTypeCount,
 		RetentionCount:      10,
 		StorageID:           &storage.ID,
-		BackupIntervalID:    interval.ID,
 		BackupInterval:      interval,
 		Encryption:          backups_config.BackupEncryptionEncrypted,
 	}
@@ -681,7 +672,6 @@ func Test_CleanByCount_DoesNotDeleteInProgressBackups(t *testing.T) {
 		RetentionPolicyType: backups_config.RetentionPolicyTypeCount,
 		RetentionCount:      2,
 		StorageID:           &storage.ID,
-		BackupIntervalID:    interval.ID,
 		BackupInterval:      interval,
 		Encryption:          backups_config.BackupEncryptionEncrypted,
 	}
@@ -807,7 +797,6 @@ func Test_CleanByTimePeriod_SkipsRecentBackup_EvenIfOlderThanRetention(t *testin
 		RetentionPolicyType: backups_config.RetentionPolicyTypeTimePeriod,
 		RetentionTimePeriod: period.PeriodDay,
 		StorageID:           &storage.ID,
-		BackupIntervalID:    interval.ID,
 		BackupInterval:      interval,
 		Encryption:          backups_config.BackupEncryptionEncrypted,
 	}
@@ -879,7 +868,6 @@ func Test_CleanByCount_SkipsRecentBackup_EvenIfOverLimit(t *testing.T) {
 		RetentionPolicyType: backups_config.RetentionPolicyTypeCount,
 		RetentionCount:      2,
 		StorageID:           &storage.ID,
-		BackupIntervalID:    interval.ID,
 		BackupInterval:      interval,
 		Encryption:          backups_config.BackupEncryptionEncrypted,
 	}
@@ -982,7 +970,6 @@ func Test_CleanExceededBackups_SkipsRecentBackup_WhenOverStorageLimit(t *testing
 		RetentionPolicyType: backups_config.RetentionPolicyTypeTimePeriod,
 		RetentionTimePeriod: period.PeriodForever,
 		StorageID:           &storage.ID,
-		BackupIntervalID:    interval.ID,
 		BackupInterval:      interval,
 		Encryption:          backups_config.BackupEncryptionEncrypted,
 	}
@@ -1059,7 +1046,6 @@ func Test_CleanExceededStorageBackups_WhenNonCloud_SkipsCleanup(t *testing.T) {
 		RetentionPolicyType: backups_config.RetentionPolicyTypeTimePeriod,
 		RetentionTimePeriod: period.PeriodForever,
 		StorageID:           &storage.ID,
-		BackupIntervalID:    interval.ID,
 		BackupInterval:      interval,
 		Encryption:          backups_config.BackupEncryptionEncrypted,
 	}
@@ -1338,7 +1324,6 @@ func Test_CleanByRetentionPolicy_DoesNotDeleteOnlyCompletedFullWalBackup(t *test
 		RetentionPolicyType: backups_config.RetentionPolicyTypeTimePeriod,
 		RetentionTimePeriod: period.PeriodDay,
 		StorageID:           &storage.ID,
-		BackupIntervalID:    interval.ID,
 		BackupInterval:      interval,
 		Encryption:          backups_config.BackupEncryptionNone,
 	}
@@ -1491,7 +1476,6 @@ func createWalRetentionFixture(
 		RetentionTimePeriod: period.PeriodDay,
 		RetentionCount:      2,
 		StorageID:           &storage.ID,
-		BackupIntervalID:    interval.ID,
 		BackupInterval:      interval,
 		Encryption:          backups_config.BackupEncryptionEncrypted,
 	}
@@ -1625,17 +1609,11 @@ func testLogger() *slog.Logger {
 	return logger.GetLogger().With("task_name", "test")
 }
 
-func createTestInterval() *intervals.Interval {
+func createTestInterval() intervals.Interval {
 	timeOfDay := "04:00"
-	interval := &intervals.Interval{
-		Interval:  intervals.IntervalDaily,
+
+	return intervals.Interval{
+		Type:      intervals.IntervalDaily,
 		TimeOfDay: &timeOfDay,
 	}
-
-	err := storage.GetDb().Create(interval).Error
-	if err != nil {
-		panic(err)
-	}
-
-	return interval
 }

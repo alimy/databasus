@@ -26,6 +26,7 @@ type server struct {
 	mu         sync.RWMutex
 	version    string
 	binaryPath string
+	pgVersion  string
 
 	backupID        string
 	backupFilePath  string
@@ -41,9 +42,14 @@ func main() {
 	binaryPath := "/artifacts/agent-v2"
 	port := "4050"
 
+	pgVersion := os.Getenv("PG_VERSION")
+	if pgVersion == "" {
+		pgVersion = "17"
+	}
+
 	_ = os.MkdirAll(backupStorageDir, 0o755)
 
-	s := &server{version: version, binaryPath: binaryPath}
+	s := &server{version: version, binaryPath: binaryPath, pgVersion: pgVersion}
 
 	// System endpoints
 	http.HandleFunc("/api/v1/system/version", s.handleVersion)
@@ -320,7 +326,7 @@ func (s *server) handleRestorePlan(w http.ResponseWriter, _ *http.Request) {
 			"id":                        s.backupID,
 			"fullBackupWalStartSegment": s.startSegment,
 			"fullBackupWalStopSegment":  s.stopSegment,
-			"pgVersion":                 "17",
+			"pgVersion":                 s.pgVersion,
 			"createdAt":                 s.backupCreatedAt.Format(time.RFC3339),
 			"sizeBytes":                 backupSizeBytes,
 		},

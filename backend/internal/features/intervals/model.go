@@ -5,30 +5,26 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/robfig/cron/v3"
-	"gorm.io/gorm"
 )
 
 type Interval struct {
-	ID       uuid.UUID    `json:"id"       gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	Interval IntervalType `json:"interval" gorm:"type:text;not null"`
+	Type IntervalType `json:"type" gorm:"column:interval_type;type:text;not null"`
 
-	TimeOfDay *string `json:"timeOfDay" gorm:"type:text;"`
-	// only for WEEKLY
-	Weekday *int `json:"weekday,omitempty" gorm:"type:int"`
-	// only for MONTHLY
-	DayOfMonth *int `json:"dayOfMonth,omitempty" gorm:"type:int"`
-	// only for CRON
-	CronExpression *string `json:"cronExpression,omitempty" gorm:"type:text"`
-}
-
-func (i *Interval) BeforeSave(tx *gorm.DB) error {
-	return i.Validate()
+	TimeOfDay      *string `json:"timeOfDay"                gorm:"column:time_of_day;type:text"`
+	Weekday        *int    `json:"weekday,omitempty"        gorm:"column:weekday;type:int"`
+	DayOfMonth     *int    `json:"dayOfMonth,omitempty"     gorm:"column:day_of_month;type:int"`
+	CronExpression *string `json:"cronExpression,omitempty" gorm:"column:cron_expression;type:text"`
 }
 
 func (i *Interval) Validate() error {
-	if i.Interval == IntervalDaily || i.Interval == IntervalWeekly || i.Interval == IntervalMonthly {
+	switch i.Type {
+	case IntervalHourly, IntervalDaily, IntervalWeekly, IntervalMonthly, IntervalCron:
+	default:
+		return fmt.Errorf("invalid interval type: %q", i.Type)
+	}
+
+	if i.Type == IntervalDaily || i.Type == IntervalWeekly || i.Type == IntervalMonthly {
 		if i.TimeOfDay == nil {
 			return errors.New("time of day is required for daily, weekly and monthly intervals")
 		}
@@ -38,7 +34,7 @@ func (i *Interval) Validate() error {
 		}
 	}
 
-	if i.Interval == IntervalWeekly {
+	if i.Type == IntervalWeekly {
 		if i.Weekday == nil {
 			return errors.New("weekday is required for weekly intervals")
 		}
@@ -49,7 +45,7 @@ func (i *Interval) Validate() error {
 		}
 	}
 
-	if i.Interval == IntervalMonthly {
+	if i.Type == IntervalMonthly {
 		if i.DayOfMonth == nil {
 			return errors.New("day of month is required for monthly intervals")
 		}
@@ -59,7 +55,7 @@ func (i *Interval) Validate() error {
 		}
 	}
 
-	if i.Interval == IntervalCron {
+	if i.Type == IntervalCron {
 		if i.CronExpression == nil || *i.CronExpression == "" {
 			return errors.New("cron expression is required for cron intervals")
 		}
@@ -79,7 +75,7 @@ func (i *Interval) ShouldTriggerBackup(now time.Time, lastBackupTime *time.Time)
 		return true
 	}
 
-	switch i.Interval {
+	switch i.Type {
 	case IntervalHourly:
 		return now.Sub(*lastBackupTime) >= time.Hour
 	case IntervalDaily:
@@ -102,7 +98,7 @@ func (i *Interval) NextTriggerTime(now time.Time, lastBackupTime *time.Time) *ti
 		return nil
 	}
 
-	switch i.Interval {
+	switch i.Type {
 	case IntervalHourly:
 		next := lastBackupTime.Add(time.Hour)
 		return &next
@@ -127,10 +123,9 @@ func (i *Interval) NextTriggerTime(now time.Time, lastBackupTime *time.Time) *ti
 	}
 }
 
-func (i *Interval) Copy() *Interval {
-	return &Interval{
-		ID:             uuid.Nil,
-		Interval:       i.Interval,
+func (i *Interval) Copy() Interval {
+	return Interval{
+		Type:           i.Type,
 		TimeOfDay:      i.TimeOfDay,
 		Weekday:        i.Weekday,
 		DayOfMonth:     i.DayOfMonth,

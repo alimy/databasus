@@ -28,6 +28,8 @@ type Backup struct {
 	FailMessage *string      `json:"failMessage" gorm:"column:fail_message"`
 	IsSkipRetry bool         `json:"isSkipRetry" gorm:"column:is_skip_retry;type:boolean;not null"`
 
+	RestoreVerificationStatus RestoreVerificationStatus `json:"restoreVerificationStatus" gorm:"column:restore_verification_status;type:text;not null;default:'NOT_VERIFIED'"`
+
 	BackupSizeMb      float64 `json:"backupSizeMb"      gorm:"column:backup_size_mb;default:0"`
 	BackupRawDbSizeMb float64 `json:"backupRawDbSizeMb" gorm:"column:backup_raw_db_size_mb;default:0"`
 

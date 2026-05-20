@@ -14,6 +14,8 @@ import (
 	"databasus-backend/internal/features/databases"
 	"databasus-backend/internal/features/notifiers"
 	"databasus-backend/internal/features/storages"
+	verification_agents "databasus-backend/internal/features/verification/agents"
+	verification_config "databasus-backend/internal/features/verification/config"
 )
 
 const (
@@ -42,15 +44,25 @@ type backupChecker interface {
 	GetLatestCompletedBackup(databaseID uuid.UUID) (*backups_core.Backup, error)
 }
 
+type verificationAgentLister interface {
+	ListAgents() ([]*verification_agents.Agent, error)
+}
+
+type verificationConfigLister interface {
+	ListEnabled() ([]*verification_config.BackupVerificationConfig, error)
+}
+
 type TelemetryService struct {
-	instanceLoader  *InstanceFileLoader
-	sender          TelemetrySender
-	databaseService databaseLister
-	storageService  storageLister
-	notifierService notifierLister
-	backupService   backupChecker
-	appVersion      string
-	logger          *slog.Logger
+	instanceLoader            *InstanceFileLoader
+	sender                    TelemetrySender
+	databaseService           databaseLister
+	storageService            storageLister
+	notifierService           notifierLister
+	backupService             backupChecker
+	verificationAgentService  verificationAgentLister
+	verificationConfigService verificationConfigLister
+	appVersion                string
+	logger                    *slog.Logger
 }
 
 func NewTelemetryService(
@@ -60,18 +72,22 @@ func NewTelemetryService(
 	storageService storageLister,
 	notifierService notifierLister,
 	backupService backupChecker,
+	verificationAgentService verificationAgentLister,
+	verificationConfigService verificationConfigLister,
 	appVersion string,
 	logger *slog.Logger,
 ) *TelemetryService {
 	return &TelemetryService{
-		instanceLoader:  instanceLoader,
-		sender:          sender,
-		databaseService: databaseService,
-		storageService:  storageService,
-		notifierService: notifierService,
-		backupService:   backupService,
-		appVersion:      appVersion,
-		logger:          logger,
+		instanceLoader:            instanceLoader,
+		sender:                    sender,
+		databaseService:           databaseService,
+		storageService:            storageService,
+		notifierService:           notifierService,
+		backupService:             backupService,
+		verificationAgentService:  verificationAgentService,
+		verificationConfigService: verificationConfigService,
+		appVersion:                appVersion,
+		logger:                    logger,
 	}
 }
 
@@ -81,7 +97,12 @@ func (s *TelemetryService) BuildAndSend(ctx context.Context) error {
 		return nil
 	}
 
-	databaseEntries, err := s.collectActiveDatabases()
+	enabledConfigsByDatabaseID, err := s.loadEnabledVerificationConfigs()
+	if err != nil {
+		return err
+	}
+
+	databaseEntries, err := s.collectActiveDatabases(enabledConfigsByDatabaseID)
 	if err != nil {
 		return err
 	}
@@ -96,21 +117,46 @@ func (s *TelemetryService) BuildAndSend(ctx context.Context) error {
 		return err
 	}
 
+	verificationAgents, err := s.collectVerificationAgents()
+	if err != nil {
+		return err
+	}
+
 	req := &CollectRequest{
-		InstanceID:  instance.InstanceID,
-		AppVersion:  s.appVersion,
-		OS:          runtime.GOOS,
-		Arch:        runtime.GOARCH,
-		InstalledAt: instance.InstalledAt,
-		Databases:   capDatabases(databaseEntries),
-		Storages:    capStrings(storageTypes),
-		Notifiers:   capStrings(notifierTypes),
+		InstanceID:         instance.InstanceID,
+		AppVersion:         s.appVersion,
+		OS:                 runtime.GOOS,
+		Arch:               runtime.GOARCH,
+		InstalledAt:        instance.InstalledAt,
+		Databases:          capDatabases(databaseEntries),
+		Storages:           capStrings(storageTypes),
+		Notifiers:          capStrings(notifierTypes),
+		VerificationAgents: capAgents(verificationAgents),
 	}
 
 	return s.sender.Send(ctx, req)
 }
 
-func (s *TelemetryService) collectActiveDatabases() ([]DatabaseEntry, error) {
+func (s *TelemetryService) loadEnabledVerificationConfigs() (
+	map[uuid.UUID]*verification_config.BackupVerificationConfig,
+	error,
+) {
+	enabledConfigs, err := s.verificationConfigService.ListEnabled()
+	if err != nil {
+		return nil, err
+	}
+
+	indexed := make(map[uuid.UUID]*verification_config.BackupVerificationConfig, len(enabledConfigs))
+	for _, config := range enabledConfigs {
+		indexed[config.DatabaseID] = config
+	}
+
+	return indexed, nil
+}
+
+func (s *TelemetryService) collectActiveDatabases(
+	enabledConfigsByDatabaseID map[uuid.UUID]*verification_config.BackupVerificationConfig,
+) ([]DatabaseEntry, error) {
 	allDatabases, err := s.databaseService.GetAllDatabases()
 	if err != nil {
 		return nil, err
@@ -138,7 +184,45 @@ func (s *TelemetryService) collectActiveDatabases() ([]DatabaseEntry, error) {
 			return nil, err
 		}
 
+		if config, hasConfig := enabledConfigsByDatabaseID[db.ID]; hasConfig {
+			entry.Verification = buildVerificationEntry(config)
+		}
+
 		entries = append(entries, entry)
+	}
+
+	return entries, nil
+}
+
+func buildVerificationEntry(
+	config *verification_config.BackupVerificationConfig,
+) *DatabaseVerificationEntry {
+	entry := &DatabaseVerificationEntry{
+		IsEnabled:    true,
+		ScheduleType: string(config.ScheduleType),
+	}
+
+	if config.ScheduleType == verification_config.VerificationScheduleInterval {
+		entry.IntervalType = string(config.VerificationInterval.Type)
+	}
+
+	return entry
+}
+
+func (s *TelemetryService) collectVerificationAgents() ([]VerificationAgentEntry, error) {
+	listedAgents, err := s.verificationAgentService.ListAgents()
+	if err != nil {
+		return nil, err
+	}
+
+	entries := make([]VerificationAgentEntry, 0, len(listedAgents))
+	for _, agent := range listedAgents {
+		entries = append(entries, VerificationAgentEntry{
+			MaxCPU:            agent.MaxCPU,
+			MaxRAMGb:          agent.MaxRAMGb,
+			MaxDiskGb:         agent.MaxDiskGb,
+			MaxConcurrentJobs: agent.MaxConcurrentJobs,
+		})
 	}
 
 	return entries, nil
@@ -261,6 +345,14 @@ func capStrings(in []string) []string {
 }
 
 func capDatabases(in []DatabaseEntry) []DatabaseEntry {
+	if len(in) > maxArrayEntries {
+		return in[:maxArrayEntries]
+	}
+
+	return in
+}
+
+func capAgents(in []VerificationAgentEntry) []VerificationAgentEntry {
 	if len(in) > maxArrayEntries {
 		return in[:maxArrayEntries]
 	}

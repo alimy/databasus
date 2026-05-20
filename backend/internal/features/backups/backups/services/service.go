@@ -212,6 +212,13 @@ func (s *BackupService) GetBackup(backupID uuid.UUID) (*backups_core.Backup, err
 	return s.backupRepository.FindByID(backupID)
 }
 
+func (s *BackupService) SetRestoreVerificationStatus(
+	backupID uuid.UUID,
+	status backups_core.RestoreVerificationStatus,
+) error {
+	return s.backupRepository.UpdateRestoreVerificationStatus(backupID, status)
+}
+
 func (s *BackupService) CancelBackup(
 	user *users_models.User,
 	backupID uuid.UUID,
@@ -438,6 +445,12 @@ func (s *BackupService) ValidateDownloadToken(
 	token string,
 ) (*backups_download.DownloadToken, *backups_download.RateLimiter, error) {
 	return s.downloadTokenService.ValidateAndConsume(token)
+}
+
+func (s *BackupService) GetLatestVerifiableBackup(
+	databaseID uuid.UUID,
+) (*backups_core.Backup, error) {
+	return s.backupRepository.FindLatestVerifiableBackup(databaseID)
 }
 
 func (s *BackupService) GetBackupFileWithoutAuth(

@@ -1,4 +1,4 @@
-import { DownOutlined, InfoCircleOutlined, UpOutlined } from '@ant-design/icons';
+﻿import { DownOutlined, InfoCircleOutlined, UpOutlined } from '@ant-design/icons';
 import {
   Button,
   Checkbox,
@@ -120,10 +120,6 @@ export const EditBackupConfigComponent = ({
 
       const updatedBackupInterval = { ...(prev.backupInterval ?? {}), ...patch };
 
-      if (!updatedBackupInterval.id && prev.backupInterval?.id) {
-        updatedBackupInterval.id = prev.backupInterval.id;
-      }
-
       return { ...prev, backupInterval: updatedBackupInterval as Interval };
     });
 
@@ -178,8 +174,7 @@ export const EditBackupConfigComponent = ({
             databaseId: database.id,
             isBackupsEnabled: true,
             backupInterval: {
-              id: undefined as unknown as string,
-              interval: IntervalType.DAILY,
+              type: IntervalType.DAILY,
               timeOfDay: '00:00',
             },
             storage: undefined,
@@ -229,14 +224,14 @@ export const EditBackupConfigComponent = ({
     : undefined;
 
   const displayedWeekday: number | undefined =
-    backupInterval?.interval === IntervalType.WEEKLY &&
+    backupInterval?.type === IntervalType.WEEKLY &&
     backupInterval.weekday &&
     backupInterval.timeOfDay
       ? getLocalWeekday(backupInterval.weekday, backupInterval.timeOfDay)
       : backupInterval?.weekday;
 
   const displayedDayOfMonth: number | undefined =
-    backupInterval?.interval === IntervalType.MONTHLY &&
+    backupInterval?.type === IntervalType.MONTHLY &&
     backupInterval.dayOfMonth &&
     backupInterval.timeOfDay
       ? getLocalDayOfMonth(backupInterval.dayOfMonth, backupInterval.timeOfDay)
@@ -245,8 +240,7 @@ export const EditBackupConfigComponent = ({
   const retentionPolicyType = backupConfig.retentionPolicyType ?? RetentionPolicyType.TimePeriod;
 
   const isShowGfsHours =
-    backupInterval?.interval === IntervalType.HOURLY ||
-    backupInterval?.interval === IntervalType.CRON;
+    backupInterval?.type === IntervalType.HOURLY || backupInterval?.type === IntervalType.CRON;
 
   const isRetentionValid = (() => {
     switch (retentionPolicyType) {
@@ -269,11 +263,11 @@ export const EditBackupConfigComponent = ({
     (isRetentionValid &&
       Boolean(backupConfig.storage?.id) &&
       Boolean(backupConfig.encryption) &&
-      Boolean(backupInterval?.interval) &&
+      Boolean(backupInterval?.type) &&
       (!backupInterval ||
-        ((backupInterval.interval !== IntervalType.WEEKLY || displayedWeekday) &&
-          (backupInterval.interval !== IntervalType.MONTHLY || displayedDayOfMonth) &&
-          (backupInterval.interval !== IntervalType.CRON || backupInterval.cronExpression))));
+        ((backupInterval.type !== IntervalType.WEEKLY || displayedWeekday) &&
+          (backupInterval.type !== IntervalType.MONTHLY || displayedDayOfMonth) &&
+          (backupInterval.type !== IntervalType.CRON || backupInterval.cronExpression))));
 
   return (
     <div>
@@ -295,9 +289,9 @@ export const EditBackupConfigComponent = ({
           <div className="mt-4 mb-1 flex w-full flex-col items-start sm:flex-row sm:items-center">
             <div className="mb-1 min-w-[150px] sm:mb-0">Backup interval</div>
             <Select
-              value={backupInterval?.interval}
+              value={backupInterval?.type}
               onChange={(v) => {
-                saveInterval({ interval: v });
+                saveInterval({ type: v });
 
                 const isDailyOrMore =
                   v === IntervalType.DAILY ||
@@ -320,7 +314,7 @@ export const EditBackupConfigComponent = ({
             />
           </div>
 
-          {backupInterval?.interval === IntervalType.WEEKLY && (
+          {backupInterval?.type === IntervalType.WEEKLY && (
             <div className="mb-1 flex w-full flex-col items-start sm:flex-row sm:items-center">
               <div className="mb-1 min-w-[150px] sm:mb-0">Backup weekday</div>
               <Select
@@ -337,7 +331,7 @@ export const EditBackupConfigComponent = ({
             </div>
           )}
 
-          {backupInterval?.interval === IntervalType.MONTHLY && (
+          {backupInterval?.type === IntervalType.MONTHLY && (
             <div className="mb-1 flex w-full flex-col items-start sm:flex-row sm:items-center">
               <div className="mb-1 min-w-[150px] sm:mb-0">Backup day of month</div>
               <InputNumber
@@ -355,7 +349,7 @@ export const EditBackupConfigComponent = ({
             </div>
           )}
 
-          {backupInterval?.interval === IntervalType.CRON && (
+          {backupInterval?.type === IntervalType.CRON && (
             <>
               <div className="mb-1 flex w-full flex-col items-start sm:flex-row sm:items-center">
                 <div className="mb-1 min-w-[150px] sm:mb-0">Cron expression (UTC)</div>
@@ -414,8 +408,8 @@ export const EditBackupConfigComponent = ({
             </>
           )}
 
-          {backupInterval?.interval !== IntervalType.HOURLY &&
-            backupInterval?.interval !== IntervalType.CRON && (
+          {backupInterval?.type !== IntervalType.HOURLY &&
+            backupInterval?.type !== IntervalType.CRON && (
               <div className="mb-1 flex w-full flex-col items-start sm:flex-row sm:items-center">
                 <div className="mb-1 min-w-[150px] sm:mb-0">Backup time of day</div>
                 <TimePicker
@@ -429,10 +423,10 @@ export const EditBackupConfigComponent = ({
                     if (!t) return;
                     const patch: Partial<Interval> = { timeOfDay: t.utc().format('HH:mm') };
 
-                    if (backupInterval?.interval === IntervalType.WEEKLY && displayedWeekday) {
+                    if (backupInterval?.type === IntervalType.WEEKLY && displayedWeekday) {
                       patch.weekday = getUtcWeekday(displayedWeekday, t);
                     }
-                    if (backupInterval?.interval === IntervalType.MONTHLY && displayedDayOfMonth) {
+                    if (backupInterval?.type === IntervalType.MONTHLY && displayedDayOfMonth) {
                       patch.dayOfMonth = getUtcDayOfMonth(displayedDayOfMonth, t);
                     }
 

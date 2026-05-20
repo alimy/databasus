@@ -4,15 +4,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestInterval_ShouldTriggerBackup_Hourly(t *testing.T) {
 	interval := &Interval{
-		ID:       uuid.New(),
-		Interval: IntervalHourly,
+		Type: IntervalHourly,
 	}
 
 	baseTime := time.Date(2024, 1, 15, 12, 0, 0, 0, time.UTC)
@@ -44,8 +42,7 @@ func TestInterval_ShouldTriggerBackup_Hourly(t *testing.T) {
 func TestInterval_ShouldTriggerBackup_Daily(t *testing.T) {
 	timeOfDay := "09:00"
 	interval := &Interval{
-		ID:        uuid.New(),
-		Interval:  IntervalDaily,
+		Type:      IntervalDaily,
 		TimeOfDay: &timeOfDay,
 	}
 
@@ -111,8 +108,7 @@ func TestInterval_ShouldTriggerBackup_Daily(t *testing.T) {
 		func(t *testing.T) {
 			timeOfDay := "21:00"
 			interval := &Interval{
-				ID:        uuid.New(),
-				Interval:  IntervalDaily,
+				Type:      IntervalDaily,
 				TimeOfDay: &timeOfDay,
 			}
 
@@ -127,8 +123,7 @@ func TestInterval_ShouldTriggerBackup_Daily(t *testing.T) {
 	t.Run("Catch up previous time slot", func(t *testing.T) {
 		timeOfDay := "21:00"
 		interval := &Interval{
-			ID:        uuid.New(),
-			Interval:  IntervalDaily,
+			Type:      IntervalDaily,
 			TimeOfDay: &timeOfDay,
 		}
 
@@ -145,8 +140,7 @@ func TestInterval_ShouldTriggerBackup_Weekly(t *testing.T) {
 	timeOfDay := "15:00"
 	weekday := 3 // Wednesday (0=Sunday, 1=Monday, ..., 3=Wednesday)
 	interval := &Interval{
-		ID:        uuid.New(),
-		Interval:  IntervalWeekly,
+		Type:      IntervalWeekly,
 		TimeOfDay: &timeOfDay,
 		Weekday:   &weekday,
 	}
@@ -304,8 +298,7 @@ func TestInterval_ShouldTriggerBackup_Weekly(t *testing.T) {
 			timeOfDay := "00:00"
 			weekday := 5 // Friday (0=Sunday, 1=Monday, ..., 5=Friday)
 			fridayInterval := &Interval{
-				ID:        uuid.New(),
-				Interval:  IntervalWeekly,
+				Type:      IntervalWeekly,
 				TimeOfDay: &timeOfDay,
 				Weekday:   &weekday,
 			}
@@ -338,8 +331,7 @@ func TestInterval_ShouldTriggerBackup_Monthly(t *testing.T) {
 	timeOfDay := "08:00"
 	dayOfMonth := 10
 	interval := &Interval{
-		ID:         uuid.New(),
-		Interval:   IntervalMonthly,
+		Type:       IntervalMonthly,
 		TimeOfDay:  &timeOfDay,
 		DayOfMonth: &dayOfMonth,
 	}
@@ -461,8 +453,7 @@ func TestInterval_ShouldTriggerBackup_Monthly(t *testing.T) {
 func TestInterval_ShouldTriggerBackup_Cron(t *testing.T) {
 	cronExpr := "0 2 * * *" // Daily at 2:00 AM
 	interval := &Interval{
-		ID:             uuid.New(),
-		Interval:       IntervalCron,
+		Type:           IntervalCron,
 		CronExpression: &cronExpr,
 	}
 
@@ -503,8 +494,7 @@ func TestInterval_ShouldTriggerBackup_Cron(t *testing.T) {
 	t.Run("Weekly cron expression: 0 3 * * 1 (Monday at 3 AM)", func(t *testing.T) {
 		weeklyCron := "0 3 * * 1" // Every Monday at 3 AM
 		weeklyInterval := &Interval{
-			ID:             uuid.New(),
-			Interval:       IntervalCron,
+			Type:           IntervalCron,
 			CronExpression: &weeklyCron,
 		}
 
@@ -520,8 +510,7 @@ func TestInterval_ShouldTriggerBackup_Cron(t *testing.T) {
 	t.Run("Complex cron expression: 30 4 1,15 * * (1st and 15th at 4:30 AM)", func(t *testing.T) {
 		complexCron := "30 4 1,15 * *" // 1st and 15th of each month at 4:30 AM
 		complexInterval := &Interval{
-			ID:             uuid.New(),
-			Interval:       IntervalCron,
+			Type:           IntervalCron,
 			CronExpression: &complexCron,
 		}
 
@@ -537,8 +526,7 @@ func TestInterval_ShouldTriggerBackup_Cron(t *testing.T) {
 	t.Run("Every 6 hours cron expression: 0 */6 * * *", func(t *testing.T) {
 		sixHourlyCron := "0 */6 * * *" // Every 6 hours (0:00, 6:00, 12:00, 18:00)
 		sixHourlyInterval := &Interval{
-			ID:             uuid.New(),
-			Interval:       IntervalCron,
+			Type:           IntervalCron,
 			CronExpression: &sixHourlyCron,
 		}
 
@@ -554,8 +542,7 @@ func TestInterval_ShouldTriggerBackup_Cron(t *testing.T) {
 	t.Run("Invalid cron expression returns false", func(t *testing.T) {
 		invalidCron := "invalid cron"
 		invalidInterval := &Interval{
-			ID:             uuid.New(),
-			Interval:       IntervalCron,
+			Type:           IntervalCron,
 			CronExpression: &invalidCron,
 		}
 
@@ -569,8 +556,7 @@ func TestInterval_ShouldTriggerBackup_Cron(t *testing.T) {
 	t.Run("Empty cron expression returns false", func(t *testing.T) {
 		emptyCron := ""
 		emptyInterval := &Interval{
-			ID:             uuid.New(),
-			Interval:       IntervalCron,
+			Type:           IntervalCron,
 			CronExpression: &emptyCron,
 		}
 
@@ -583,8 +569,7 @@ func TestInterval_ShouldTriggerBackup_Cron(t *testing.T) {
 
 	t.Run("Nil cron expression returns false", func(t *testing.T) {
 		nilInterval := &Interval{
-			ID:             uuid.New(),
-			Interval:       IntervalCron,
+			Type:           IntervalCron,
 			CronExpression: nil,
 		}
 
@@ -599,8 +584,7 @@ func TestInterval_ShouldTriggerBackup_Cron(t *testing.T) {
 func TestInterval_Validate(t *testing.T) {
 	t.Run("Daily interval requires time of day", func(t *testing.T) {
 		interval := &Interval{
-			ID:       uuid.New(),
-			Interval: IntervalDaily,
+			Type: IntervalDaily,
 		}
 		err := interval.Validate()
 		assert.Error(t, err)
@@ -610,8 +594,7 @@ func TestInterval_Validate(t *testing.T) {
 	t.Run("Weekly interval requires weekday", func(t *testing.T) {
 		timeOfDay := "09:00"
 		interval := &Interval{
-			ID:        uuid.New(),
-			Interval:  IntervalWeekly,
+			Type:      IntervalWeekly,
 			TimeOfDay: &timeOfDay,
 		}
 		err := interval.Validate()
@@ -622,8 +605,7 @@ func TestInterval_Validate(t *testing.T) {
 	t.Run("Monthly interval requires day of month", func(t *testing.T) {
 		timeOfDay := "09:00"
 		interval := &Interval{
-			ID:        uuid.New(),
-			Interval:  IntervalMonthly,
+			Type:      IntervalMonthly,
 			TimeOfDay: &timeOfDay,
 		}
 		err := interval.Validate()
@@ -633,8 +615,7 @@ func TestInterval_Validate(t *testing.T) {
 
 	t.Run("Hourly interval is valid without additional fields", func(t *testing.T) {
 		interval := &Interval{
-			ID:       uuid.New(),
-			Interval: IntervalHourly,
+			Type: IntervalHourly,
 		}
 		err := interval.Validate()
 		assert.NoError(t, err)
@@ -644,8 +625,7 @@ func TestInterval_Validate(t *testing.T) {
 		timeOfDay := "09:00"
 		weekday := 1
 		interval := &Interval{
-			ID:        uuid.New(),
-			Interval:  IntervalWeekly,
+			Type:      IntervalWeekly,
 			TimeOfDay: &timeOfDay,
 			Weekday:   &weekday,
 		}
@@ -656,8 +636,7 @@ func TestInterval_Validate(t *testing.T) {
 	t.Run("Daily interval with invalid time of day is invalid", func(t *testing.T) {
 		timeOfDay := "25:00"
 		interval := &Interval{
-			ID:        uuid.New(),
-			Interval:  IntervalDaily,
+			Type:      IntervalDaily,
 			TimeOfDay: &timeOfDay,
 		}
 		err := interval.Validate()
@@ -668,8 +647,7 @@ func TestInterval_Validate(t *testing.T) {
 	t.Run("Daily interval with empty time of day is invalid", func(t *testing.T) {
 		timeOfDay := ""
 		interval := &Interval{
-			ID:        uuid.New(),
-			Interval:  IntervalDaily,
+			Type:      IntervalDaily,
 			TimeOfDay: &timeOfDay,
 		}
 		err := interval.Validate()
@@ -681,8 +659,7 @@ func TestInterval_Validate(t *testing.T) {
 		timeOfDay := "09:00"
 		weekday := 8
 		interval := &Interval{
-			ID:        uuid.New(),
-			Interval:  IntervalWeekly,
+			Type:      IntervalWeekly,
 			TimeOfDay: &timeOfDay,
 			Weekday:   &weekday,
 		}
@@ -695,8 +672,7 @@ func TestInterval_Validate(t *testing.T) {
 		timeOfDay := "09:00"
 		weekday := -1
 		interval := &Interval{
-			ID:        uuid.New(),
-			Interval:  IntervalWeekly,
+			Type:      IntervalWeekly,
 			TimeOfDay: &timeOfDay,
 			Weekday:   &weekday,
 		}
@@ -709,8 +685,7 @@ func TestInterval_Validate(t *testing.T) {
 		timeOfDay := "09:00"
 		weekday := 7
 		interval := &Interval{
-			ID:        uuid.New(),
-			Interval:  IntervalWeekly,
+			Type:      IntervalWeekly,
 			TimeOfDay: &timeOfDay,
 			Weekday:   &weekday,
 		}
@@ -722,8 +697,7 @@ func TestInterval_Validate(t *testing.T) {
 		timeOfDay := "09:00"
 		dayOfMonth := 15
 		interval := &Interval{
-			ID:         uuid.New(),
-			Interval:   IntervalMonthly,
+			Type:       IntervalMonthly,
 			TimeOfDay:  &timeOfDay,
 			DayOfMonth: &dayOfMonth,
 		}
@@ -735,8 +709,7 @@ func TestInterval_Validate(t *testing.T) {
 		timeOfDay := "09:00"
 		dayOfMonth := 0
 		interval := &Interval{
-			ID:         uuid.New(),
-			Interval:   IntervalMonthly,
+			Type:       IntervalMonthly,
 			TimeOfDay:  &timeOfDay,
 			DayOfMonth: &dayOfMonth,
 		}
@@ -749,8 +722,7 @@ func TestInterval_Validate(t *testing.T) {
 		timeOfDay := "09:00"
 		dayOfMonth := 32
 		interval := &Interval{
-			ID:         uuid.New(),
-			Interval:   IntervalMonthly,
+			Type:       IntervalMonthly,
 			TimeOfDay:  &timeOfDay,
 			DayOfMonth: &dayOfMonth,
 		}
@@ -763,8 +735,7 @@ func TestInterval_Validate(t *testing.T) {
 		timeOfDay := "09:00"
 		dayOfMonth := 31
 		interval := &Interval{
-			ID:         uuid.New(),
-			Interval:   IntervalMonthly,
+			Type:       IntervalMonthly,
 			TimeOfDay:  &timeOfDay,
 			DayOfMonth: &dayOfMonth,
 		}
@@ -774,8 +745,7 @@ func TestInterval_Validate(t *testing.T) {
 
 	t.Run("Cron interval requires cron expression", func(t *testing.T) {
 		interval := &Interval{
-			ID:       uuid.New(),
-			Interval: IntervalCron,
+			Type: IntervalCron,
 		}
 		err := interval.Validate()
 		assert.Error(t, err)
@@ -785,8 +755,7 @@ func TestInterval_Validate(t *testing.T) {
 	t.Run("Cron interval with empty expression is invalid", func(t *testing.T) {
 		emptyCron := ""
 		interval := &Interval{
-			ID:             uuid.New(),
-			Interval:       IntervalCron,
+			Type:           IntervalCron,
 			CronExpression: &emptyCron,
 		}
 		err := interval.Validate()
@@ -797,8 +766,7 @@ func TestInterval_Validate(t *testing.T) {
 	t.Run("Cron interval with invalid expression is invalid", func(t *testing.T) {
 		invalidCron := "invalid cron"
 		interval := &Interval{
-			ID:             uuid.New(),
-			Interval:       IntervalCron,
+			Type:           IntervalCron,
 			CronExpression: &invalidCron,
 		}
 		err := interval.Validate()
@@ -809,8 +777,7 @@ func TestInterval_Validate(t *testing.T) {
 	t.Run("Valid cron interval with daily expression", func(t *testing.T) {
 		cronExpr := "0 2 * * *" // Daily at 2 AM
 		interval := &Interval{
-			ID:             uuid.New(),
-			Interval:       IntervalCron,
+			Type:           IntervalCron,
 			CronExpression: &cronExpr,
 		}
 		err := interval.Validate()
@@ -820,8 +787,7 @@ func TestInterval_Validate(t *testing.T) {
 	t.Run("Valid cron interval with complex expression", func(t *testing.T) {
 		cronExpr := "30 4 1,15 * *" // 1st and 15th of each month at 4:30 AM
 		interval := &Interval{
-			ID:             uuid.New(),
-			Interval:       IntervalCron,
+			Type:           IntervalCron,
 			CronExpression: &cronExpr,
 		}
 		err := interval.Validate()
@@ -833,14 +799,14 @@ func TestInterval_NextTriggerTime_NilLastBackup(t *testing.T) {
 	now := time.Date(2024, 1, 15, 12, 0, 0, 0, time.UTC)
 
 	t.Run("Hourly with nil lastBackup returns nil", func(t *testing.T) {
-		interval := &Interval{ID: uuid.New(), Interval: IntervalHourly}
+		interval := &Interval{Type: IntervalHourly}
 		result := interval.NextTriggerTime(now, nil)
 		assert.Nil(t, result)
 	})
 
 	t.Run("Daily with nil lastBackup returns nil", func(t *testing.T) {
 		timeOfDay := "09:00"
-		interval := &Interval{ID: uuid.New(), Interval: IntervalDaily, TimeOfDay: &timeOfDay}
+		interval := &Interval{Type: IntervalDaily, TimeOfDay: &timeOfDay}
 		result := interval.NextTriggerTime(now, nil)
 		assert.Nil(t, result)
 	})
@@ -849,8 +815,7 @@ func TestInterval_NextTriggerTime_NilLastBackup(t *testing.T) {
 		timeOfDay := "15:00"
 		weekday := 3
 		interval := &Interval{
-			ID:        uuid.New(),
-			Interval:  IntervalWeekly,
+			Type:      IntervalWeekly,
 			TimeOfDay: &timeOfDay,
 			Weekday:   &weekday,
 		}
@@ -862,8 +827,7 @@ func TestInterval_NextTriggerTime_NilLastBackup(t *testing.T) {
 		timeOfDay := "08:00"
 		dayOfMonth := 10
 		interval := &Interval{
-			ID:         uuid.New(),
-			Interval:   IntervalMonthly,
+			Type:       IntervalMonthly,
 			TimeOfDay:  &timeOfDay,
 			DayOfMonth: &dayOfMonth,
 		}
@@ -873,14 +837,14 @@ func TestInterval_NextTriggerTime_NilLastBackup(t *testing.T) {
 
 	t.Run("Cron with nil lastBackup returns nil", func(t *testing.T) {
 		cronExpr := "0 2 * * *"
-		interval := &Interval{ID: uuid.New(), Interval: IntervalCron, CronExpression: &cronExpr}
+		interval := &Interval{Type: IntervalCron, CronExpression: &cronExpr}
 		result := interval.NextTriggerTime(now, nil)
 		assert.Nil(t, result)
 	})
 }
 
 func TestInterval_NextTriggerTime_Hourly(t *testing.T) {
-	interval := &Interval{ID: uuid.New(), Interval: IntervalHourly}
+	interval := &Interval{Type: IntervalHourly}
 	now := time.Date(2024, 1, 15, 12, 0, 0, 0, time.UTC)
 
 	t.Run("Returns lastBackup + 1 hour", func(t *testing.T) {
@@ -902,7 +866,7 @@ func TestInterval_NextTriggerTime_Hourly(t *testing.T) {
 
 func TestInterval_NextTriggerTime_Daily(t *testing.T) {
 	timeOfDay := "09:00"
-	interval := &Interval{ID: uuid.New(), Interval: IntervalDaily, TimeOfDay: &timeOfDay}
+	interval := &Interval{Type: IntervalDaily, TimeOfDay: &timeOfDay}
 
 	t.Run("Before today's slot: returns today's slot", func(t *testing.T) {
 		now := time.Date(2024, 1, 15, 8, 0, 0, 0, time.UTC)
@@ -936,8 +900,7 @@ func TestInterval_NextTriggerTime_Weekly(t *testing.T) {
 	timeOfDay := "15:00"
 	weekday := 3 // Wednesday
 	interval := &Interval{
-		ID:        uuid.New(),
-		Interval:  IntervalWeekly,
+		Type:      IntervalWeekly,
 		TimeOfDay: &timeOfDay,
 		Weekday:   &weekday,
 	}
@@ -968,8 +931,7 @@ func TestInterval_NextTriggerTime_Weekly(t *testing.T) {
 		fridayTimeOfDay := "00:00"
 		fridayWeekday := 5 // Friday
 		fridayInterval := &Interval{
-			ID:        uuid.New(),
-			Interval:  IntervalWeekly,
+			Type:      IntervalWeekly,
 			TimeOfDay: &fridayTimeOfDay,
 			Weekday:   &fridayWeekday,
 		}
@@ -989,8 +951,7 @@ func TestInterval_NextTriggerTime_Monthly(t *testing.T) {
 	timeOfDay := "08:00"
 	dayOfMonth := 10
 	interval := &Interval{
-		ID:         uuid.New(),
-		Interval:   IntervalMonthly,
+		Type:       IntervalMonthly,
 		TimeOfDay:  &timeOfDay,
 		DayOfMonth: &dayOfMonth,
 	}
@@ -1026,7 +987,7 @@ func TestInterval_NextTriggerTime_Monthly(t *testing.T) {
 func TestInterval_NextTriggerTime_Cron(t *testing.T) {
 	t.Run("Daily cron: returns next trigger after lastBackup", func(t *testing.T) {
 		cronExpr := "0 2 * * *" // Daily at 2:00 AM
-		interval := &Interval{ID: uuid.New(), Interval: IntervalCron, CronExpression: &cronExpr}
+		interval := &Interval{Type: IntervalCron, CronExpression: &cronExpr}
 
 		now := time.Date(2024, 1, 15, 10, 0, 0, 0, time.UTC)
 		lastBackup := time.Date(2024, 1, 14, 2, 0, 0, 0, time.UTC)
@@ -1038,7 +999,7 @@ func TestInterval_NextTriggerTime_Cron(t *testing.T) {
 
 	t.Run("Complex cron: 1st and 15th at 4:30", func(t *testing.T) {
 		cronExpr := "30 4 1,15 * *"
-		interval := &Interval{ID: uuid.New(), Interval: IntervalCron, CronExpression: &cronExpr}
+		interval := &Interval{Type: IntervalCron, CronExpression: &cronExpr}
 
 		now := time.Date(2024, 1, 10, 10, 0, 0, 0, time.UTC)
 		lastBackup := time.Date(2024, 1, 1, 4, 30, 0, 0, time.UTC)
@@ -1050,7 +1011,7 @@ func TestInterval_NextTriggerTime_Cron(t *testing.T) {
 
 	t.Run("Invalid cron expression returns nil", func(t *testing.T) {
 		invalidCron := "invalid cron"
-		interval := &Interval{ID: uuid.New(), Interval: IntervalCron, CronExpression: &invalidCron}
+		interval := &Interval{Type: IntervalCron, CronExpression: &invalidCron}
 
 		now := time.Date(2024, 1, 15, 10, 0, 0, 0, time.UTC)
 		lastBackup := time.Date(2024, 1, 14, 10, 0, 0, 0, time.UTC)
@@ -1061,7 +1022,7 @@ func TestInterval_NextTriggerTime_Cron(t *testing.T) {
 
 	t.Run("Empty cron expression returns nil", func(t *testing.T) {
 		emptyCron := ""
-		interval := &Interval{ID: uuid.New(), Interval: IntervalCron, CronExpression: &emptyCron}
+		interval := &Interval{Type: IntervalCron, CronExpression: &emptyCron}
 
 		now := time.Date(2024, 1, 15, 10, 0, 0, 0, time.UTC)
 		lastBackup := time.Date(2024, 1, 14, 10, 0, 0, 0, time.UTC)
@@ -1071,7 +1032,7 @@ func TestInterval_NextTriggerTime_Cron(t *testing.T) {
 	})
 
 	t.Run("Nil cron expression returns nil", func(t *testing.T) {
-		interval := &Interval{ID: uuid.New(), Interval: IntervalCron, CronExpression: nil}
+		interval := &Interval{Type: IntervalCron, CronExpression: nil}
 
 		now := time.Date(2024, 1, 15, 10, 0, 0, 0, time.UTC)
 		lastBackup := time.Date(2024, 1, 14, 10, 0, 0, 0, time.UTC)
@@ -1082,7 +1043,7 @@ func TestInterval_NextTriggerTime_Cron(t *testing.T) {
 }
 
 func TestInterval_NextTriggerTime_UnknownInterval(t *testing.T) {
-	interval := &Interval{ID: uuid.New(), Interval: IntervalType("UNKNOWN")}
+	interval := &Interval{Type: IntervalType("UNKNOWN")}
 
 	now := time.Date(2024, 1, 15, 12, 0, 0, 0, time.UTC)
 	lastBackup := time.Date(2024, 1, 14, 12, 0, 0, 0, time.UTC)

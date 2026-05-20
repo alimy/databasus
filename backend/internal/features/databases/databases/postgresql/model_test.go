@@ -1606,6 +1606,44 @@ func Test_GetRawDbSizeMb_Postgresql_ReturnsPositiveSize(t *testing.T) {
 	assert.Greater(t, sizeMB, 0.0, "raw db size should be > 0 after inserting data")
 }
 
+func Test_HideSensitiveData_WhenCalled_ClearsPasswordAndPreservesOtherFields(t *testing.T) {
+	databaseName := "appdb"
+	pgModel := &PostgresqlDatabase{
+		Version:        tools.GetPostgresqlVersionEnum("16"),
+		BackupType:     PostgresBackupTypePgDump,
+		Host:           "db.example.com",
+		Port:           5432,
+		Username:       "appuser",
+		Password:       "supersecret",
+		Database:       &databaseName,
+		IsHttps:        true,
+		IncludeSchemas: []string{"public"},
+		ExcludeTables:  []string{"audit_logs"},
+		CpuCount:       4,
+	}
+
+	pgModel.HideSensitiveData()
+
+	assert.Empty(t, pgModel.Password)
+	assert.Equal(t, "db.example.com", pgModel.Host)
+	assert.Equal(t, 5432, pgModel.Port)
+	assert.Equal(t, "appuser", pgModel.Username)
+	assert.Equal(t, &databaseName, pgModel.Database)
+	assert.True(t, pgModel.IsHttps)
+	assert.Equal(t, PostgresBackupTypePgDump, pgModel.BackupType)
+	assert.Equal(t, []string{"public"}, pgModel.IncludeSchemas)
+	assert.Equal(t, []string{"audit_logs"}, pgModel.ExcludeTables)
+	assert.Equal(t, 4, pgModel.CpuCount)
+}
+
+func Test_HideSensitiveData_WhenReceiverIsNil_DoesNotPanic(t *testing.T) {
+	var pgModel *PostgresqlDatabase
+
+	assert.NotPanics(t, func() {
+		pgModel.HideSensitiveData()
+	})
+}
+
 func connectToPostgresContainer(t *testing.T, port string) *PostgresContainer {
 	dbName := "testdb"
 	password := "testpassword"

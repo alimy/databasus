@@ -6,6 +6,7 @@ import { IS_CLOUD, getApplicationServer } from '../../../constants';
 import { settingsApi } from '../../../entity/users/api/settingsApi';
 import type { UsersSettings } from '../../../entity/users/model/UsersSettings';
 import { ClipboardHelper } from '../../../shared/lib/ClipboardHelper';
+import { VerificationAgentsComponent } from '../../verification/agents';
 import { AuditLogsComponent } from './AuditLogsComponent';
 
 interface Props {
@@ -262,6 +263,8 @@ export function SettingsComponent({ contentHeight }: Props) {
               </div>
             </div>
           </div>
+
+          <VerificationAgentsComponent />
 
           <AuditLogsComponent scrollContainerRef={scrollContainerRef} />
         </div>

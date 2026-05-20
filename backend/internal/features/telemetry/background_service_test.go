@@ -52,6 +52,8 @@ func newBackgroundServiceUnderTest(t *testing.T, sender TelemetrySender) *Teleme
 		&fakeStorageLister{},
 		&fakeNotifierLister{},
 		&fakeBackupChecker{},
+		&fakeVerificationAgentLister{},
+		&fakeVerificationConfigLister{},
 		"9.9.9",
 		slog.New(slog.DiscardHandler),
 	)

@@ -3,11 +3,15 @@ package system_healthcheck
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 	"time"
 
 	"databasus-backend/internal/config"
 	"databasus-backend/internal/features/backups/backups/backuping"
 	"databasus-backend/internal/features/disk"
+	verification_agents "databasus-backend/internal/features/verification/agents"
+	verification_runs "databasus-backend/internal/features/verification/runs"
 	"databasus-backend/internal/storage"
 	cache_utils "databasus-backend/internal/util/cache"
 	"databasus-backend/internal/util/tools"
@@ -17,6 +21,7 @@ type HealthcheckService struct {
 	diskService             *disk.DiskService
 	backupBackgroundService *backuping.BackupsScheduler
 	backuperNode            *backuping.BackuperNode
+	agentService            *verification_agents.AgentService
 }
 
 func (s *HealthcheckService) IsHealthy() error {
@@ -60,6 +65,23 @@ func (s *HealthcheckService) performHealthCheck() error {
 
 		if !s.backupBackgroundService.IsBackupNodesAvailable() {
 			return errors.New("no backup nodes available")
+		}
+
+		staleAgents, err := s.agentService.GetStaleAgents(verification_runs.StaleAgentThreshold)
+		if err != nil {
+			return errors.New("cannot query verification agents")
+		}
+
+		if len(staleAgents) > 0 {
+			names := make([]string, len(staleAgents))
+			for i, agent := range staleAgents {
+				names[i] = agent.Name
+			}
+
+			return fmt.Errorf(
+				"verification agents not seen for more than 5 minutes: %s",
+				strings.Join(names, ", "),
+			)
 		}
 	}
 

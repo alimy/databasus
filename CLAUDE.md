@@ -7,6 +7,7 @@ Per-folder rules live next to the code they govern:
 
 - [`backend/CLAUDE.md`](backend/CLAUDE.md) — Go + Gin + GORM + PostgreSQL backend (controllers, migrations, CRUD, DI, testing, logging)
 - [`agent/backup/CLAUDE.md`](agent/backup/CLAUDE.md) — Go agent CLI (no HTTP server, no schema; shares Go conventions with the backend)
+- [`agent/verification/CLAUDE.md`](agent/verification/CLAUDE.md) — Go verification agent CLI (self-update + capacity heartbeat; restore logic deferred)
 - [`frontend/CLAUDE.md`](frontend/CLAUDE.md) — React 19 + TypeScript + Vite + Ant Design + Tailwind
 
 This root file holds the engineering philosophy that applies everywhere.
@@ -45,9 +46,63 @@ Reread the diff with fresh eyes and **list** (don't silently apply) refactor sug
 
 ### Naming
 
-Name variables and functions for **intent**, not mechanism. Naming is the biggest readability lever — avoid generic names like `data`, `handle`, `process`.
+Name variables and functions for **intent**, not mechanism. Naming is the biggest readability lever — avoid generic placeholders (`data`, `handle`, `process`, `tmp`, `helper`, `manager`), type-suffix noise (`nameStr`, `agentList`, `tokenObj`), and mechanism-flavored names (`tickNow`, `hbResp`, `dataObj`).
 
 Booleans take an `is` / `can` / `has` / `should` prefix (`isAllowed`, `canAccess`, `hasItems`, `shouldRetry`) — never bare nouns/verbs like `allowed` or `touches`.
+
+State that holds "the entity currently being X-ed" must include the entity: `createdAgent`, not `created`; `listedAgents`, not `listed`; `deletingAgentId`, not `deletingId`. Pair related state explicitly: `revealedToken` + `revealedTokenAgentName`, not `tokenAgentName`. Loop variables get the domain word — `for _, agent := range listedAgents` (Go) — single letters only inside trivial one-line lambdas (`.map((a) => a.id)`).
+
+Test-mechanism names (`got`, `want`, `expected`) are not acceptable — use the domain noun: `persistedAgent`, `firstRotation`, `secondRotation`. Match domain language across the wire — if the API says `agent`, don't rename to `worker` or `node` in client code.
+
+Idiomatic short names stay where the convention is well-established: Go receivers (`s *AgentService`, `r *AgentRepository`, `ctx *gin.Context`) and JS/TS error catches (`} catch (e) {`). When no good name exists, the abstraction is wrong — extract or rename it, don't reach for `helper` / `tmp` / `manager`.
+
+Examples:
+
+```go
+// bad
+var hbResp HeartbeatResponse
+var got *Agent
+for _, a := range listed { ... }
+
+// good
+var heartbeatResponse HeartbeatResponse
+var persistedAgent *Agent
+for _, agent := range listedAgents { ... }
+```
+
+```ts
+// bad
+const [tickNow, setTickNow] = useState(Date.now());
+const [deletingId, setDeletingId] = useState<string | null>(null);
+const [tokenAgentName, setTokenAgentName] = useState('');
+
+// good
+const [currentTimeMs, setCurrentTimeMs] = useState(Date.now());
+const [deletingAgentId, setDeletingAgentId] = useState<string | null>(null);
+const [revealedTokenAgentName, setRevealedTokenAgentName] = useState('');
+```
+
+### Functions, methods and types
+
+The intent rule applies to callables and types too — this is where it's violated most:
+
+- **A name that needs a "what" comment is a naming bug.** Doc comments are for *why*, ordering, and hidden constraints — never to restate behavior. If you wrote `// Foo does X` above `func Foo`, rename `Foo` until that comment is redundant, then delete it. Keep only the sentence a name *cannot* carry (e.g. "must be called before the container exists").
+- **Predicate methods read as a question**, same as boolean vars: `IsAborted(id)`, not `AbortedContains(id)`; `HasCapacity()`, not `CapacityCheck()`.
+- **The name states everything the unit does.** A function that records *and* cancels is `recordAndCancelAborts` — or it's two functions. A name that hides a second effect is a lie.
+- **Getters take a `Get` prefix and name the entity.** `GetRunningVerificationIDs()`, not `Active()`, `RunningVerificationIDs()`, or `DiskUsageBytes()`. This is a deliberate house style: prefer the explicit `Get` *even though vanilla Go idiom omits it* — it keeps accessors visually distinct from actions and matches the backend (`GetAuditLogService`, `GetGlobalAuditLogs`). Constructors stay `New...`; a getter that returns a bool is still a predicate, so it stays `Is/Has...`, not `Get...`.
+- **Long positional parameter lists become a struct.** ~4+ params, or two same-typed params adjacent → a named parameter/DTO struct (the input counterpart to the result type, e.g. `spawnPlan` → `SpawnSpec`). Kills call-site ordering bugs and the comment explaining argument order.
+- **Type names: avoid generic *and* avoid package stutter.** Not `Manager` / `Provisioner` / `Handler` (generic), not `container.ContainerManager` (stutters — `revive` fails CI). If the only honest name stutters, put the noun on the *variable*, not the type: keep the type `container.Manager`, name the variable `containerManager`. If no precise type name exists, the abstraction is wrong — split it.
+
+```go
+// bad — comment restates the name; name hides the second effect; predicate isn't a question
+// applyAborts records the abort set and cancels each registered job.
+func (h *Heartbeater) applyAborts(ids []uuid.UUID) { ... }
+func (h *Heartbeater) AbortedContains(id uuid.UUID) bool { ... }
+
+// good — the names carry it; no comment needed
+func (h *Heartbeater) recordAndCancelAborts(ids []uuid.UUID) { ... }
+func (h *Heartbeater) IsAborted(id uuid.UUID) bool { ... }
+```
 
 ### Linting and formatting
 

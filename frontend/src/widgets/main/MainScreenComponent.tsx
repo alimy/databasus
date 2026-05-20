@@ -2,7 +2,7 @@ import { LoadingOutlined, MenuOutlined } from '@ant-design/icons';
 import { App, Button, Spin, Tooltip } from 'antd';
 import { useEffect, useState } from 'react';
 
-import { APP_VERSION, CONTAINER_ARCH, IS_CLOUD } from '../../constants';
+import { APP_VERSION, CONTAINER_ARCH, IS_CLOUD, IS_DISABLE_CLOUD_NOTICE } from '../../constants';
 import { type DiskUsage, diskApi } from '../../entity/disk';
 import {
   type UserProfile,
@@ -212,6 +212,34 @@ export const MainScreenComponent = () => {
         </div>
 
         <div className="ml-auto hidden items-center gap-5 md:flex">
+          {!IS_CLOUD && !IS_DISABLE_CLOUD_NOTICE && (
+            <Tooltip title="99.9% uptime, 2x backup copies">
+              <a
+                className="flex items-center gap-2 !text-black hover:opacity-80 dark:!text-gray-200"
+                href="https://databasus.com/cloud"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Cloud
+                <span className="relative flex h-2 w-2" aria-label="99.9% uptime, 2 backup copies">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-500 opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
+                </span>
+              </a>
+            </Tooltip>
+          )}
+
+          {!IS_CLOUD && !IS_DISABLE_CLOUD_NOTICE && (
+            <a
+              className="!text-black hover:opacity-80 dark:!text-gray-200"
+              href="https://databasus.com/labs"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Labs
+            </a>
+          )}
+
           <a
             className="!text-black hover:opacity-80 dark:!text-gray-200"
             href="https://databasus.com/installation"
@@ -229,23 +257,6 @@ export const MainScreenComponent = () => {
           >
             Community
           </a>
-
-          {!IS_CLOUD && (
-            <Tooltip title="99.9% uptime, 2x backup copies">
-              <a
-                className="flex items-center gap-2 !text-black hover:opacity-80 dark:!text-gray-200"
-                href="https://databasus.com/cloud"
-                target="_blank"
-                rel="noreferrer"
-              >
-                Cloud
-                <span className="relative flex h-2 w-2" aria-label="99.9% uptime, 2 backup copies">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-500 opacity-75" />
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
-                </span>
-              </a>
-            </Tooltip>
-          )}
 
           {isUsedMoreThan85Percent && (
             <Tooltip title="To make backups locally and restore them, you need to have enough space on your disk. For restore, you need to have same amount of space that the backup size.">

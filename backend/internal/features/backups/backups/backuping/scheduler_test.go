@@ -102,8 +102,8 @@ func Test_RunPendingBackups_ByDatabaseType_OnlySchedulesNonAgentManagedBackups(t
 			assert.NoError(t, err)
 
 			timeOfDay := "04:00"
-			backupConfig.BackupInterval = &intervals.Interval{
-				Interval:  intervals.IntervalDaily,
+			backupConfig.BackupInterval = intervals.Interval{
+				Type:      intervals.IntervalDaily,
 				TimeOfDay: &timeOfDay,
 			}
 			backupConfig.IsBackupsEnabled = true
@@ -177,8 +177,8 @@ func Test_RunPendingBackups_WhenLastBackupWasYesterday_CreatesNewBackup(t *testi
 	assert.NoError(t, err)
 
 	timeOfDay := "04:00"
-	backupConfig.BackupInterval = &intervals.Interval{
-		Interval:  intervals.IntervalDaily,
+	backupConfig.BackupInterval = intervals.Interval{
+		Type:      intervals.IntervalDaily,
 		TimeOfDay: &timeOfDay,
 	}
 	backupConfig.IsBackupsEnabled = true
@@ -247,8 +247,8 @@ func Test_RunPendingBackups_WhenLastBackupWasRecentlyCompleted_SkipsBackup(t *te
 	assert.NoError(t, err)
 
 	timeOfDay := "04:00"
-	backupConfig.BackupInterval = &intervals.Interval{
-		Interval:  intervals.IntervalDaily,
+	backupConfig.BackupInterval = intervals.Interval{
+		Type:      intervals.IntervalDaily,
 		TimeOfDay: &timeOfDay,
 	}
 	backupConfig.IsBackupsEnabled = true
@@ -316,8 +316,8 @@ func Test_RunPendingBackups_WhenLastBackupFailedAndRetriesDisabled_SkipsBackup(t
 	assert.NoError(t, err)
 
 	timeOfDay := "04:00"
-	backupConfig.BackupInterval = &intervals.Interval{
-		Interval:  intervals.IntervalDaily,
+	backupConfig.BackupInterval = intervals.Interval{
+		Type:      intervals.IntervalDaily,
 		TimeOfDay: &timeOfDay,
 	}
 	backupConfig.IsBackupsEnabled = true
@@ -389,8 +389,8 @@ func Test_RunPendingBackups_WhenLastBackupFailedAndRetriesEnabled_CreatesNewBack
 	assert.NoError(t, err)
 
 	timeOfDay := "04:00"
-	backupConfig.BackupInterval = &intervals.Interval{
-		Interval:  intervals.IntervalDaily,
+	backupConfig.BackupInterval = intervals.Interval{
+		Type:      intervals.IntervalDaily,
 		TimeOfDay: &timeOfDay,
 	}
 	backupConfig.IsBackupsEnabled = true
@@ -463,8 +463,8 @@ func Test_RunPendingBackups_WhenFailedBackupsExceedMaxRetries_SkipsBackup(t *tes
 	assert.NoError(t, err)
 
 	timeOfDay := "04:00"
-	backupConfig.BackupInterval = &intervals.Interval{
-		Interval:  intervals.IntervalDaily,
+	backupConfig.BackupInterval = intervals.Interval{
+		Type:      intervals.IntervalDaily,
 		TimeOfDay: &timeOfDay,
 	}
 	backupConfig.IsBackupsEnabled = true
@@ -535,8 +535,8 @@ func Test_RunPendingBackups_WhenBackupsDisabled_SkipsBackup(t *testing.T) {
 	assert.NoError(t, err)
 
 	timeOfDay := "04:00"
-	backupConfig.BackupInterval = &intervals.Interval{
-		Interval:  intervals.IntervalDaily,
+	backupConfig.BackupInterval = intervals.Interval{
+		Type:      intervals.IntervalDaily,
 		TimeOfDay: &timeOfDay,
 	}
 	backupConfig.IsBackupsEnabled = false
@@ -605,8 +605,8 @@ func Test_CheckDeadNodesAndFailBackups_WhenNodeDies_FailsBackupAndCleansUpRegist
 	assert.NoError(t, err)
 
 	timeOfDay := "04:00"
-	backupConfig.BackupInterval = &intervals.Interval{
-		Interval:  intervals.IntervalDaily,
+	backupConfig.BackupInterval = intervals.Interval{
+		Type:      intervals.IntervalDaily,
 		TimeOfDay: &timeOfDay,
 	}
 	backupConfig.IsBackupsEnabled = true
@@ -709,8 +709,8 @@ func Test_OnBackupCompleted_WhenTaskIsNotBackup_SkipsProcessing(t *testing.T) {
 	assert.NoError(t, err)
 
 	timeOfDay := "04:00"
-	backupConfig.BackupInterval = &intervals.Interval{
-		Interval:  intervals.IntervalDaily,
+	backupConfig.BackupInterval = intervals.Interval{
+		Type:      intervals.IntervalDaily,
 		TimeOfDay: &timeOfDay,
 	}
 	backupConfig.IsBackupsEnabled = true
@@ -887,8 +887,8 @@ func Test_FailBackupsInProgress_WhenSchedulerStarts_CancelsBackupsAndUpdatesStat
 	assert.NoError(t, err)
 
 	timeOfDay := "04:00"
-	backupConfig.BackupInterval = &intervals.Interval{
-		Interval:  intervals.IntervalDaily,
+	backupConfig.BackupInterval = intervals.Interval{
+		Type:      intervals.IntervalDaily,
 		TimeOfDay: &timeOfDay,
 	}
 	backupConfig.IsBackupsEnabled = true
@@ -1001,8 +1001,8 @@ func Test_StartBackup_WhenBackupCompletes_DecrementsActiveTaskCount(t *testing.T
 	assert.NoError(t, err)
 
 	timeOfDay := "04:00"
-	backupConfig.BackupInterval = &intervals.Interval{
-		Interval:  intervals.IntervalDaily,
+	backupConfig.BackupInterval = intervals.Interval{
+		Type:      intervals.IntervalDaily,
 		TimeOfDay: &timeOfDay,
 	}
 	backupConfig.IsBackupsEnabled = true
@@ -1105,8 +1105,8 @@ func Test_StartBackup_WhenBackupFails_DecrementsActiveTaskCount(t *testing.T) {
 	assert.NoError(t, err)
 
 	timeOfDay := "04:00"
-	backupConfig.BackupInterval = &intervals.Interval{
-		Interval:  intervals.IntervalDaily,
+	backupConfig.BackupInterval = intervals.Interval{
+		Type:      intervals.IntervalDaily,
 		TimeOfDay: &timeOfDay,
 	}
 	backupConfig.IsBackupsEnabled = true
@@ -1200,8 +1200,8 @@ func Test_StartBackup_WhenBackupAlreadyInProgress_SkipsNewBackup(t *testing.T) {
 	assert.NoError(t, err)
 
 	timeOfDay := "04:00"
-	backupConfig.BackupInterval = &intervals.Interval{
-		Interval:  intervals.IntervalDaily,
+	backupConfig.BackupInterval = intervals.Interval{
+		Type:      intervals.IntervalDaily,
 		TimeOfDay: &timeOfDay,
 	}
 	backupConfig.IsBackupsEnabled = true
@@ -1272,8 +1272,8 @@ func Test_RunPendingBackups_WhenLastBackupFailedWithIsSkipRetry_SkipsBackupEvenW
 	assert.NoError(t, err)
 
 	timeOfDay := "04:00"
-	backupConfig.BackupInterval = &intervals.Interval{
-		Interval:  intervals.IntervalDaily,
+	backupConfig.BackupInterval = intervals.Interval{
+		Type:      intervals.IntervalDaily,
 		TimeOfDay: &timeOfDay,
 	}
 	backupConfig.IsBackupsEnabled = true
@@ -1375,8 +1375,8 @@ func Test_StartBackup_When2BackupsStartedForDifferentDatabases_BothUseCasesAreCa
 	assert.NoError(t, err)
 
 	timeOfDay := "04:00"
-	backupConfig1.BackupInterval = &intervals.Interval{
-		Interval:  intervals.IntervalDaily,
+	backupConfig1.BackupInterval = intervals.Interval{
+		Type:      intervals.IntervalDaily,
 		TimeOfDay: &timeOfDay,
 	}
 	backupConfig1.IsBackupsEnabled = true
@@ -1393,8 +1393,8 @@ func Test_StartBackup_When2BackupsStartedForDifferentDatabases_BothUseCasesAreCa
 		GetBackupConfigByDbId(database2.ID)
 	assert.NoError(t, err)
 
-	backupConfig2.BackupInterval = &intervals.Interval{
-		Interval:  intervals.IntervalDaily,
+	backupConfig2.BackupInterval = intervals.Interval{
+		Type:      intervals.IntervalDaily,
 		TimeOfDay: &timeOfDay,
 	}
 	backupConfig2.IsBackupsEnabled = true
@@ -1612,8 +1612,8 @@ func Test_RunPendingBackups_WhenCloudAndSubscriptionExpired_SilentlySkips(t *tes
 	assert.NoError(t, err)
 
 	timeOfDay := "04:00"
-	backupConfig.BackupInterval = &intervals.Interval{
-		Interval:  intervals.IntervalDaily,
+	backupConfig.BackupInterval = intervals.Interval{
+		Type:      intervals.IntervalDaily,
 		TimeOfDay: &timeOfDay,
 	}
 	backupConfig.IsBackupsEnabled = true
@@ -1739,8 +1739,8 @@ func Test_RunPendingBackups_WhenNotCloudAndSubscriptionExpired_ProceedsNormally(
 	assert.NoError(t, err)
 
 	timeOfDay := "04:00"
-	backupConfig.BackupInterval = &intervals.Interval{
-		Interval:  intervals.IntervalDaily,
+	backupConfig.BackupInterval = intervals.Interval{
+		Type:      intervals.IntervalDaily,
 		TimeOfDay: &timeOfDay,
 	}
 	backupConfig.IsBackupsEnabled = true

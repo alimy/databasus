@@ -10,6 +10,7 @@ For project-wide engineering philosophy, naming, and lint/format commands, see t
 
 - [Spacing between logical statements](#spacing-between-logical-statements)
 - [Comments](#comments)
+- [File organization](#file-organization)
 - [Background services](#background-services)
 - [Testing](#testing)
 - [Time handling](#time-handling)
@@ -78,6 +79,27 @@ runPgDump(request)
 // CreateValidLogItems creates valid log items for testing
 func CreateValidLogItems(count int, uniqueID string) []LogItemRequestDTO {
 ```
+
+---
+
+## File organization
+
+One responsibility per file. Don't dump a whole package into one file — split
+by role so a reader can find a type by its filename. Conventional names within
+a feature package:
+
+- `doc.go` — package doc comment, once the package spans more than one file
+- `<feature>.go` — the core type and its methods (the orchestrator/executor)
+- `dto.go` — request/response and cross-package data + interface seams
+- `errors.go` — sentinel errors (`var Err... = errors.New(...)`)
+- `enums.go` — typed-constant groups (`type Status string` + its values)
+- `constants.go` — package-level constants that aren't an enum
+- background loops, reapers, and pools get their own file (`reaper.go`, `pool.go`)
+
+Only create a file when there is real content for it — an empty `enums.go` or
+`constants.go` is noise, not structure. Test files mirror the source split:
+`restorer.go` → `restorer_test.go`, `diskexhaustion.go` →
+`diskexhaustion_test.go`.
 
 ---
 

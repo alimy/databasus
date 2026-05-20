@@ -157,7 +157,47 @@ func Test_RunRestore_WhenTargetTimeProvided_RecoveryTargetTimeWrittenToConfig(t 
 	autoConfContent, err := os.ReadFile(filepath.Join(targetDir, "postgresql.auto.conf"))
 	require.NoError(t, err)
 
-	assert.Contains(t, string(autoConfContent), "recovery_target_time = '2026-02-28T14:30:00Z'")
+	assert.Contains(t, string(autoConfContent), "recovery_target_time = '2026-02-28 14:30:00+00:00'")
+}
+
+func Test_RunRestore_WhenTargetTimeHasNonUtcOffset_NormalizedToUtcInConfig(t *testing.T) {
+	tarFiles := map[string][]byte{"PG_VERSION": []byte("16")}
+	zstdTarData := createZstdTar(t, tarFiles)
+
+	server := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case testRestorePlanPath:
+			writeJSON(w, api.GetRestorePlanResponse{
+				FullBackup: api.RestorePlanFullBackup{
+					BackupID:  testFullBackupID,
+					PgVersion: "16",
+					CreatedAt: time.Now().UTC(),
+					SizeBytes: 1024,
+				},
+				WalSegments:            []api.RestorePlanWalSegment{},
+				TotalSizeBytes:         1024,
+				LatestAvailableSegment: "",
+			})
+
+		case testRestoreDownloadPath:
+			w.Header().Set("Content-Type", "application/octet-stream")
+			_, _ = w.Write(zstdTarData)
+
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	})
+
+	targetDir := createTestTargetDir(t)
+	restorer := newTestRestorer(server.URL, targetDir, "", "2026-02-28T14:30:00+05:00", "")
+
+	err := restorer.Run(t.Context())
+	require.NoError(t, err)
+
+	autoConfContent, err := os.ReadFile(filepath.Join(targetDir, "postgresql.auto.conf"))
+	require.NoError(t, err)
+
+	assert.Contains(t, string(autoConfContent), "recovery_target_time = '2026-02-28 09:30:00+00:00'")
 }
 
 func Test_RunRestore_WhenPgDataDirNotEmpty_ReturnsError(t *testing.T) {
@@ -591,6 +631,74 @@ func Test_ConfigurePostgresRecovery_WhenPgTypeDocker_UsesContainerPath(t *testin
 	absTargetDir, _ := filepath.Abs(targetDir)
 	absTargetDir = filepath.ToSlash(absTargetDir)
 	assert.NotContains(t, autoConfStr, absTargetDir)
+}
+
+func Test_ConfigurePostgresRecovery_WhenPgTypeDockerAndPg18_UsesVersionedContainerPath(t *testing.T) {
+	tarFiles := map[string][]byte{"PG_VERSION": []byte("18")}
+	zstdTarData := createZstdTar(t, tarFiles)
+
+	server := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case testRestorePlanPath:
+			writeJSON(w, api.GetRestorePlanResponse{
+				FullBackup: api.RestorePlanFullBackup{
+					BackupID:  testFullBackupID,
+					PgVersion: "18",
+					CreatedAt: time.Now().UTC(),
+					SizeBytes: 1024,
+				},
+				WalSegments:            []api.RestorePlanWalSegment{},
+				TotalSizeBytes:         1024,
+				LatestAvailableSegment: "",
+			})
+
+		case testRestoreDownloadPath:
+			w.Header().Set("Content-Type", "application/octet-stream")
+			_, _ = w.Write(zstdTarData)
+
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	})
+
+	targetDir := createTestTargetDir(t)
+	restorer := newTestRestorer(server.URL, targetDir, "", "", "docker")
+
+	err := restorer.Run(t.Context())
+	require.NoError(t, err)
+
+	autoConfContent, err := os.ReadFile(filepath.Join(targetDir, "postgresql.auto.conf"))
+	require.NoError(t, err)
+	autoConfStr := string(autoConfContent)
+
+	expectedWalPath := "/var/lib/postgresql/18/docker/" + walRestoreDir
+
+	assert.Contains(t, autoConfStr, fmt.Sprintf("restore_command = 'cp %s/%%f %%p'", expectedWalPath))
+	assert.Contains(t, autoConfStr, fmt.Sprintf("recovery_end_command = 'rm -rf %s'", expectedWalPath))
+	assert.NotContains(t, autoConfStr, "/var/lib/postgresql/data/")
+}
+
+func Test_ParsePgMajorVersion_VariousInputs(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected int
+	}{
+		{"18", 18},
+		{"18.3", 18},
+		{"17.4", 17},
+		{"18beta1", 18},
+		{"15", 15},
+		{"", 0},
+		{"garbage", 0},
+		{"  16  ", 16},
+		{"v18", 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			assert.Equal(t, tt.expected, parsePgMajorVersion(tt.input))
+		})
+	}
 }
 
 func newTestServer(t *testing.T, handler http.HandlerFunc) *httptest.Server {

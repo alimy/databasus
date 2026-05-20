@@ -15,3 +15,11 @@ const (
 	PgWalUploadTypeBasebackup PgWalUploadType = "basebackup"
 	PgWalUploadTypeWal        PgWalUploadType = "wal"
 )
+
+type RestoreVerificationStatus string
+
+const (
+	RestoreVerificationStatusNotVerified        RestoreVerificationStatus = "NOT_VERIFIED"
+	RestoreVerificationStatusVerifiedSuccessful RestoreVerificationStatus = "VERIFIED_SUCCESSFUL"
+	RestoreVerificationStatusVerificationFailed RestoreVerificationStatus = "VERIFICATION_FAILED"
+)

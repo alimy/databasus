@@ -120,8 +120,8 @@ func Test_SaveBackupConfig_PermissionsEnforced(t *testing.T) {
 				IsBackupsEnabled:    true,
 				RetentionPolicyType: RetentionPolicyTypeTimePeriod,
 				RetentionTimePeriod: period.PeriodWeek,
-				BackupInterval: &intervals.Interval{
-					Interval:  intervals.IntervalDaily,
+				BackupInterval: intervals.Interval{
+					Type:      intervals.IntervalDaily,
 					TimeOfDay: &timeOfDay,
 				},
 				SendNotificationsOn: []BackupNotificationType{
@@ -173,8 +173,8 @@ func Test_SaveBackupConfig_WhenUserIsNotWorkspaceMember_ReturnsForbidden(t *test
 		IsBackupsEnabled:    true,
 		RetentionPolicyType: RetentionPolicyTypeTimePeriod,
 		RetentionTimePeriod: period.PeriodWeek,
-		BackupInterval: &intervals.Interval{
-			Interval:  intervals.IntervalDaily,
+		BackupInterval: intervals.Interval{
+			Type:      intervals.IntervalDaily,
 			TimeOfDay: &timeOfDay,
 		},
 		SendNotificationsOn: []BackupNotificationType{
@@ -421,8 +421,8 @@ func Test_SaveBackupConfig_WithEncryptionNone_ConfigSaved(t *testing.T) {
 		IsBackupsEnabled:    true,
 		RetentionPolicyType: RetentionPolicyTypeTimePeriod,
 		RetentionTimePeriod: period.PeriodWeek,
-		BackupInterval: &intervals.Interval{
-			Interval:  intervals.IntervalDaily,
+		BackupInterval: intervals.Interval{
+			Type:      intervals.IntervalDaily,
 			TimeOfDay: &timeOfDay,
 		},
 		SendNotificationsOn: []BackupNotificationType{
@@ -466,8 +466,8 @@ func Test_SaveBackupConfig_WithEncryptionEncrypted_ConfigSaved(t *testing.T) {
 		IsBackupsEnabled:    true,
 		RetentionPolicyType: RetentionPolicyTypeTimePeriod,
 		RetentionTimePeriod: period.PeriodWeek,
-		BackupInterval: &intervals.Interval{
-			Interval:  intervals.IntervalDaily,
+		BackupInterval: intervals.Interval{
+			Type:      intervals.IntervalDaily,
 			TimeOfDay: &timeOfDay,
 		},
 		SendNotificationsOn: []BackupNotificationType{
@@ -764,8 +764,8 @@ func Test_TransferDatabase_ToNewStorage_DatabaseTransferd(t *testing.T) {
 		IsBackupsEnabled:    true,
 		RetentionPolicyType: RetentionPolicyTypeTimePeriod,
 		RetentionTimePeriod: period.PeriodWeek,
-		BackupInterval: &intervals.Interval{
-			Interval:  intervals.IntervalDaily,
+		BackupInterval: intervals.Interval{
+			Type:      intervals.IntervalDaily,
 			TimeOfDay: &timeOfDay,
 		},
 		Storage: sourceStorage,
@@ -851,8 +851,8 @@ func Test_TransferDatabase_WithExistingStorage_DatabaseAndStorageTransferd(t *te
 		IsBackupsEnabled:    true,
 		RetentionPolicyType: RetentionPolicyTypeTimePeriod,
 		RetentionTimePeriod: period.PeriodWeek,
-		BackupInterval: &intervals.Interval{
-			Interval:  intervals.IntervalDaily,
+		BackupInterval: intervals.Interval{
+			Type:      intervals.IntervalDaily,
 			TimeOfDay: &timeOfDay,
 		},
 		Storage: storage,
@@ -949,8 +949,8 @@ func Test_TransferDatabase_StorageHasOtherDBs_CannotTransfer(t *testing.T) {
 		IsBackupsEnabled:    true,
 		RetentionPolicyType: RetentionPolicyTypeTimePeriod,
 		RetentionTimePeriod: period.PeriodWeek,
-		BackupInterval: &intervals.Interval{
-			Interval:  intervals.IntervalDaily,
+		BackupInterval: intervals.Interval{
+			Type:      intervals.IntervalDaily,
 			TimeOfDay: &timeOfDay,
 		},
 		Storage: storage,
@@ -976,8 +976,8 @@ func Test_TransferDatabase_StorageHasOtherDBs_CannotTransfer(t *testing.T) {
 		IsBackupsEnabled:    true,
 		RetentionPolicyType: RetentionPolicyTypeTimePeriod,
 		RetentionTimePeriod: period.PeriodWeek,
-		BackupInterval: &intervals.Interval{
-			Interval:  intervals.IntervalDaily,
+		BackupInterval: intervals.Interval{
+			Type:      intervals.IntervalDaily,
 			TimeOfDay: &timeOfDay,
 		},
 		Storage: storage,
@@ -1053,8 +1053,8 @@ func Test_TransferDatabase_WithNotifiers_NotifiersTransferred(t *testing.T) {
 		IsBackupsEnabled:    true,
 		RetentionPolicyType: RetentionPolicyTypeTimePeriod,
 		RetentionTimePeriod: period.PeriodWeek,
-		BackupInterval: &intervals.Interval{
-			Interval:  intervals.IntervalDaily,
+		BackupInterval: intervals.Interval{
+			Type:      intervals.IntervalDaily,
 			TimeOfDay: &timeOfDay,
 		},
 		Storage: sourceStorage,
@@ -1174,8 +1174,8 @@ func Test_TransferDatabase_NotifierHasOtherDBs_NotifierSkipped(t *testing.T) {
 		IsBackupsEnabled:    true,
 		RetentionPolicyType: RetentionPolicyTypeTimePeriod,
 		RetentionTimePeriod: period.PeriodWeek,
-		BackupInterval: &intervals.Interval{
-			Interval:  intervals.IntervalDaily,
+		BackupInterval: intervals.Interval{
+			Type:      intervals.IntervalDaily,
 			TimeOfDay: &timeOfDay,
 		},
 		Storage: sourceStorage,
@@ -1297,8 +1297,8 @@ func Test_TransferDatabase_WithMultipleNotifiers_OnlyExclusiveOnesTransferred(t 
 		IsBackupsEnabled:    true,
 		RetentionPolicyType: RetentionPolicyTypeTimePeriod,
 		RetentionTimePeriod: period.PeriodWeek,
-		BackupInterval: &intervals.Interval{
-			Interval:  intervals.IntervalDaily,
+		BackupInterval: intervals.Interval{
+			Type:      intervals.IntervalDaily,
 			TimeOfDay: &timeOfDay,
 		},
 		Storage: sourceStorage,
@@ -1397,8 +1397,8 @@ func Test_TransferDatabase_WithTargetNotifiers_NotifiersAssigned(t *testing.T) {
 		IsBackupsEnabled:    true,
 		RetentionPolicyType: RetentionPolicyTypeTimePeriod,
 		RetentionTimePeriod: period.PeriodWeek,
-		BackupInterval: &intervals.Interval{
-			Interval:  intervals.IntervalDaily,
+		BackupInterval: intervals.Interval{
+			Type:      intervals.IntervalDaily,
 			TimeOfDay: &timeOfDay,
 		},
 		Storage: sourceStorage,
@@ -1478,8 +1478,8 @@ func Test_TransferDatabase_TargetNotifierFromDifferentWorkspace_ReturnsBadReques
 		IsBackupsEnabled:    true,
 		RetentionPolicyType: RetentionPolicyTypeTimePeriod,
 		RetentionTimePeriod: period.PeriodWeek,
-		BackupInterval: &intervals.Interval{
-			Interval:  intervals.IntervalDaily,
+		BackupInterval: intervals.Interval{
+			Type:      intervals.IntervalDaily,
 			TimeOfDay: &timeOfDay,
 		},
 		Storage: sourceStorage,
@@ -1544,8 +1544,8 @@ func Test_TransferDatabase_TargetStorageFromDifferentWorkspace_ReturnsBadRequest
 		IsBackupsEnabled:    true,
 		RetentionPolicyType: RetentionPolicyTypeTimePeriod,
 		RetentionTimePeriod: period.PeriodWeek,
-		BackupInterval: &intervals.Interval{
-			Interval:  intervals.IntervalDaily,
+		BackupInterval: intervals.Interval{
+			Type:      intervals.IntervalDaily,
 			TimeOfDay: &timeOfDay,
 		},
 		Storage: sourceStorage,
@@ -1604,8 +1604,8 @@ func Test_SaveBackupConfig_WithSystemStorage_CanBeUsedByAnyDatabase(t *testing.T
 		IsBackupsEnabled:    true,
 		RetentionPolicyType: RetentionPolicyTypeTimePeriod,
 		RetentionTimePeriod: period.PeriodWeek,
-		BackupInterval: &intervals.Interval{
-			Interval:  intervals.IntervalDaily,
+		BackupInterval: intervals.Interval{
+			Type:      intervals.IntervalDaily,
 			TimeOfDay: &timeOfDay,
 		},
 		StorageID: &regularStorageB.ID,
@@ -1656,8 +1656,8 @@ func Test_SaveBackupConfig_WithSystemStorage_CanBeUsedByAnyDatabase(t *testing.T
 		IsBackupsEnabled:    true,
 		RetentionPolicyType: RetentionPolicyTypeTimePeriod,
 		RetentionTimePeriod: period.PeriodWeek,
-		BackupInterval: &intervals.Interval{
-			Interval:  intervals.IntervalDaily,
+		BackupInterval: intervals.Interval{
+			Type:      intervals.IntervalDaily,
 			TimeOfDay: &timeOfDay,
 		},
 		StorageID: &savedSystemStorage.ID,

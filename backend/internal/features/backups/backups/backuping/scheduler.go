@@ -39,7 +39,15 @@ type BackupsScheduler struct {
 	backupToNodeRelationsMtx sync.Mutex
 	backuperNode             *BackuperNode
 
+	backupCompletionListeners []backups_core.BackupCompletionListener
+
 	hasRun atomic.Bool
+}
+
+func (s *BackupsScheduler) AddBackupCompletionListener(
+	listener backups_core.BackupCompletionListener,
+) {
+	s.backupCompletionListeners = append(s.backupCompletionListeners, listener)
 }
 
 func (s *BackupsScheduler) Run(ctx context.Context) {
@@ -329,10 +337,6 @@ func (s *BackupsScheduler) runPendingBackups() error {
 	}
 
 	for _, backupConfig := range enabledBackupConfigs {
-		if backupConfig.BackupInterval == nil {
-			continue
-		}
-
 		lastBackup, err := s.backupRepository.FindLastByDatabaseID(backupConfig.DatabaseID)
 		if err != nil {
 			s.logger.Error(
@@ -359,7 +363,7 @@ func (s *BackupsScheduler) runPendingBackups() error {
 				"databaseId",
 				backupConfig.DatabaseID,
 				"intervalType",
-				backupConfig.BackupInterval.Interval,
+				backupConfig.BackupInterval.Type,
 			)
 
 			database, err := s.databaseService.GetDatabaseByID(backupConfig.DatabaseID)
@@ -498,6 +502,10 @@ func (s *BackupsScheduler) onBackupCompleted(nodeID, backupID uuid.UUID) {
 	if err != nil {
 		// Not a backup task, ignore it
 		return
+	}
+
+	for _, listener := range s.backupCompletionListeners {
+		go listener.OnBackupCompleted(backupID)
 	}
 
 	s.backupToNodeRelationsMtx.Lock()

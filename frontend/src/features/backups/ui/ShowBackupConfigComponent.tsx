@@ -1,4 +1,4 @@
-import { InfoCircleOutlined } from '@ant-design/icons';
+﻿import { InfoCircleOutlined } from '@ant-design/icons';
 import { Tooltip } from 'antd';
 import { CronExpressionParser } from 'cron-parser';
 import dayjs from 'dayjs';
@@ -109,14 +109,14 @@ export const ShowBackupConfigComponent = ({ database }: Props) => {
   const formattedTime = localTime ? localTime.format(timeFormat.format) : '';
 
   const displayedWeekday: number | undefined =
-    backupInterval?.interval === IntervalType.WEEKLY &&
+    backupInterval?.type === IntervalType.WEEKLY &&
     backupInterval.weekday &&
     backupInterval.timeOfDay
       ? getLocalWeekday(backupInterval.weekday, backupInterval.timeOfDay)
       : backupInterval?.weekday;
 
   const displayedDayOfMonth: number | undefined =
-    backupInterval?.interval === IntervalType.MONTHLY &&
+    backupInterval?.type === IntervalType.MONTHLY &&
     backupInterval.dayOfMonth &&
     backupInterval.timeOfDay
       ? getLocalDayOfMonth(backupInterval.dayOfMonth, backupInterval.timeOfDay)
@@ -137,10 +137,10 @@ export const ShowBackupConfigComponent = ({ database }: Props) => {
         <>
           <div className="mt-4 mb-1 flex w-full items-center">
             <div className="min-w-[150px]">Backup interval</div>
-            <div>{backupInterval?.interval ? intervalLabels[backupInterval.interval] : ''}</div>
+            <div>{backupInterval?.type ? intervalLabels[backupInterval.type] : ''}</div>
           </div>
 
-          {backupInterval?.interval === IntervalType.WEEKLY && (
+          {backupInterval?.type === IntervalType.WEEKLY && (
             <div className="mb-1 flex w-full items-center">
               <div className="min-w-[150px]">Backup weekday</div>
               <div>
@@ -151,14 +151,14 @@ export const ShowBackupConfigComponent = ({ database }: Props) => {
             </div>
           )}
 
-          {backupInterval?.interval === IntervalType.MONTHLY && (
+          {backupInterval?.type === IntervalType.MONTHLY && (
             <div className="mb-1 flex w-full items-center">
               <div className="min-w-[150px]">Backup day of month</div>
               <div>{displayedDayOfMonth || ''}</div>
             </div>
           )}
 
-          {backupInterval?.interval === IntervalType.CRON && (
+          {backupInterval?.type === IntervalType.CRON && (
             <>
               <div className="mb-1 flex w-full items-center">
                 <div className="min-w-[150px]">Cron expression (UTC)</div>
@@ -189,8 +189,8 @@ export const ShowBackupConfigComponent = ({ database }: Props) => {
             </>
           )}
 
-          {backupInterval?.interval !== IntervalType.HOURLY &&
-            backupInterval?.interval !== IntervalType.CRON && (
+          {backupInterval?.type !== IntervalType.HOURLY &&
+            backupInterval?.type !== IntervalType.CRON && (
               <div className="mb-1 flex w-full items-center">
                 <div className="min-w-[150px]">Backup time of day</div>
                 <div>{formattedTime}</div>

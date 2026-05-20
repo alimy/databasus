@@ -9,12 +9,13 @@ import {
   FilterOutlined,
   InfoCircleOutlined,
   LockOutlined,
+  SafetyOutlined,
   SyncOutlined,
 } from '@ant-design/icons';
-import { Button, Modal, Spin, Table, Tooltip } from 'antd';
+import { App, Button, Modal, Spin, Table, Tooltip } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
-import { useEffect, useRef, useState } from 'react';
+import { type JSX, useEffect, useRef, useState } from 'react';
 
 import { IS_CLOUD } from '../../../constants';
 import {
@@ -23,14 +24,20 @@ import {
   BackupEncryption,
   BackupStatus,
   PgWalBackupType,
+  RestoreVerificationStatus,
   backupConfigApi,
   backupsApi,
 } from '../../../entity/backups';
 import type { BackupsFilters } from '../../../entity/backups/api/backupsApi';
 import { type Database, DatabaseType, PostgresBackupType } from '../../../entity/databases';
+import { verificationRunsApi } from '../../../entity/verification/runs';
 import { getUserTimeFormat } from '../../../shared/time';
 import { ConfirmationComponent } from '../../../shared/ui';
 import { RestoresComponent } from '../../restores';
+import {
+  RESTORE_VERIFICATION_STATUS_BADGE_STYLES,
+  RESTORE_VERIFICATION_STATUS_LABELS,
+} from '../model/restoreVerificationStatus';
 import { AgentRestoreComponent } from './AgentRestoreComponent';
 import { BackupsBillingBannerComponent } from './BackupsBillingBannerComponent';
 import { BackupsFiltersPanelComponent } from './BackupsFiltersPanelComponent';
@@ -43,7 +50,31 @@ interface Props {
   isDirectlyUnderTab?: boolean;
   scrollContainerRef?: React.RefObject<HTMLDivElement | null>;
   onNavigateToBilling?: () => void;
+  onNavigateToVerifications?: () => void;
 }
+
+const renderRestoreVerificationTag = (
+  status: RestoreVerificationStatus | undefined,
+): JSX.Element | null => {
+  if (!status || status === RestoreVerificationStatus.NOT_VERIFIED) {
+    return null;
+  }
+
+  const badgeStyle = RESTORE_VERIFICATION_STATUS_BADGE_STYLES[status];
+  const label = RESTORE_VERIFICATION_STATUS_LABELS[status];
+  if (!badgeStyle || !label) {
+    return null;
+  }
+
+  return (
+    <span
+      className={`ml-3 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap ring-1 ring-inset ${badgeStyle.pillClasses}`}
+    >
+      <span className={`h-1.5 w-1.5 rounded-full ${badgeStyle.dotClasses}`} />
+      {label}
+    </span>
+  );
+};
 
 export const BackupsComponent = ({
   database,
@@ -51,7 +82,9 @@ export const BackupsComponent = ({
   isDirectlyUnderTab,
   scrollContainerRef,
   onNavigateToBilling,
+  onNavigateToVerifications,
 }: Props) => {
+  const { message, modal } = App.useApp();
   const [isBackupsLoading, setIsBackupsLoading] = useState(false);
   const [backups, setBackups] = useState<Backup[]>([]);
 
@@ -77,6 +110,7 @@ export const BackupsComponent = ({
 
   const [downloadingBackupId, setDownloadingBackupId] = useState<string | undefined>();
   const [cancellingBackupId, setCancellingBackupId] = useState<string | undefined>();
+  const [verifyingBackupId, setVerifyingBackupId] = useState<string | undefined>();
 
   const [isFilterPanelVisible, setIsFilterPanelVisible] = useState(false);
   const [filters, setFilters] = useState<BackupsFilters>({});
@@ -198,6 +232,45 @@ export const BackupsComponent = ({
     setCancellingBackupId(undefined);
   };
 
+  const enqueueVerifyRestore = async (backupId: string) => {
+    setVerifyingBackupId(backupId);
+
+    try {
+      await verificationRunsApi.enqueue(backupId);
+      message.success('Restore check queued');
+      onNavigateToVerifications?.();
+    } catch (e) {
+      message.error((e as Error).message);
+    } finally {
+      setVerifyingBackupId(undefined);
+    }
+  };
+
+  const confirmVerifyRestore = (backupId: string) => {
+    modal.confirm({
+      title: 'Verify restore?',
+      icon: <InfoCircleOutlined className="!text-blue-600" />,
+      content: (
+        <span>
+          An agent will restore this backup to a temporary database and report row counts. This may
+          take a while depending on backup size.{' '}
+          <a
+            href="https://databasus.com/restore-verification"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            How it works?
+          </a>
+        </span>
+      ),
+      okText: 'Queue check',
+      okType: 'primary',
+      okButtonProps: { type: 'primary', danger: false },
+      cancelText: 'Cancel',
+      onOk: () => enqueueVerifyRestore(backupId),
+    });
+  };
+
   useEffect(() => {
     setIsBackupConfigLoading(true);
     setCurrentLimit(BACKUPS_PAGE_SIZE);
@@ -255,7 +328,7 @@ export const BackupsComponent = ({
     return () => container.removeEventListener('scroll', handleScroll);
   }, [hasMore, isLoadingMore, currentLimit, scrollContainerRef]);
 
-  const renderStatus = (status: BackupStatus, record: Backup) => {
+  const renderBackupStatusLabel = (status: BackupStatus, record: Backup) => {
     if (status === BackupStatus.FAILED) {
       return (
         <Tooltip title="Click to see error details">
@@ -314,6 +387,20 @@ export const BackupsComponent = ({
     return <span className="font-bold">{status}</span>;
   };
 
+  const renderStatus = (status: BackupStatus, record: Backup) => {
+    const verificationTag = renderRestoreVerificationTag(record.restoreVerificationStatus);
+    if (!verificationTag) {
+      return renderBackupStatusLabel(status, record);
+    }
+
+    return (
+      <div className="flex items-center">
+        {renderBackupStatusLabel(status, record)}
+        {verificationTag}
+      </div>
+    );
+  };
+
   const renderActions = (record: Backup) => {
     return (
       <div className="flex gap-2 text-lg">
@@ -356,6 +443,27 @@ export const BackupsComponent = ({
                     />
                   </Tooltip>
                 )}
+
+                {isCanManageDBs &&
+                  database.postgresql?.backupType !== PostgresBackupType.WAL_V1 &&
+                  database.type === DatabaseType.POSTGRES &&
+                  (verifyingBackupId === record.id ? (
+                    <SyncOutlined spin style={{ color: '#155dfc' }} />
+                  ) : (
+                    <Tooltip title="Verify restore - queue an agent to restore this backup to a temporary database and report row counts">
+                      <SafetyOutlined
+                        className="cursor-pointer"
+                        onClick={() => {
+                          if (verifyingBackupId) return;
+                          confirmVerifyRestore(record.id);
+                        }}
+                        style={{
+                          color: '#155dfc',
+                          opacity: verifyingBackupId ? 0.2 : 1,
+                        }}
+                      />
+                    </Tooltip>
+                  ))}
 
                 <Tooltip title="Restore from backup">
                   <CloudUploadOutlined

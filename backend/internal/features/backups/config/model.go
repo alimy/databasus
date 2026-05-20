@@ -2,6 +2,7 @@ package backups_config
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/google/uuid"
@@ -28,8 +29,7 @@ type BackupConfig struct {
 	RetentionGfsMonths int `json:"retentionGfsMonths" gorm:"column:retention_gfs_months;type:int;not null;default:0"`
 	RetentionGfsYears  int `json:"retentionGfsYears"  gorm:"column:retention_gfs_years;type:int;not null;default:0"`
 
-	BackupIntervalID uuid.UUID           `json:"backupIntervalId"        gorm:"column:backup_interval_id;type:uuid;not null"`
-	BackupInterval   *intervals.Interval `json:"backupInterval,omitzero" gorm:"foreignKey:BackupIntervalID"`
+	BackupInterval intervals.Interval `json:"backupInterval" gorm:"embedded"`
 
 	Storage   *storages.Storage `json:"storage"   gorm:"foreignKey:StorageID"`
 	StorageID *uuid.UUID        `json:"storageId" gorm:"column:storage_id;type:uuid;"`
@@ -81,8 +81,8 @@ func (b *BackupConfig) AfterFind(tx *gorm.DB) error {
 }
 
 func (b *BackupConfig) Validate() error {
-	if b.BackupIntervalID == uuid.Nil && b.BackupInterval == nil {
-		return errors.New("backup interval is required")
+	if err := b.BackupInterval.Validate(); err != nil {
+		return fmt.Errorf("backup interval: %w", err)
 	}
 
 	if err := b.validateRetentionPolicy(); err != nil {
@@ -119,7 +119,6 @@ func (b *BackupConfig) Copy(newDatabaseID uuid.UUID) *BackupConfig {
 		RetentionGfsWeeks:   b.RetentionGfsWeeks,
 		RetentionGfsMonths:  b.RetentionGfsMonths,
 		RetentionGfsYears:   b.RetentionGfsYears,
-		BackupIntervalID:    uuid.Nil,
 		BackupInterval:      b.BackupInterval.Copy(),
 		StorageID:           b.StorageID,
 		SendNotificationsOn: b.SendNotificationsOn,

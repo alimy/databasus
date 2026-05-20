@@ -1,5 +1,6 @@
 interface RuntimeConfig {
   IS_CLOUD?: string;
+  IS_DISABLE_CLOUD_NOTICE?: string;
   GITHUB_CLIENT_ID?: string;
   GOOGLE_CLIENT_ID?: string;
   IS_EMAIL_CONFIGURED?: string;
@@ -33,6 +34,10 @@ export const APP_VERSION = (import.meta.env.VITE_APP_VERSION as string) || 'dev'
 
 export const IS_CLOUD =
   window.__RUNTIME_CONFIG__?.IS_CLOUD === 'true' || import.meta.env.VITE_IS_CLOUD === 'true';
+
+export const IS_DISABLE_CLOUD_NOTICE =
+  window.__RUNTIME_CONFIG__?.IS_DISABLE_CLOUD_NOTICE === 'true' ||
+  import.meta.env.VITE_IS_DISABLE_CLOUD_NOTICE === 'true';
 
 export const CLOUD_PRICE_PER_GB_CENTS = Number(
   window.__RUNTIME_CONFIG__?.CLOUD_PRICE_PER_GB || import.meta.env.VITE_CLOUD_PRICE_PER_GB || '0',

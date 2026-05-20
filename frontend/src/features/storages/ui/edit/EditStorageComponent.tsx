@@ -2,7 +2,7 @@ import { ExclamationCircleOutlined, InfoCircleOutlined } from '@ant-design/icons
 import { Button, Input, Select, Switch, Tooltip } from 'antd';
 import { useEffect, useState } from 'react';
 
-import { IS_CLOUD } from '../../../../constants';
+import { IS_CLOUD, IS_DISABLE_CLOUD_NOTICE } from '../../../../constants';
 import {
   type Storage,
   StorageType,
@@ -492,7 +492,7 @@ export function EditStorageComponent({
       </div>
 
       <div>
-        {!IS_CLOUD && (
+        {!IS_CLOUD && !IS_DISABLE_CLOUD_NOTICE && (
           <div className="mb-3 rounded bg-yellow-50 p-3 shadow dark:bg-yellow-900/30">
             <div className="mb-1 flex items-center gap-1.5 text-sm font-bold text-yellow-700 dark:text-yellow-400">
               <ExclamationCircleOutlined />

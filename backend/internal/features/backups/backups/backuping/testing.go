@@ -20,9 +20,76 @@ import (
 	workspaces_controllers "databasus-backend/internal/features/workspaces/controllers"
 	workspaces_services "databasus-backend/internal/features/workspaces/services"
 	workspaces_testing "databasus-backend/internal/features/workspaces/testing"
+	"databasus-backend/internal/storage"
 	"databasus-backend/internal/util/encryption"
 	"databasus-backend/internal/util/logger"
 )
+
+func seedBackup(t *testing.T, label string, backup *backups_core.Backup) *backups_core.Backup {
+	t.Helper()
+
+	if err := storage.GetDb().Create(backup).Error; err != nil {
+		t.Fatalf("seed %s backup: %v", label, err)
+	}
+
+	return backup
+}
+
+func SeedTestBackup(
+	t *testing.T,
+	databaseID, storageID uuid.UUID,
+	sizeMb float64,
+) *backups_core.Backup {
+	t.Helper()
+
+	return seedBackup(t, "completed", &backups_core.Backup{
+		ID:                uuid.New(),
+		FileName:          "test-backup-" + uuid.New().String(),
+		DatabaseID:        databaseID,
+		StorageID:         storageID,
+		Status:            backups_core.BackupStatusCompleted,
+		BackupSizeMb:      sizeMb,
+		BackupRawDbSizeMb: sizeMb,
+		CreatedAt:         time.Now().UTC(),
+	})
+}
+
+func SeedTestWalSegmentBackup(
+	t *testing.T,
+	databaseID, storageID uuid.UUID,
+) *backups_core.Backup {
+	t.Helper()
+
+	walType := backups_core.PgWalBackupTypeWalSegment
+
+	return seedBackup(t, "wal segment", &backups_core.Backup{
+		ID:              uuid.New(),
+		FileName:        "test-wal-segment-" + uuid.New().String(),
+		DatabaseID:      databaseID,
+		StorageID:       storageID,
+		Status:          backups_core.BackupStatusCompleted,
+		PgWalBackupType: &walType,
+		CreatedAt:       time.Now().UTC(),
+	})
+}
+
+// SeedInProgressTestBackup inserts an IN_PROGRESS backup row so MakeBackup can
+// pick it up and drive it through to completion (mirrors backuper_test.go's
+// manual setup, but reusable across packages).
+func SeedInProgressTestBackup(
+	t *testing.T,
+	databaseID, storageID uuid.UUID,
+) *backups_core.Backup {
+	t.Helper()
+
+	return seedBackup(t, "in-progress", &backups_core.Backup{
+		ID:         uuid.New(),
+		DatabaseID: databaseID,
+		StorageID:  storageID,
+		Status:     backups_core.BackupStatusInProgress,
+		CreatedAt:  time.Now().UTC(),
+	})
+}
 
 func CreateTestRouter() *gin.Engine {
 	router := workspaces_testing.CreateTestRouter(
@@ -99,6 +166,7 @@ func CreateTestScheduler(billingService BillingService) *BackupsScheduler {
 		make(map[uuid.UUID]BackupToNodeRelation),
 		sync.Mutex{},
 		CreateTestBackuperNode(),
+		[]backups_core.BackupCompletionListener{},
 		atomic.Bool{},
 	}
 }

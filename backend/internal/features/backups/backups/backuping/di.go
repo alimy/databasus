@@ -78,6 +78,7 @@ var backupsScheduler = &BackupsScheduler{
 	make(map[uuid.UUID]BackupToNodeRelation),
 	sync.Mutex{},
 	backuperNode,
+	[]backups_core.BackupCompletionListener{},
 	atomic.Bool{},
 }
 

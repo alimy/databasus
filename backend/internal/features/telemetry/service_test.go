@@ -21,8 +21,11 @@ import (
 	"databasus-backend/internal/features/databases/databases/mongodb"
 	"databasus-backend/internal/features/databases/databases/mysql"
 	"databasus-backend/internal/features/databases/databases/postgresql"
+	"databasus-backend/internal/features/intervals"
 	"databasus-backend/internal/features/notifiers"
 	"databasus-backend/internal/features/storages"
+	verification_agents "databasus-backend/internal/features/verification/agents"
+	verification_config "databasus-backend/internal/features/verification/config"
 	"databasus-backend/internal/util/tools"
 )
 
@@ -91,12 +94,35 @@ func (f *fakeBackupChecker) GetLatestCompletedBackup(
 	return f.latestBackups[databaseID], nil
 }
 
+type fakeVerificationAgentLister struct {
+	agents []*verification_agents.Agent
+	err    error
+}
+
+func (f *fakeVerificationAgentLister) ListAgents() ([]*verification_agents.Agent, error) {
+	return f.agents, f.err
+}
+
+type fakeVerificationConfigLister struct {
+	enabled []*verification_config.BackupVerificationConfig
+	err     error
+}
+
+func (f *fakeVerificationConfigLister) ListEnabled() (
+	[]*verification_config.BackupVerificationConfig,
+	error,
+) {
+	return f.enabled, f.err
+}
+
 func newServiceUnderTest(
 	t *testing.T,
 	databaseLister databaseLister,
 	storageLister storageLister,
 	notifierLister notifierLister,
 	backupChecker backupChecker,
+	verificationAgentLister verificationAgentLister,
+	verificationConfigLister verificationConfigLister,
 	sender TelemetrySender,
 ) *TelemetryService {
 	t.Helper()
@@ -112,6 +138,8 @@ func newServiceUnderTest(
 		storageLister,
 		notifierLister,
 		backupChecker,
+		verificationAgentLister,
+		verificationConfigLister,
 		"9.9.9",
 		slog.New(slog.DiscardHandler),
 	)
@@ -176,6 +204,8 @@ func Test_BuildAndSend_ProducesExpectedRequest(t *testing.T) {
 			{NotifierType: notifiers.NotifierTypeTelegram},
 		}},
 		&fakeBackupChecker{},
+		&fakeVerificationAgentLister{},
+		&fakeVerificationConfigLister{},
 		sender,
 	)
 
@@ -221,6 +251,8 @@ func Test_BuildAndSend_PreservesStorageAndNotifierDuplicates(t *testing.T) {
 			{NotifierType: notifiers.NotifierTypeTelegram},
 		}},
 		&fakeBackupChecker{},
+		&fakeVerificationAgentLister{},
+		&fakeVerificationConfigLister{},
 		sender,
 	)
 
@@ -250,6 +282,8 @@ func Test_BuildAndSend_WhenInstanceFileFails_DoesNotCallSender(t *testing.T) {
 		&fakeStorageLister{},
 		&fakeNotifierLister{},
 		&fakeBackupChecker{},
+		&fakeVerificationAgentLister{},
+		&fakeVerificationConfigLister{},
 		"9.9.9",
 		slog.New(slog.DiscardHandler),
 	)
@@ -268,6 +302,8 @@ func Test_BuildAndSend_WhenSenderFails_PropagatesError(t *testing.T) {
 		&fakeStorageLister{},
 		&fakeNotifierLister{},
 		&fakeBackupChecker{},
+		&fakeVerificationAgentLister{},
+		&fakeVerificationConfigLister{},
 		sender,
 	)
 
@@ -286,6 +322,8 @@ func Test_BuildAndSend_WhenDbHealthStatusAvailable_DbIncluded(t *testing.T) {
 		&fakeStorageLister{},
 		&fakeNotifierLister{},
 		&fakeBackupChecker{},
+		&fakeVerificationAgentLister{},
+		&fakeVerificationConfigLister{},
 		sender,
 	)
 
@@ -304,6 +342,8 @@ func Test_BuildAndSend_WhenDbHealthStatusUnavailable_DbExcluded(t *testing.T) {
 		&fakeStorageLister{},
 		&fakeNotifierLister{},
 		&fakeBackupChecker{},
+		&fakeVerificationAgentLister{},
+		&fakeVerificationConfigLister{},
 		sender,
 	)
 
@@ -322,6 +362,8 @@ func Test_BuildAndSend_WhenHealthcheckOffAndRecentBackup_DbIncluded(t *testing.T
 		&fakeStorageLister{},
 		&fakeNotifierLister{},
 		&fakeBackupChecker{hasBackupSince: map[uuid.UUID]bool{db.ID: true}},
+		&fakeVerificationAgentLister{},
+		&fakeVerificationConfigLister{},
 		sender,
 	)
 
@@ -341,6 +383,8 @@ func Test_BuildAndSend_WhenHealthcheckOffAndNoRecentBackup_DbExcluded(t *testing
 		&fakeStorageLister{},
 		&fakeNotifierLister{},
 		&fakeBackupChecker{hasBackupSince: map[uuid.UUID]bool{}},
+		&fakeVerificationAgentLister{},
+		&fakeVerificationConfigLister{},
 		sender,
 	)
 
@@ -360,6 +404,8 @@ func Test_BuildAndSend_WhenBackupCheckerFails_ReturnsError(t *testing.T) {
 		&fakeStorageLister{},
 		&fakeNotifierLister{},
 		&fakeBackupChecker{err: checkerErr},
+		&fakeVerificationAgentLister{},
+		&fakeVerificationConfigLister{},
 		sender,
 	)
 
@@ -383,6 +429,8 @@ func Test_BuildAndSend_WhenLatestBackupHasBothSizes_IncludesBoth(t *testing.T) {
 				db.ID: {BackupSizeMb: 870.4, BackupRawDbSizeMb: 4321.7},
 			},
 		},
+		&fakeVerificationAgentLister{},
+		&fakeVerificationConfigLister{},
 		sender,
 	)
 
@@ -409,6 +457,8 @@ func Test_BuildAndSend_WhenSizesAreSubMb_RoundsUpToOne(t *testing.T) {
 				db.ID: {BackupSizeMb: 0.3, BackupRawDbSizeMb: 0.1},
 			},
 		},
+		&fakeVerificationAgentLister{},
+		&fakeVerificationConfigLister{},
 		sender,
 	)
 
@@ -440,6 +490,8 @@ func Test_BuildAndSend_WhenRawSizeZero_IncludesOnlyBackupSize(t *testing.T) {
 				db.ID: {BackupSizeMb: 100, BackupRawDbSizeMb: 0},
 			},
 		},
+		&fakeVerificationAgentLister{},
+		&fakeVerificationConfigLister{},
 		sender,
 	)
 
@@ -471,6 +523,8 @@ func Test_BuildAndSend_WhenBackupSizeZero_IncludesOnlyRawSize(t *testing.T) {
 				db.ID: {BackupSizeMb: 0, BackupRawDbSizeMb: 999},
 			},
 		},
+		&fakeVerificationAgentLister{},
+		&fakeVerificationConfigLister{},
 		sender,
 	)
 
@@ -493,6 +547,8 @@ func Test_BuildAndSend_WhenNoCompletedBackup_OmitsBothSizes(t *testing.T) {
 		&fakeStorageLister{},
 		&fakeNotifierLister{},
 		&fakeBackupChecker{},
+		&fakeVerificationAgentLister{},
+		&fakeVerificationConfigLister{},
 		sender,
 	)
 
@@ -521,12 +577,220 @@ func Test_BuildAndSend_WhenLatestBackupLookupFails_ReturnsError(t *testing.T) {
 		&fakeStorageLister{},
 		&fakeNotifierLister{},
 		&fakeBackupChecker{latestErr: lookupErr},
+		&fakeVerificationAgentLister{},
+		&fakeVerificationConfigLister{},
 		sender,
 	)
 
 	err := service.BuildAndSend(context.Background())
 	require.Error(t, err)
 	assert.ErrorIs(t, err, lookupErr)
+	assert.Empty(t, sender.calls)
+}
+
+func Test_BuildAndSend_WhenAgentsRegistered_IncludesCapacityRows(t *testing.T) {
+	registeredAgents := []*verification_agents.Agent{
+		{
+			ID:                uuid.New(),
+			Name:              "agent-1",
+			MaxCPU:            4,
+			MaxRAMGb:          16,
+			MaxDiskGb:         100,
+			MaxConcurrentJobs: 2,
+		},
+		{
+			ID:                uuid.New(),
+			Name:              "agent-2",
+			MaxCPU:            8,
+			MaxRAMGb:          32,
+			MaxDiskGb:         200,
+			MaxConcurrentJobs: 4,
+		},
+	}
+
+	sender := &fakeSender{}
+	service := newServiceUnderTest(
+		t,
+		&fakeDatabaseLister{},
+		&fakeStorageLister{},
+		&fakeNotifierLister{},
+		&fakeBackupChecker{},
+		&fakeVerificationAgentLister{agents: registeredAgents},
+		&fakeVerificationConfigLister{},
+		sender,
+	)
+
+	require.NoError(t, service.BuildAndSend(context.Background()))
+	require.Len(t, sender.calls, 1)
+
+	assert.Equal(t, []VerificationAgentEntry{
+		{MaxCPU: 4, MaxRAMGb: 16, MaxDiskGb: 100, MaxConcurrentJobs: 2},
+		{MaxCPU: 8, MaxRAMGb: 32, MaxDiskGb: 200, MaxConcurrentJobs: 4},
+	}, sender.calls[0].VerificationAgents)
+}
+
+func Test_BuildAndSend_WhenNoAgents_VerificationAgentsIsEmpty(t *testing.T) {
+	sender := &fakeSender{}
+	service := newServiceUnderTest(
+		t,
+		&fakeDatabaseLister{},
+		&fakeStorageLister{},
+		&fakeNotifierLister{},
+		&fakeBackupChecker{},
+		&fakeVerificationAgentLister{},
+		&fakeVerificationConfigLister{},
+		sender,
+	)
+
+	require.NoError(t, service.BuildAndSend(context.Background()))
+	require.Len(t, sender.calls, 1)
+
+	require.NotNil(t, sender.calls[0].VerificationAgents)
+	assert.Empty(t, sender.calls[0].VerificationAgents)
+
+	encoded, err := json.Marshal(sender.calls[0])
+	require.NoError(t, err)
+	assert.Contains(t, string(encoded), `"verificationAgents":[]`)
+}
+
+func Test_BuildAndSend_WhenDbHasAfterBackupConfig_VerificationBlockOmitsIntervalType(t *testing.T) {
+	db := postgresDatabase("pg", availableStatus())
+
+	sender := &fakeSender{}
+	service := newServiceUnderTest(
+		t,
+		&fakeDatabaseLister{databases: []*databases.Database{db}},
+		&fakeStorageLister{},
+		&fakeNotifierLister{},
+		&fakeBackupChecker{},
+		&fakeVerificationAgentLister{},
+		&fakeVerificationConfigLister{enabled: []*verification_config.BackupVerificationConfig{
+			{
+				DatabaseID:                     db.ID,
+				IsScheduledVerificationEnabled: true,
+				ScheduleType:                   verification_config.VerificationScheduleAfterBackup,
+			},
+		}},
+		sender,
+	)
+
+	require.NoError(t, service.BuildAndSend(context.Background()))
+	require.Len(t, sender.calls, 1)
+	require.Len(t, sender.calls[0].Databases, 1)
+
+	entry := sender.calls[0].Databases[0]
+	require.NotNil(t, entry.Verification)
+	assert.True(t, entry.Verification.IsEnabled)
+	assert.Equal(t, "AFTER_BACKUP", entry.Verification.ScheduleType)
+	assert.Empty(t, entry.Verification.IntervalType)
+
+	encoded, err := json.Marshal(entry)
+	require.NoError(t, err)
+	assert.Contains(t, string(encoded), `"verification"`)
+	assert.NotContains(t, string(encoded), "intervalType")
+}
+
+func Test_BuildAndSend_WhenDbHasIntervalDailyConfig_IncludesIntervalType(t *testing.T) {
+	db := postgresDatabase("pg", availableStatus())
+
+	sender := &fakeSender{}
+	service := newServiceUnderTest(
+		t,
+		&fakeDatabaseLister{databases: []*databases.Database{db}},
+		&fakeStorageLister{},
+		&fakeNotifierLister{},
+		&fakeBackupChecker{},
+		&fakeVerificationAgentLister{},
+		&fakeVerificationConfigLister{enabled: []*verification_config.BackupVerificationConfig{
+			{
+				DatabaseID:                     db.ID,
+				IsScheduledVerificationEnabled: true,
+				ScheduleType:                   verification_config.VerificationScheduleInterval,
+				VerificationInterval:           intervals.Interval{Type: intervals.IntervalDaily},
+			},
+		}},
+		sender,
+	)
+
+	require.NoError(t, service.BuildAndSend(context.Background()))
+	require.Len(t, sender.calls, 1)
+	require.Len(t, sender.calls[0].Databases, 1)
+
+	entry := sender.calls[0].Databases[0]
+	require.NotNil(t, entry.Verification)
+	assert.True(t, entry.Verification.IsEnabled)
+	assert.Equal(t, "INTERVAL", entry.Verification.ScheduleType)
+	assert.Equal(t, "DAILY", entry.Verification.IntervalType)
+
+	encoded, err := json.Marshal(entry)
+	require.NoError(t, err)
+	assert.Contains(t, string(encoded), `"intervalType":"DAILY"`)
+}
+
+func Test_BuildAndSend_WhenDbHasNoEnabledConfig_VerificationBlockAbsent(t *testing.T) {
+	db := postgresDatabase("pg", availableStatus())
+
+	sender := &fakeSender{}
+	service := newServiceUnderTest(
+		t,
+		&fakeDatabaseLister{databases: []*databases.Database{db}},
+		&fakeStorageLister{},
+		&fakeNotifierLister{},
+		&fakeBackupChecker{},
+		&fakeVerificationAgentLister{},
+		&fakeVerificationConfigLister{},
+		sender,
+	)
+
+	require.NoError(t, service.BuildAndSend(context.Background()))
+	require.Len(t, sender.calls, 1)
+	require.Len(t, sender.calls[0].Databases, 1)
+
+	entry := sender.calls[0].Databases[0]
+	assert.Nil(t, entry.Verification)
+
+	encoded, err := json.Marshal(entry)
+	require.NoError(t, err)
+	assert.NotContains(t, string(encoded), "verification")
+}
+
+func Test_BuildAndSend_WhenVerificationAgentListFails_ReturnsError(t *testing.T) {
+	listErr := errors.New("agents query exploded")
+	sender := &fakeSender{}
+	service := newServiceUnderTest(
+		t,
+		&fakeDatabaseLister{},
+		&fakeStorageLister{},
+		&fakeNotifierLister{},
+		&fakeBackupChecker{},
+		&fakeVerificationAgentLister{err: listErr},
+		&fakeVerificationConfigLister{},
+		sender,
+	)
+
+	err := service.BuildAndSend(context.Background())
+	require.Error(t, err)
+	assert.ErrorIs(t, err, listErr)
+	assert.Empty(t, sender.calls)
+}
+
+func Test_BuildAndSend_WhenVerificationConfigListFails_ReturnsError(t *testing.T) {
+	listErr := errors.New("configs query exploded")
+	sender := &fakeSender{}
+	service := newServiceUnderTest(
+		t,
+		&fakeDatabaseLister{},
+		&fakeStorageLister{},
+		&fakeNotifierLister{},
+		&fakeBackupChecker{},
+		&fakeVerificationAgentLister{},
+		&fakeVerificationConfigLister{err: listErr},
+		sender,
+	)
+
+	err := service.BuildAndSend(context.Background())
+	require.Error(t, err)
+	assert.ErrorIs(t, err, listErr)
 	assert.Empty(t, sender.calls)
 }
 

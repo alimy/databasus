@@ -9,6 +9,7 @@ For project-wide engineering philosophy, see the root `CLAUDE.md`.
 
 - [UI kit and icons](#ui-kit-and-icons)
 - [React component structure](#react-component-structure)
+- [Vertical spacing](#vertical-spacing)
 - [Clipboard operations](#clipboard-operations)
 - [Forms](#forms)
 - [User-facing copy](#user-facing-copy)
@@ -64,10 +65,18 @@ export const ReactComponent = ({ someValue }: Props): JSX.Element => {
 2. **Helper functions** (outside component) — Pure utility functions
 3. **Component declaration**
    - **States** — `useState` declarations
-   - **Functions** — Event handlers and async operations
-   - **Hooks** — `useEffect`, `useMemo`, `useCallback`, etc.
-   - **Calculated values** — Derived data from props/state
+   - **Plain functions** — Event handlers, async operations, in-component formatters. Anything that does _not_ call a React hook.
+   - **Hooks** — `useRef` + ref mutation, `useCallback`, `useMemo`, `useEffect`. A function wrapped in `useCallback` is a hook — it lives here, not in the functions section.
+   - **Calculated values** — Derived data computed inline (e.g. an AntD `columns` array).
    - **Return** — JSX markup
+
+**All hooks (including every `useEffect`) come below every plain function definition.** If a `useEffect` reads a handler, the handler must be defined above it — don't reorder by putting handlers below the effects.
+
+---
+
+## Vertical spacing
+
+- Structure function bodies with vertical rhythm. Put a blank line between logically distinct steps (setup / main work / return, independent branches, before and after a guard). Do not leave blank lines at the start or end of a body, never stack two in a row. Do not insert blanks inside a tight expression, a single statement split across lines, or a short (≤ 5-line) function. If blank lines alone aren't enough to navigate a body, extract — don't add comments.
 
 ---
 
@@ -159,6 +168,15 @@ import { Button } from '@/shared/ui/Button';
    // ✅  model/user.ts, model/backup.ts, api/fetch-database.ts
    ```
 4. **No business logic in `shared/`.** Shared holds only infrastructure. Domain calculations live in `entities/` or higher.
+5. **One type per file in `model/` / DTOs.** Each `interface`, `class`, or `enum` that represents a domain entity, DTO, request body, or response shape gets its own file in `model/` (or `models/`), named after the type. Don't co-locate sibling types like `Foo` + `FooStatus` + `FooResponse` in a single `Foo.ts` — split them. Re-export each from the slice `index.ts` so consumers still import from the slice's public API.
+   ```text
+   // ❌  model/RestoreVerification.ts — enums + table-stat + main interface all in one file
+   // ✅  model/RestoreVerification.ts        — interface RestoreVerification
+   // ✅  model/RestoreVerificationTableStat.ts — interface RestoreVerificationTableStat
+   // ✅  model/VerificationStatus.ts         — enum VerificationStatus
+   // ✅  model/VerificationTrigger.ts        — enum VerificationTrigger
+   ```
+   Tiny shape-only helper types tightly coupled to a parent type (a literal-union alias, a `Pick<>`) may stay in the parent's file. Splitting applies to anything with its own identity — anything you'd reasonably import on its own elsewhere.
 
 ### Segments inside a slice
 

@@ -14,41 +14,11 @@ type BackupConfigRepository struct{}
 func (r *BackupConfigRepository) Save(
 	backupConfig *BackupConfig,
 ) (*BackupConfig, error) {
-	db := storage.GetDb()
+	if backupConfig.Storage != nil && backupConfig.Storage.ID != uuid.Nil {
+		backupConfig.StorageID = &backupConfig.Storage.ID
+	}
 
-	err := db.Transaction(func(tx *gorm.DB) error {
-		// Handle BackupInterval
-		if backupConfig.BackupInterval != nil {
-			if backupConfig.BackupInterval.ID == uuid.Nil {
-				if err := tx.Create(backupConfig.BackupInterval).Error; err != nil {
-					return err
-				}
-
-				backupConfig.BackupIntervalID = backupConfig.BackupInterval.ID
-			} else {
-				if err := tx.Save(backupConfig.BackupInterval).Error; err != nil {
-					return err
-				}
-
-				backupConfig.BackupIntervalID = backupConfig.BackupInterval.ID
-			}
-		}
-
-		// Set storage ID
-		if backupConfig.Storage != nil && backupConfig.Storage.ID != uuid.Nil {
-			backupConfig.StorageID = &backupConfig.Storage.ID
-		}
-
-		// Use Save which handles both create and update based on primary key
-		if err := tx.Save(backupConfig).
-			Omit("BackupInterval", "Storage").
-			Error; err != nil {
-			return err
-		}
-
-		return nil
-	})
-	if err != nil {
+	if err := storage.GetDb().Save(backupConfig).Omit("Storage").Error; err != nil {
 		return nil, err
 	}
 
@@ -60,7 +30,6 @@ func (r *BackupConfigRepository) FindByDatabaseID(databaseID uuid.UUID) (*Backup
 
 	if err := storage.
 		GetDb().
-		Preload("BackupInterval").
 		Preload("Storage").
 		Preload("Storage.LocalStorage").
 		Preload("Storage.S3Storage").
@@ -87,7 +56,6 @@ func (r *BackupConfigRepository) GetWithEnabledBackups() ([]*BackupConfig, error
 
 	if err := storage.
 		GetDb().
-		Preload("BackupInterval").
 		Preload("Storage").
 		Preload("Storage.LocalStorage").
 		Preload("Storage.S3Storage").

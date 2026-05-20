@@ -11,13 +11,12 @@ import (
 	"databasus-backend/internal/util/period"
 )
 
-func Test_Validate_WhenIntervalIsMissing_ValidationFails(t *testing.T) {
+func Test_Validate_WhenIntervalTypeIsMissing_ValidationFails(t *testing.T) {
 	config := createValidBackupConfig()
-	config.BackupIntervalID = uuid.Nil
-	config.BackupInterval = nil
+	config.BackupInterval = intervals.Interval{}
 
 	err := config.Validate()
-	assert.EqualError(t, err, "backup interval is required")
+	assert.ErrorContains(t, err, "backup interval")
 }
 
 func Test_Validate_WhenRetryEnabledButMaxTriesIsZero_ValidationFails(t *testing.T) {
@@ -151,15 +150,12 @@ func enableCloud(t *testing.T) {
 }
 
 func createValidBackupConfig() *BackupConfig {
-	intervalID := uuid.New()
-
 	return &BackupConfig{
 		DatabaseID:          uuid.New(),
 		IsBackupsEnabled:    true,
 		RetentionPolicyType: RetentionPolicyTypeTimePeriod,
 		RetentionTimePeriod: period.PeriodMonth,
-		BackupIntervalID:    intervalID,
-		BackupInterval:      &intervals.Interval{ID: intervalID},
+		BackupInterval:      intervals.Interval{Type: intervals.IntervalHourly},
 		SendNotificationsOn: []BackupNotificationType{},
 		IsRetryIfFailed:     false,
 		MaxFailedTriesCount: 3,

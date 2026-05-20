@@ -400,7 +400,6 @@ func Test_CleanByGFS_KeepsCorrectBackupsPerSlot(t *testing.T) {
 		RetentionGfsMonths:  0,
 		RetentionGfsYears:   0,
 		StorageID:           &storage.ID,
-		BackupIntervalID:    interval.ID,
 		BackupInterval:      interval,
 	}
 	_, err := backups_config.GetBackupConfigService().SaveBackupConfig(backupConfig)
@@ -475,7 +474,6 @@ func Test_CleanByGFS_WithWeeklyAndMonthlySlots_KeepsWiderSpread(t *testing.T) {
 		RetentionGfsMonths:  1,
 		RetentionGfsYears:   0,
 		StorageID:           &storage.ID,
-		BackupIntervalID:    interval.ID,
 		BackupInterval:      interval,
 	}
 	_, err := backups_config.GetBackupConfigService().SaveBackupConfig(backupConfig)
@@ -551,7 +549,6 @@ func Test_CleanByGFS_WithHourlySlots_KeepsCorrectBackups(t *testing.T) {
 		RetentionPolicyType: backups_config.RetentionPolicyTypeGFS,
 		RetentionGfsHours:   3,
 		StorageID:           &testStorage.ID,
-		BackupIntervalID:    interval.ID,
 		BackupInterval:      interval,
 	}
 	_, err := backups_config.GetBackupConfigService().SaveBackupConfig(backupConfig)
@@ -627,7 +624,6 @@ func Test_CleanByGFS_SkipsRecentBackup_WhenNotInKeepSet(t *testing.T) {
 		RetentionPolicyType: backups_config.RetentionPolicyTypeGFS,
 		RetentionGfsDays:    1,
 		StorageID:           &storage.ID,
-		BackupIntervalID:    interval.ID,
 		BackupInterval:      interval,
 	}
 	_, err := backups_config.GetBackupConfigService().SaveBackupConfig(backupConfig)
@@ -733,7 +729,6 @@ func Test_CleanByGFS_With20DailyBackups_KeepsOnlyExpectedCount(t *testing.T) {
 		RetentionGfsWeeks:   4,
 		RetentionGfsMonths:  1,
 		StorageID:           &testStorage.ID,
-		BackupIntervalID:    interval.ID,
 		BackupInterval:      interval,
 	}
 	_, err := backups_config.GetBackupConfigService().SaveBackupConfig(backupConfig)
@@ -814,7 +809,6 @@ func Test_CleanByGFS_WithMultipleBackupsPerDay_KeepsOnlyOnePerDailySlot(t *testi
 		RetentionGfsDays:    7,
 		RetentionGfsWeeks:   4,
 		StorageID:           &testStorage.ID,
-		BackupIntervalID:    interval.ID,
 		BackupInterval:      interval,
 	}
 	_, err := backups_config.GetBackupConfigService().SaveBackupConfig(backupConfig)
@@ -907,7 +901,6 @@ func Test_CleanByGFS_With24HourlySlotsAnd23DailyBackups_DeletesExcessBackups(t *
 		RetentionGfsMonths:  12,
 		RetentionGfsYears:   3,
 		StorageID:           &testStorage.ID,
-		BackupIntervalID:    interval.ID,
 		BackupInterval:      interval,
 	}
 	_, err := backups_config.GetBackupConfigService().SaveBackupConfig(backupConfig)
@@ -977,7 +970,6 @@ func Test_CleanByGFS_WithDisabledHourlySlotsAnd23DailyBackups_DeletesExcessBacku
 		RetentionGfsMonths:  12,
 		RetentionGfsYears:   3,
 		StorageID:           &testStorage.ID,
-		BackupIntervalID:    interval.ID,
 		BackupInterval:      interval,
 	}
 	_, err := backups_config.GetBackupConfigService().SaveBackupConfig(backupConfig)
@@ -1044,7 +1036,6 @@ func Test_CleanByGFS_WithDailySlotsAndWeeklyBackups_DeletesExcessBackups(t *test
 		RetentionGfsDays:    7,
 		RetentionGfsWeeks:   4,
 		StorageID:           &testStorage.ID,
-		BackupIntervalID:    interval.ID,
 		BackupInterval:      interval,
 	}
 	_, err := backups_config.GetBackupConfigService().SaveBackupConfig(backupConfig)
@@ -1126,7 +1117,6 @@ func Test_CleanByGFS_WithWeeklySlotsAndMonthlyBackups_DeletesExcessBackups(t *te
 		RetentionGfsWeeks:   52,
 		RetentionGfsMonths:  3,
 		StorageID:           &testStorage.ID,
-		BackupIntervalID:    interval.ID,
 		BackupInterval:      interval,
 	}
 	_, err := backups_config.GetBackupConfigService().SaveBackupConfig(backupConfig)

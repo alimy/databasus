@@ -103,6 +103,27 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=arm64 \
     -o /agent-binaries/databasus-agent-linux-arm64 ./cmd/main.go
 
 
+# ========= BUILD VERIFICATION AGENT =========
+FROM --platform=$BUILDPLATFORM golang:1.26.3 AS verification-agent-build
+
+ARG APP_VERSION=dev
+
+WORKDIR /agent
+
+COPY agent/verification/go.mod agent/verification/go.sum ./
+RUN go mod download
+
+COPY agent/verification/ ./
+
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+    go build -ldflags "-X main.Version=${APP_VERSION}" \
+    -o /verification-agent-binaries/databasus-verification-agent-linux-amd64 ./cmd
+
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=arm64 \
+    go build -ldflags "-X main.Version=${APP_VERSION}" \
+    -o /verification-agent-binaries/databasus-verification-agent-linux-arm64 ./cmd
+
+
 # ========= RUNTIME =========
 FROM debian:bookworm-slim
 
@@ -125,7 +146,8 @@ RUN set -eux; \
     apt-get install -y --no-install-recommends \
       wget ca-certificates gnupg lsb-release sudo gosu curl unzip xz-utils \
       libncurses5 libncurses6 rclone \
-      libmariadb3; \
+      libmariadb3 \
+      libgnutls30; \
     wget -qO- https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add -; \
     echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
       > /etc/apt/sources.list.d/pgdg.list; \
@@ -183,6 +205,7 @@ COPY frontend/cloud-root-content.html /app/cloud-root-content.html
 # Copy agent binaries (both architectures) — served by the backend
 # at GET /api/v1/system/agent?arch=amd64|arm64
 COPY --from=agent-build /agent-binaries ./agent-binaries
+COPY --from=verification-agent-build /verification-agent-binaries/* ./agent-binaries/
 
 # Bake .env.example as /.env so the binary has defaults when no env file is
 # mounted. The backend looks for .env at the parent of cwd (= /app), i.e. /.
@@ -247,6 +270,7 @@ cat > /app/ui/build/runtime-config.js <<JSEOF
 // This file is generated dynamically and should not be edited manually
 window.__RUNTIME_CONFIG__ = {
   IS_CLOUD: '\${IS_CLOUD:-false}',
+  IS_DISABLE_CLOUD_NOTICE: '\${IS_DISABLE_CLOUD_NOTICE:-false}',
   GITHUB_CLIENT_ID: '\${GITHUB_CLIENT_ID:-}',
   GOOGLE_CLIENT_ID: '\${GOOGLE_CLIENT_ID:-}',
   IS_EMAIL_CONFIGURED: '\$IS_EMAIL_CONFIGURED',

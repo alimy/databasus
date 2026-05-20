@@ -1,4 +1,4 @@
-.PHONY: run build test lint wal-generator e2e e2e-clean e2e-backup-restore e2e-backup-restore-clean
+.PHONY: run build test lint wal-generator e2e e2e-clean e2e-backup-restore e2e-backup-restore-clean e2e-backup-restore-docker e2e-backup-restore-docker-matrix
 
 -include .env
 export
@@ -46,3 +46,30 @@ e2e-clean:
 	cd e2e && docker compose down -v --rmi local
 	cd e2e && docker compose -f docker-compose.backup-restore.yml down -v --rmi local 2>/dev/null || true
 	rm -rf e2e/artifacts
+
+# Single-version docker-mode restore lifecycle (defaults to PG 17). Override with PG_VERSION=18.
+e2e-backup-restore-docker:
+	rm -rf e2e/artifacts
+	mkdir -p e2e/artifacts
+	cd e2e && docker compose -f docker-compose.backup-restore.yml down -v --remove-orphans 2>/dev/null || true
+	cd e2e && docker compose build --no-cache e2e-br-mock-server
+	cd e2e && docker compose -f docker-compose.backup-restore.yml build e2e-br-mock-server e2e-br-docker-runner
+	cd e2e && docker compose run --rm e2e-agent-builder
+	cd e2e && PG_VERSION=$(or $(PG_VERSION),17) docker compose -f docker-compose.backup-restore.yml up -d e2e-br-mock-server
+	cd e2e && PG_VERSION=$(or $(PG_VERSION),17) docker compose -f docker-compose.backup-restore.yml run --rm e2e-br-docker-runner
+	cd e2e && PG_VERSION=$(or $(PG_VERSION),17) docker compose -f docker-compose.backup-restore.yml down -v
+
+# Matrix: runs the docker-mode restore lifecycle across PG 15, 16, 17, 18.
+e2e-backup-restore-docker-matrix:
+	rm -rf e2e/artifacts
+	mkdir -p e2e/artifacts
+	cd e2e && docker compose build --no-cache e2e-mock-server
+	cd e2e && docker compose -f docker-compose.backup-restore.yml build e2e-br-mock-server e2e-br-docker-runner
+	cd e2e && docker compose run --rm e2e-agent-builder
+	for v in 15 16 17 18; do \
+	  echo "===== PG $$v ====="; \
+	  cd e2e && docker compose -f docker-compose.backup-restore.yml down -v --remove-orphans 2>/dev/null || true; \
+	  cd e2e && PG_VERSION=$$v docker compose -f docker-compose.backup-restore.yml up -d e2e-br-mock-server || exit 1; \
+	  cd e2e && PG_VERSION=$$v docker compose -f docker-compose.backup-restore.yml run --rm e2e-br-docker-runner || exit 1; \
+	  cd e2e && PG_VERSION=$$v docker compose -f docker-compose.backup-restore.yml down -v; \
+	done

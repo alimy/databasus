@@ -988,6 +988,42 @@ func Test_ParseGrantPrivileges_ReturnsExpectedTokens(t *testing.T) {
 	}
 }
 
+func Test_HideSensitiveData_WhenCalled_ClearsPasswordAndPreservesOtherFields(t *testing.T) {
+	databaseName := "appdb"
+	mariadbModel := &MariadbDatabase{
+		Version:         tools.MariadbVersion114,
+		Host:            "db.example.com",
+		Port:            3306,
+		Username:        "appuser",
+		Password:        "supersecret",
+		Database:        &databaseName,
+		IsHttps:         true,
+		IsExcludeEvents: true,
+		ExcludeTables:   []string{"audit_logs"},
+		Privileges:      "SELECT, INSERT",
+	}
+
+	mariadbModel.HideSensitiveData()
+
+	assert.Empty(t, mariadbModel.Password)
+	assert.Equal(t, "db.example.com", mariadbModel.Host)
+	assert.Equal(t, 3306, mariadbModel.Port)
+	assert.Equal(t, "appuser", mariadbModel.Username)
+	assert.Equal(t, &databaseName, mariadbModel.Database)
+	assert.True(t, mariadbModel.IsHttps)
+	assert.True(t, mariadbModel.IsExcludeEvents)
+	assert.Equal(t, []string{"audit_logs"}, mariadbModel.ExcludeTables)
+	assert.Equal(t, "SELECT, INSERT", mariadbModel.Privileges)
+}
+
+func Test_HideSensitiveData_WhenReceiverIsNil_DoesNotPanic(t *testing.T) {
+	var mariadbModel *MariadbDatabase
+
+	assert.NotPanics(t, func() {
+		mariadbModel.HideSensitiveData()
+	})
+}
+
 func connectToMariadbContainer(
 	t *testing.T,
 	port string,

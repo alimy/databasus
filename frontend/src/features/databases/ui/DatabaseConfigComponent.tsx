@@ -9,12 +9,21 @@ import { Button, Input } from 'antd';
 import { useEffect, useState } from 'react';
 
 import { backupConfigApi } from '../../../entity/backups';
-import { type Database, PostgresBackupType, databaseApi } from '../../../entity/databases';
+import {
+  type Database,
+  DatabaseType,
+  PostgresBackupType,
+  databaseApi,
+} from '../../../entity/databases';
 import type { UserProfile } from '../../../entity/users';
 import { ToastHelper } from '../../../shared/toast';
 import { ConfirmationComponent } from '../../../shared/ui';
 import { EditBackupConfigComponent, ShowBackupConfigComponent } from '../../backups';
 import { EditHealthcheckConfigComponent, ShowHealthcheckConfigComponent } from '../../healthcheck';
+import {
+  EditBackupVerificationConfigComponent,
+  ShowBackupVerificationConfigComponent,
+} from '../../verification/config';
 import { DatabaseTransferDialogComponent } from './DatabaseTransferDialogComponent';
 import { EditDatabaseNotifiersComponent } from './edit/EditDatabaseNotifiersComponent';
 import { EditDatabaseSpecificDataComponent } from './edit/EditDatabaseSpecificDataComponent';
@@ -49,6 +58,7 @@ export const DatabaseConfigComponent = ({
   const [isEditBackupConfig, setIsEditBackupConfig] = useState(false);
   const [isEditNotifiersSettings, setIsEditNotifiersSettings] = useState(false);
   const [isEditHealthcheckSettings, setIsEditHealthcheckSettings] = useState(false);
+  const [isEditVerificationConfig, setIsEditVerificationConfig] = useState(false);
 
   const [isNameUnsaved, setIsNameUnsaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -139,13 +149,22 @@ export const DatabaseConfigComponent = ({
       });
   };
 
-  const startEdit = (type: 'name' | 'database' | 'backup-config' | 'notifiers' | 'healthcheck') => {
+  const startEdit = (
+    type:
+      | 'name'
+      | 'database'
+      | 'backup-config'
+      | 'notifiers'
+      | 'healthcheck'
+      | 'verification-config',
+  ) => {
     setEditDatabase(JSON.parse(JSON.stringify(database)));
     setIsEditName(type === 'name');
     setIsEditDatabaseSpecificDataSettings(type === 'database');
     setIsEditBackupConfig(type === 'backup-config');
     setIsEditNotifiersSettings(type === 'notifiers');
     setIsEditHealthcheckSettings(type === 'healthcheck');
+    setIsEditVerificationConfig(type === 'verification-config');
     setIsNameUnsaved(false);
   };
 
@@ -169,6 +188,9 @@ export const DatabaseConfigComponent = ({
   };
 
   const isWalDatabase = database.postgresql?.backupType === PostgresBackupType.WAL_V1;
+  const isPostgresLogicalDatabase =
+    database.type === DatabaseType.POSTGRES &&
+    database.postgresql?.backupType !== PostgresBackupType.WAL_V1;
 
   return (
     <div className="relative w-full rounded-tr-md rounded-br-md rounded-bl-md bg-white p-3 shadow sm:p-5 dark:bg-gray-800">
@@ -364,6 +386,39 @@ export const DatabaseConfigComponent = ({
                 />
               ) : (
                 <ShowHealthcheckConfigComponent databaseId={database.id} />
+              )}
+            </div>
+          </div>
+        )}
+
+        {isPostgresLogicalDatabase && (
+          <div className="w-full lg:w-[400px]">
+            <div className="mt-5 flex items-center font-bold">
+              <div>Restore verification</div>
+
+              {!isEditVerificationConfig && isCanManageDBs ? (
+                <div
+                  className="ml-2 h-4 w-4 cursor-pointer"
+                  onClick={() => startEdit('verification-config')}
+                >
+                  <img src="/icons/pen-gray.svg" />
+                </div>
+              ) : (
+                <div />
+              )}
+            </div>
+
+            <div className="mt-1 text-sm">
+              {isEditVerificationConfig ? (
+                <EditBackupVerificationConfigComponent
+                  databaseId={database.id}
+                  onClose={() => {
+                    setIsEditVerificationConfig(false);
+                    loadSettings();
+                  }}
+                />
+              ) : (
+                <ShowBackupVerificationConfigComponent databaseId={database.id} />
               )}
             </div>
           </div>

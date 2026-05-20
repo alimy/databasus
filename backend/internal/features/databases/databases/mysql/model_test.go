@@ -921,6 +921,42 @@ func Test_ParseGrantPrivileges_ReturnsExpectedTokens(t *testing.T) {
 	}
 }
 
+func Test_HideSensitiveData_WhenCalled_ClearsPasswordAndPreservesOtherFields(t *testing.T) {
+	databaseName := "appdb"
+	mysqlModel := &MysqlDatabase{
+		Version:         tools.MysqlVersion80,
+		Host:            "db.example.com",
+		Port:            3306,
+		Username:        "appuser",
+		Password:        "supersecret",
+		Database:        &databaseName,
+		IsHttps:         true,
+		ExcludeTables:   []string{"audit_logs"},
+		Privileges:      "SELECT, INSERT",
+		IsZstdSupported: true,
+	}
+
+	mysqlModel.HideSensitiveData()
+
+	assert.Empty(t, mysqlModel.Password)
+	assert.Equal(t, "db.example.com", mysqlModel.Host)
+	assert.Equal(t, 3306, mysqlModel.Port)
+	assert.Equal(t, "appuser", mysqlModel.Username)
+	assert.Equal(t, &databaseName, mysqlModel.Database)
+	assert.True(t, mysqlModel.IsHttps)
+	assert.Equal(t, []string{"audit_logs"}, mysqlModel.ExcludeTables)
+	assert.Equal(t, "SELECT, INSERT", mysqlModel.Privileges)
+	assert.True(t, mysqlModel.IsZstdSupported)
+}
+
+func Test_HideSensitiveData_WhenReceiverIsNil_DoesNotPanic(t *testing.T) {
+	var mysqlModel *MysqlDatabase
+
+	assert.NotPanics(t, func() {
+		mysqlModel.HideSensitiveData()
+	})
+}
+
 func connectToMysqlContainer(
 	t *testing.T,
 	port string,

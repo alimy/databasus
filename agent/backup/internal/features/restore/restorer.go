@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -18,12 +19,13 @@ import (
 )
 
 const (
-	walRestoreDir            = "databasus-wal-restore"
-	maxRetryAttempts         = 3
-	retryBaseDelay           = 1 * time.Second
-	recoverySignalFile       = "recovery.signal"
-	autoConfFile             = "postgresql.auto.conf"
-	dockerContainerPgDataDir = "/var/lib/postgresql/data"
+	walRestoreDir        = "databasus-wal-restore"
+	maxRetryAttempts     = 3
+	retryBaseDelay       = 1 * time.Second
+	recoverySignalFile   = "recovery.signal"
+	autoConfFile         = "postgresql.auto.conf"
+	legacyDockerPgData   = "/var/lib/postgresql/data"
+	pgRecoveryTimeLayout = "2006-01-02 15:04:05-07:00"
 )
 
 var retryDelayOverride *time.Duration
@@ -35,6 +37,7 @@ type Restorer struct {
 	backupID        string
 	targetTime      string
 	pgType          string
+	pgMajorVersion  int
 }
 
 func NewRestorer(
@@ -52,6 +55,7 @@ func NewRestorer(
 		backupID,
 		targetTime,
 		pgType,
+		0,
 	}
 }
 
@@ -75,6 +79,8 @@ func (r *Restorer) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
+	r.pgMajorVersion = parsePgMajorVersion(plan.FullBackup.PgVersion)
 
 	r.logRestorePlan(plan, parsedTargetTime)
 
@@ -352,7 +358,7 @@ func (r *Restorer) configurePostgresRecovery(parsedTargetTime *time.Time) error 
 	configLines.WriteString("recovery_target_action = 'promote'\n")
 
 	if parsedTargetTime != nil {
-		fmt.Fprintf(&configLines, "recovery_target_time = '%s'\n", parsedTargetTime.Format(time.RFC3339))
+		fmt.Fprintf(&configLines, "recovery_target_time = '%s'\n", parsedTargetTime.UTC().Format(pgRecoveryTimeLayout))
 	}
 
 	if _, err := autoConfFile.WriteString(configLines.String()); err != nil {
@@ -380,6 +386,8 @@ What happens when you start PostgreSQL:
 `)
 
 	if isDocker {
+		containerPgData := dockerContainerPgDataDir(r.pgMajorVersion)
+
 		fmt.Printf(`
 Start PostgreSQL by launching a container with the restored data mounted:
   docker run -d -v %s:%s postgres:<VERSION>
@@ -388,7 +396,7 @@ Or if you have an existing container:
   docker start <CONTAINER_NAME>
 
 Ensure %s is mounted as the container's pgdata volume at %s.
-`, absPgDataDir, dockerContainerPgDataDir, absPgDataDir, dockerContainerPgDataDir)
+`, absPgDataDir, containerPgData, absPgDataDir, containerPgData)
 	} else {
 		fmt.Printf(`
 Start PostgreSQL:
@@ -403,7 +411,7 @@ postgresql.auto.conf accordingly.
 
 func (r *Restorer) resolveWalRestorePath() (string, error) {
 	if r.pgType == "docker" {
-		return dockerContainerPgDataDir + "/" + walRestoreDir, nil
+		return dockerContainerPgDataDir(r.pgMajorVersion) + "/" + walRestoreDir, nil
 	}
 
 	absPgDataDir, err := filepath.Abs(r.targetPgDataDir)
@@ -414,6 +422,38 @@ func (r *Restorer) resolveWalRestorePath() (string, error) {
 	absPgDataDir = filepath.ToSlash(absPgDataDir)
 
 	return absPgDataDir + "/" + walRestoreDir, nil
+}
+
+func dockerContainerPgDataDir(majorVersion int) string {
+	if majorVersion >= 18 {
+		return fmt.Sprintf("/var/lib/postgresql/%d/docker", majorVersion)
+	}
+
+	return legacyDockerPgData
+}
+
+func parsePgMajorVersion(version string) int {
+	trimmed := strings.TrimSpace(version)
+
+	var digits strings.Builder
+	for _, r := range trimmed {
+		if r < '0' || r > '9' {
+			break
+		}
+
+		digits.WriteRune(r)
+	}
+
+	if digits.Len() == 0 {
+		return 0
+	}
+
+	major, err := strconv.Atoi(digits.String())
+	if err != nil {
+		return 0
+	}
+
+	return major
 }
 
 func (r *Restorer) getRetryDelay(attempt int) time.Duration {

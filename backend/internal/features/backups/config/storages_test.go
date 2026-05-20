@@ -39,8 +39,8 @@ func Test_AttachStorageFromSameWorkspace_SuccessfullyAttached(t *testing.T) {
 		IsBackupsEnabled:    true,
 		RetentionPolicyType: RetentionPolicyTypeTimePeriod,
 		RetentionTimePeriod: period.PeriodWeek,
-		BackupInterval: &intervals.Interval{
-			Interval:  intervals.IntervalDaily,
+		BackupInterval: intervals.Interval{
+			Type:      intervals.IntervalDaily,
 			TimeOfDay: &timeOfDay,
 		},
 		Storage: storage,
@@ -92,8 +92,8 @@ func Test_AttachStorageFromDifferentWorkspace_ReturnsForbidden(t *testing.T) {
 		IsBackupsEnabled:    true,
 		RetentionPolicyType: RetentionPolicyTypeTimePeriod,
 		RetentionTimePeriod: period.PeriodWeek,
-		BackupInterval: &intervals.Interval{
-			Interval:  intervals.IntervalDaily,
+		BackupInterval: intervals.Interval{
+			Type:      intervals.IntervalDaily,
 			TimeOfDay: &timeOfDay,
 		},
 		Storage: storage,
@@ -137,8 +137,8 @@ func Test_DeleteStorageWithAttachedDatabases_CannotDelete(t *testing.T) {
 		IsBackupsEnabled:    true,
 		RetentionPolicyType: RetentionPolicyTypeTimePeriod,
 		RetentionTimePeriod: period.PeriodWeek,
-		BackupInterval: &intervals.Interval{
-			Interval:  intervals.IntervalDaily,
+		BackupInterval: intervals.Interval{
+			Type:      intervals.IntervalDaily,
 			TimeOfDay: &timeOfDay,
 		},
 		Storage: storage,
@@ -198,8 +198,8 @@ func Test_TransferStorageWithAttachedDatabase_CannotTransfer(t *testing.T) {
 		IsBackupsEnabled:    true,
 		RetentionPolicyType: RetentionPolicyTypeTimePeriod,
 		RetentionTimePeriod: period.PeriodWeek,
-		BackupInterval: &intervals.Interval{
-			Interval:  intervals.IntervalDaily,
+		BackupInterval: intervals.Interval{
+			Type:      intervals.IntervalDaily,
 			TimeOfDay: &timeOfDay,
 		},
 		Storage: storage,

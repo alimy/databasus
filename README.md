@@ -50,6 +50,15 @@
 - **Precise timing**: run backups at specific times (e.g., 4 AM during low traffic)
 - **Smart compression**: 4-8x space savings with balanced compression (~20% overhead)
 
+### 🧪 **Restore verification** <a href="https://databasus.com/restore-verification">(docs)</a>
+
+Databasus performs a real restore to confirm backups are usable, not just intact on disk or checksum check.
+
+- **Triggers**: after each backup or on a flexible schedule (hourly, daily, weekly, monthly or cron)
+- **Real restore**: spins up a database container, runs the restore and checks the restored size against the backup
+- **Report**: lists every table with its row count
+- **Optional notifications**: send the report or failure-only alerts through any configured notifier
+
 ### 🗑️ **Retention policies**
 
 - **Time period**: Keep backups for a fixed duration (e.g., 7 days, 3 months, 1 year)
@@ -63,7 +72,7 @@
 - **Cloud storage**: S3, Cloudflare R2, Google Drive, NAS, Dropbox, SFTP, Rclone and more
 - **Secure**: All data stays under your control
 
-### 📱 **Smart notifications** <a href="https://databasus.com/notifiers">(view supported)</a>
+### 📱 **Notifications** <a href="https://databasus.com/notifiers">(view supported)</a>
 
 - **Multiple channels**: Email, Telegram, Slack, Discord, webhooks
 - **Real-time updates**: Success and failure notifications
@@ -312,8 +321,12 @@ The engineering safeguards behind these rules (CI, static analysis, dependency s
 
 Yes. Every feature available in Databasus Cloud is equally available in the self-hosted version with no restrictions, no feature gates and no usage limits. The entire codebase is Apache 2.0 licensed and always will be.
 
-Databasus is not "open core". We do not withhold features behind a paid tier and then call the limited remainder "open source" as projects like GitLab or Sentry do. We believe open source means the complete product is open, not just a marketing label on a stripped-down edition.
+Databasus is not "open core". We do not withhold features behind a paid tier and then call the limited remainder "open source," as projects like GitLab or Sentry do. We believe open source means the complete product is open, not just a marketing label on a stripped-down edition.
 
 Databasus Cloud runs the exact same code as the self-hosted version. The only difference is that we take care of infrastructure, availability, backups, reservations, monitoring and updates for you — so you don't have to. If you are using cloud, you can always move your databases from cloud to self-hosted if you wish.
 
-Revenue from Databasus Cloud funds full-time development of the project. Many open-source projects depend on corporate backing, sponsorships or volunteer maintainers, which can create long-term sustainability challenges. Recent discussions around [Tailwind](https://github.com/tailwindlabs/tailwindcss.com/pull/2388#issuecomment-3717222957) and the archival of [pgBackRest](https://github.com/pgbackrest/pgbackrest#notice-of-obsolescence) show that even popular or critical open-source projects need a durable funding model. Databasus Cloud is our way to make the project financially sustainable while keeping the full product open source, self-hostable and independent from any single corporate sponsor.
+Moreover, we have a DBA-as-a-service offering, [Databasus Labs](https://databasus.com/labs), to fund Databasus development and help companies with their database backup needs.
+
+Any long-running OSS project needs to be funded. Revenue from Cloud and Databasus Labs funds full-time development of the project. Most large open-source projects rely on corporate backing or sponsorship to survive (as well as TailwindCSS and pgBackRest, for example). 
+
+To address this, Databasus sustains itself so it can grow and improve independently, without being tied to any enterprise or sponsor. Our vision is to keep Databasus fully open-source forever, with a promise to never close it off through licensing or withheld code. So any DevOps or DBA company can provide services on top of Databasus as well.

@@ -416,6 +416,46 @@ func Test_GetRawDbSizeMb_Mongodb_ReturnsPositiveSize(t *testing.T) {
 	assert.Greater(t, sizeMB, 0.0, "raw db size should be > 0 after inserting documents")
 }
 
+func Test_HideSensitiveData_WhenCalled_ClearsPasswordAndPreservesOtherFields(t *testing.T) {
+	port := 27017
+	mongodbModel := &MongodbDatabase{
+		Version:            tools.MongodbVersion7,
+		Host:               "db.example.com",
+		Port:               &port,
+		Username:           "appuser",
+		Password:           "supersecret",
+		Database:           "appdb",
+		AuthDatabase:       "admin",
+		IsHttps:            true,
+		IsSrv:              true,
+		IsDirectConnection: true,
+		CpuCount:           4,
+		ExcludeCollections: []string{"audit_logs"},
+	}
+
+	mongodbModel.HideSensitiveData()
+
+	assert.Empty(t, mongodbModel.Password)
+	assert.Equal(t, "db.example.com", mongodbModel.Host)
+	assert.Equal(t, &port, mongodbModel.Port)
+	assert.Equal(t, "appuser", mongodbModel.Username)
+	assert.Equal(t, "appdb", mongodbModel.Database)
+	assert.Equal(t, "admin", mongodbModel.AuthDatabase)
+	assert.True(t, mongodbModel.IsHttps)
+	assert.True(t, mongodbModel.IsSrv)
+	assert.True(t, mongodbModel.IsDirectConnection)
+	assert.Equal(t, 4, mongodbModel.CpuCount)
+	assert.Equal(t, []string{"audit_logs"}, mongodbModel.ExcludeCollections)
+}
+
+func Test_HideSensitiveData_WhenReceiverIsNil_DoesNotPanic(t *testing.T) {
+	var mongodbModel *MongodbDatabase
+
+	assert.NotPanics(t, func() {
+		mongodbModel.HideSensitiveData()
+	})
+}
+
 func connectToMongodbContainer(
 	t *testing.T,
 	port string,
