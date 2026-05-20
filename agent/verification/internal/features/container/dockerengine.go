@@ -8,16 +8,14 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/netip"
 	"strconv"
 	"strings"
 
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/filters"
-	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/api/types/network"
-	"github.com/docker/docker/client"
-	"github.com/docker/docker/pkg/stdcopy"
-	"github.com/docker/go-connections/nat"
+	"github.com/moby/moby/api/pkg/stdcopy"
+	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/network"
+	"github.com/moby/moby/client"
 
 	"databasus-verification-agent/internal/features/restore"
 )
@@ -35,12 +33,25 @@ const (
 	pgInternalPort = 5432
 )
 
+// pgPublishedPort is the parsed network.Port key reused for ExposedPorts and
+// PortBindings; ParsePort is the only constructor in the new SDK.
+var pgPublishedPort = mustParsePort(strconv.Itoa(pgInternalPort) + "/tcp")
+
+func mustParsePort(s string) network.Port {
+	p, err := network.ParsePort(s)
+	if err != nil {
+		panic(fmt.Sprintf("parse port %q: %v", s, err))
+	}
+
+	return p
+}
+
 type dockerEngine struct {
 	cli *client.Client
 }
 
 func NewDockerEngine() (*dockerEngine, error) {
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	cli, err := client.New(client.FromEnv)
 	if err != nil {
 		return nil, fmt.Errorf("create docker client: %w", err)
 	}
@@ -49,17 +60,17 @@ func NewDockerEngine() (*dockerEngine, error) {
 }
 
 func (e *dockerEngine) Ping(ctx context.Context) error {
-	_, err := e.cli.Ping(ctx)
+	_, err := e.cli.Ping(ctx, client.PingOptions{})
 	return err
 }
 
 func (e *dockerEngine) UserNSRemapEnabled(ctx context.Context) (bool, error) {
-	info, err := e.cli.Info(ctx)
+	info, err := e.cli.Info(ctx, client.InfoOptions{})
 	if err != nil {
 		return false, err
 	}
 
-	for _, opt := range info.SecurityOptions {
+	for _, opt := range info.Info.SecurityOptions {
 		if strings.Contains(opt, "name=userns") {
 			return true, nil
 		}
@@ -73,7 +84,7 @@ func (e *dockerEngine) EnsureImage(ctx context.Context, ref string) error {
 		return nil
 	}
 
-	reader, err := e.cli.ImagePull(ctx, ref, image.PullOptions{})
+	reader, err := e.cli.ImagePull(ctx, ref, client.ImagePullOptions{})
 	if err != nil {
 		return fmt.Errorf("image pull: %w", err)
 	}
@@ -96,7 +107,7 @@ func (e *dockerEngine) CreateNetwork(
 	// doc). Outbound from PG to the host network is therefore not blocked at
 	// the docker layer; rely on the host firewall + the other hardening
 	// controls (cap-drop, no-new-privs, pids/memory, ephemeral, userns).
-	resp, err := e.cli.NetworkCreate(ctx, name, network.CreateOptions{
+	resp, err := e.cli.NetworkCreate(ctx, name, client.NetworkCreateOptions{
 		Driver: "bridge",
 		Labels: labels,
 	})
@@ -108,12 +119,11 @@ func (e *dockerEngine) CreateNetwork(
 }
 
 func (e *dockerEngine) RemoveNetwork(ctx context.Context, networkID string) error {
-	return e.cli.NetworkRemove(ctx, networkID)
+	_, err := e.cli.NetworkRemove(ctx, networkID, client.NetworkRemoveOptions{})
+	return err
 }
 
 func (e *dockerEngine) CreateContainer(ctx context.Context, spec SpawnSpec) (string, error) {
-	port := nat.Port(strconv.Itoa(pgInternalPort) + "/tcp")
-
 	securityOpt := []string{}
 	if spec.NoNewPrivileges {
 		securityOpt = append(securityOpt, "no-new-privileges")
@@ -136,8 +146,10 @@ func (e *dockerEngine) CreateContainer(ctx context.Context, spec SpawnSpec) (str
 		CapAdd:         spec.CapAdd,
 		ReadonlyRootfs: spec.ReadonlyRootfs,
 		NetworkMode:    container.NetworkMode(spec.NetworkID),
-		PortBindings: nat.PortMap{
-			port: []nat.PortBinding{{HostIP: "127.0.0.1", HostPort: "0"}},
+		PortBindings: network.PortMap{
+			pgPublishedPort: []network.PortBinding{
+				{HostIP: netip.MustParseAddr("127.0.0.1"), HostPort: "0"},
+			},
 		},
 		Resources: container.Resources{
 			NanoCPUs:  spec.NanoCPUs,
@@ -146,14 +158,16 @@ func (e *dockerEngine) CreateContainer(ctx context.Context, spec SpawnSpec) (str
 		},
 	}
 
-	resp, err := e.cli.ContainerCreate(ctx,
-		&container.Config{
+	resp, err := e.cli.ContainerCreate(ctx, client.ContainerCreateOptions{
+		Config: &container.Config{
 			Image:        spec.Image,
 			Env:          spec.Env,
 			Labels:       spec.Labels,
-			ExposedPorts: nat.PortSet{port: struct{}{}},
+			ExposedPorts: network.PortSet{pgPublishedPort: struct{}{}},
 		},
-		hostConfig, nil, nil, spec.Name)
+		HostConfig: hostConfig,
+		Name:       spec.Name,
+	})
 	if err != nil {
 		return "", err
 	}
@@ -162,18 +176,24 @@ func (e *dockerEngine) CreateContainer(ctx context.Context, spec SpawnSpec) (str
 }
 
 func (e *dockerEngine) StartContainer(ctx context.Context, containerID string) error {
-	return e.cli.ContainerStart(ctx, containerID, container.StartOptions{})
+	_, err := e.cli.ContainerStart(ctx, containerID, client.ContainerStartOptions{})
+	return err
 }
 
 func (e *dockerEngine) HostPort(
 	ctx context.Context, containerID, containerPort string,
 ) (int, error) {
-	insp, err := e.cli.ContainerInspect(ctx, containerID)
+	insp, err := e.cli.ContainerInspect(ctx, containerID, client.ContainerInspectOptions{})
 	if err != nil {
 		return 0, err
 	}
 
-	bindings, ok := insp.NetworkSettings.Ports[nat.Port(containerPort)]
+	requestedPort, err := network.ParsePort(containerPort)
+	if err != nil {
+		return 0, fmt.Errorf("parse container port %q: %w", containerPort, err)
+	}
+
+	bindings, ok := insp.Container.NetworkSettings.Ports[requestedPort]
 	if !ok || len(bindings) == 0 {
 		return 0, fmt.Errorf("container port %s is not published", containerPort)
 	}
@@ -184,27 +204,27 @@ func (e *dockerEngine) HostPort(
 func (e *dockerEngine) InspectSecurity(
 	ctx context.Context, containerID string,
 ) (SecurityState, error) {
-	insp, err := e.cli.ContainerInspect(ctx, containerID)
+	insp, err := e.cli.ContainerInspect(ctx, containerID, client.ContainerInspectOptions{})
 	if err != nil {
 		return SecurityState{}, err
 	}
 
 	state := SecurityState{
-		ReadonlyRootfs: insp.HostConfig.ReadonlyRootfs,
+		ReadonlyRootfs: insp.Container.HostConfig.ReadonlyRootfs,
 		// Only flag mounts the AGENT requested. insp.Mounts (runtime) includes
 		// image-declared anonymous volumes (postgres:16 declares VOLUME
 		// /var/lib/postgresql/data for PGDATA) that we explicitly want; only
 		// host bind mounts from our spec are a hardening regression.
-		HasHostBinds: len(insp.HostConfig.Binds) > 0 || len(insp.HostConfig.Mounts) > 0,
+		HasHostBinds: len(insp.Container.HostConfig.Binds) > 0 || len(insp.Container.HostConfig.Mounts) > 0,
 	}
 
-	for _, opt := range insp.HostConfig.SecurityOpt {
+	for _, opt := range insp.Container.HostConfig.SecurityOpt {
 		if strings.Contains(opt, "no-new-privileges") {
 			state.NoNewPrivileges = true
 		}
 	}
 
-	for _, cap := range insp.HostConfig.CapDrop {
+	for _, cap := range insp.Container.HostConfig.CapDrop {
 		if cap == "ALL" {
 			state.CapDropAll = true
 		}
@@ -220,7 +240,7 @@ func (e *dockerEngine) Exec(
 	stdin io.Reader,
 	env []string,
 ) (restore.ExecResult, error) {
-	created, err := e.cli.ContainerExecCreate(ctx, containerID, container.ExecOptions{
+	created, err := e.cli.ExecCreate(ctx, containerID, client.ExecCreateOptions{
 		Cmd:          cmd,
 		Env:          env,
 		AttachStdin:  stdin != nil,
@@ -231,7 +251,7 @@ func (e *dockerEngine) Exec(
 		return restore.ExecResult{}, fmt.Errorf("exec create: %w", err)
 	}
 
-	attached, err := e.cli.ContainerExecAttach(ctx, created.ID, container.ExecAttachOptions{})
+	attached, err := e.cli.ExecAttach(ctx, created.ID, client.ExecAttachOptions{})
 	if err != nil {
 		return restore.ExecResult{}, fmt.Errorf("exec attach: %w", err)
 	}
@@ -263,7 +283,7 @@ func (e *dockerEngine) Exec(
 		return restore.ExecResult{}, fmt.Errorf("exec stream copy: %w", err)
 	}
 
-	inspect, err := e.cli.ContainerExecInspect(ctx, created.ID)
+	inspect, err := e.cli.ExecInspect(ctx, created.ID, client.ExecInspectOptions{})
 	if err != nil {
 		return restore.ExecResult{}, fmt.Errorf("exec inspect: %w", err)
 	}
@@ -276,36 +296,38 @@ func (e *dockerEngine) Exec(
 }
 
 func (e *dockerEngine) RemoveContainer(ctx context.Context, containerID string) error {
-	return e.cli.ContainerRemove(ctx, containerID, container.RemoveOptions{
+	_, err := e.cli.ContainerRemove(ctx, containerID, client.ContainerRemoveOptions{
 		Force:         true,
 		RemoveVolumes: true,
 	})
+	return err
 }
 
 func (e *dockerEngine) ListManaged(
 	ctx context.Context, agentID string,
 ) ([]ManagedContainer, error) {
-	summaries, err := e.cli.ContainerList(ctx, container.ListOptions{
-		All: true,
-		Filters: filters.NewArgs(
-			filters.Arg("label", LabelAgentID+"="+agentID)),
+	listed, err := e.cli.ContainerList(ctx, client.ContainerListOptions{
+		All:     true,
+		Filters: make(client.Filters).Add("label", LabelAgentID+"="+agentID),
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	managed := make([]ManagedContainer, 0, len(summaries))
-	for _, s := range summaries {
+	managed := make([]ManagedContainer, 0, len(listed.Items))
+	for _, s := range listed.Items {
 		mc := ManagedContainer{
 			ID:             s.ID,
 			VerificationID: s.Labels[LabelVerificationID],
 			CreatedUnix:    s.Created,
 		}
 
-		for _, endpoint := range s.NetworkSettings.Networks {
-			if endpoint.NetworkID != "" {
-				mc.NetworkID = endpoint.NetworkID
-				break
+		if s.NetworkSettings != nil {
+			for _, endpoint := range s.NetworkSettings.Networks {
+				if endpoint.NetworkID != "" {
+					mc.NetworkID = endpoint.NetworkID
+					break
+				}
 			}
 		}
 
