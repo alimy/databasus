@@ -29,6 +29,7 @@
 - Backup types: logical, physical and incremental with WAL archiving
 - Point-in-Time Recovery (PITR) for disaster recovery with near-zero data loss
 - Connection modes: remote (over network, no agent needed) and agent (for closed networks and physical/incremental backups)
+- Restore verification: automated restore of the latest backup into a real database Docker container to prove it is actually restorable
 
 ## Supported Databases
 
@@ -117,6 +118,10 @@ Content: Complete guide on using Databasus for MongoDB backups. Explains how to 
 ### How to restore from backup without Databasus
 URL: /how-to-recover-without-databasus
 Content: Step-by-step guide on manually restoring database backups without Databasus. Demonstrates no vendor lock-in by explaining how to decrypt and restore backups using standard tools and your secret key. Includes Python decryption script for AES-256-GCM encrypted backups with PBKDF2 key derivation, restoration instructions for PostgreSQL (pg_restore), MySQL (mysqldump with zstd decompression), MariaDB (mariadb-dump with zstd) and MongoDB (mongorestore with gzip). Covers file structure, metadata files, encryption details and troubleshooting. Emphasizes data ownership and ability to recover backups even without access to Databasus UI.
+
+### Restore Verification
+URL: /restore-verification
+Content: How Databasus proves backups are actually restorable. A verification agent pulls the latest backup, restores it into a real database Docker container, sanity-checks the restored database against the source, then tears the container down. Covers the verification agent binary, resource budgets, scheduled verification intervals (After backup, hourly, daily, weekly, monthly, cron), notifications and reading results.
 
 ## Technical Details
 
@@ -211,6 +216,7 @@ Databasus is suitable for:
 - **Health Checks**: Configurable database monitoring
 - **Multi-target**: Store backups to multiple destinations simultaneously
 - **Restoration**: One-click restore functionality
+- **Restore Verification**: Automated restore of the latest backup into a real database Docker container, verified against the source
 - **Encryption**: Enterprise-grade AES-256-GCM encryption for backup files
 - **Security**: All data stays within your infrastructure
 - **Retention Policies**: Automatic cleanup of old backups based on configurable rules
@@ -293,5 +299,5 @@ You can join our large community of developers, DBAs and DevOps engineers at htt
 
 ## Keywords
 
-PostgreSQL, MySQL, MariaDB, MongoDB, backup, monitoring, database, scheduled backups, Docker, self-hosted, open source, S3, Google Drive, Slack notifications, Discord, DevOps, database monitoring, pg_dump, database restore, Cloudflare R2, Microsoft Teams, health checks, compression, automation, encryption, AES-256-GCM, backup encryption, enterprise security, read-only database access, data protection, secure backups, sensitive data encryption, security audit, least privilege, Kubernetes, Helm, K8s, StatefulSet, ingress, WAL, WAL archiving, PITR, Point-in-Time Recovery, physical backup, incremental backup, logical backup, disaster recovery, agent mode, remote backup, CodeQL, CodeRabbit, gitleaks, semgrep, Dependabot, Trivy, Codex Security, supply chain security, pinned action SHAs, least-privilege workflows, Dependency Review Action, CVE monitoring, DevSecOps, backup-then-restore testing, real database integration tests, multi-architecture builds
+PostgreSQL, MySQL, MariaDB, MongoDB, backup, monitoring, database, scheduled backups, Docker, self-hosted, open source, S3, Google Drive, Slack notifications, Discord, DevOps, database monitoring, pg_dump, database restore, Cloudflare R2, Microsoft Teams, health checks, compression, automation, encryption, AES-256-GCM, backup encryption, enterprise security, read-only database access, data protection, secure backups, sensitive data encryption, security audit, least privilege, Kubernetes, Helm, K8s, StatefulSet, ingress, WAL, WAL archiving, PITR, Point-in-Time Recovery, physical backup, incremental backup, logical backup, disaster recovery, agent mode, remote backup, CodeQL, CodeRabbit, gitleaks, semgrep, Dependabot, Trivy, Codex Security, supply chain security, pinned action SHAs, least-privilege workflows, Dependency Review Action, CVE monitoring, DevSecOps, backup-then-restore testing, real database integration tests, multi-architecture builds, restore verification, backup verification, restore testing, verification agent
 

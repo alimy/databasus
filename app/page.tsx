@@ -86,6 +86,8 @@ export default function Index() {
               "Backup compression and AES-256-GCM encryption",
               "Support for PostgreSQL, MySQL, MariaDB and MongoDB",
               "Retention policies: time period, count, GFS and size limits",
+              "Point-in-Time Recovery (PITR) with WAL archiving",
+              "Restore verification: automated restore testing in real database Docker containers",
             ],
             screenshot: "https://databasus.com/images/index/dashboard.png",
             softwareVersion: "latest",
@@ -348,8 +350,8 @@ export default function Index() {
               Databasus is a free, open source and self-hosted tool to backup
               PostgreSQL. Make backups with different storages (S3, Google
               Drive, FTP, etc.) and notifications about progress (Slack,
-              Discord, Telegram, etc.). MySQL, MariaDB and MongoDB are supported
-              too
+              Discord, Telegram, etc.). With focus on PITR and{" "}
+              <span className="underline underline-offset-2 decoration-blue-600">restore verification</span>
             </p>
 
             <div>
@@ -675,7 +677,7 @@ export default function Index() {
                   A backup that finishes without error is not the same as a
                   backup you can restore. Databasus periodically pulls the
                   latest backup, restores it into a throwaway database container
-                  and reports the outcome.{' '}
+                  and reports the outcome.{" "}
                   <a
                     href="/restore-verification"
                     className="text-blue-500 hover:text-blue-600 font-medium"
