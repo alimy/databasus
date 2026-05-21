@@ -83,9 +83,8 @@ const SERVICES: Service[] = [
     title: "Manage Databasus in your infrastructure",
     subtitle:
       "I install, configure and monitor Databasus in your company's infrastructure. If you want managed Databasus, but don't want cloud",
-    price: "$500",
-    priceUnit: "one-time setup",
-    priceFootnote: "Then $250 / month",
+    price: "$250",
+    priceUnit: "per month",
     features: [
       "Installation and configuration within your infrastructure",
       "Continuous monitoring 24x7 (backups are running, enough storage)",
@@ -97,7 +96,7 @@ const SERVICES: Service[] = [
     title: "Consultation",
     subtitle:
       "Calls or messaging for any of your questions. Related to databases, processes, best practices or anything else my experience can help you with",
-    price: "$150",
+    price: "$100",
     priceUnit: "per hour",
     features: [
       "PostgreSQL questions and architecture advice",
@@ -110,7 +109,7 @@ const SERVICES: Service[] = [
     title: "Full care of your backups",
     subtitle:
       "I take full responsibility for your company's backups. So at any moment I am ready to restore your data and guarantee it is safe 24x7",
-    price: "$1,000",
+    price: "$500",
     priceUnit: "per month",
     priceFootnote: "Per database",
     featured: true,
@@ -128,7 +127,7 @@ const SERVICES: Service[] = [
     title: "Backup & restore audit",
     subtitle:
       "Independent one-off review of your company's process. If you have a team and just want to double-check everything is set up correctly",
-    price: "$1,500",
+    price: "$990",
     priceUnit: "one-time",
     features: [
       "Review current backup processes and tooling",
@@ -141,7 +140,7 @@ const SERVICES: Service[] = [
     title: "DBA services",
     subtitle:
       "Your part-time DBA for database management. Optimizations, version upgrades, migrations and any other database-related tasks",
-    price: "$150",
+    price: "$100",
     priceUnit: "per hour",
     features: [
       "Performance monitoring and query tuning",
@@ -154,7 +153,7 @@ const SERVICES: Service[] = [
     title: "Emergency help",
     subtitle:
       "You faced an incident and need immediate help? I jump into your problem and try to fix it by hand instead of just advising",
-    price: "$300",
+    price: "$150",
     priceUnit: "per hour",
     priceFootnote: 'Included with "Full care"',
     features: [
