@@ -2,7 +2,7 @@
   <img src="assets/logo.svg" alt="Databasus Logo" width="250"/>
 
   <h3>PostgreSQL backup tool (with MySQL\MariaDB and MongoDB support)</h3>
-  <p>Databasus is a free, open source and self-hosted tool to backup databases (with primary focus on PostgreSQL). Make backups with different storages (S3, Google Drive, FTP, etc.) and notifications about progress (Slack, Discord, Telegram, etc.)</p>
+  <p>Databasus is a free, open source and self-hosted tool to backup databases (primarily PostgreSQL). Make backups with different storages (S3, Google Drive, FTP, etc.) and notifications about progress (Slack, Discord, Telegram, etc.). With focus on Point-In-Time Recovery and restore verification</p>
   
   <!-- Badges -->
    [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-336791?logo=postgresql&logoColor=white)](https://www.postgresql.org/)

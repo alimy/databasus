@@ -291,7 +291,7 @@ export const VerificationAgentsComponent = () => {
     {
       title: 'Status',
       key: 'status',
-      width: 220,
+      width: 180,
       render: (_, record) => {
         const status = getAgentStatus(record.lastSeenAt, currentTimeMs);
         return (
@@ -324,7 +324,7 @@ export const VerificationAgentsComponent = () => {
       title: 'Created',
       dataIndex: 'createdAt',
       key: 'createdAt',
-      width: 140,
+      width: 110,
       render: (createdAt: string) => (
         <span className={`text-xs ${MUTED_TEXT_CLASS}`}>{dayjs(createdAt).fromNow()}</span>
       ),
@@ -332,7 +332,7 @@ export const VerificationAgentsComponent = () => {
     {
       title: '',
       key: 'actions',
-      width: 110,
+      width: 100,
       align: 'right',
       render: (_, record) => (
         <div className="flex items-center justify-end gap-1">
@@ -420,7 +420,14 @@ export const VerificationAgentsComponent = () => {
       ) : agents.length === 0 ? (
         <p className="text-sm text-gray-500 dark:text-gray-400">No agents registered yet.</p>
       ) : (
-        <Table columns={columns} dataSource={agents} pagination={false} rowKey="id" size="small" />
+        <Table
+          columns={columns}
+          dataSource={agents}
+          pagination={false}
+          rowKey="id"
+          size="small"
+          className="[&_.ant-table-tbody_.ant-table-cell]:align-top"
+        />
       )}
 
       <Modal

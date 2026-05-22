@@ -112,6 +112,10 @@ spec:
   volumeClaimTemplates:
     - metadata:
         name: databasus-storage
+        {{- with .Values.persistence.annotations }}
+        annotations:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
       spec:
         accessModes:
           - {{ .Values.persistence.accessMode }}

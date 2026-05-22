@@ -80,6 +80,15 @@ const renderTriggerTag = (trigger: VerificationTrigger) => {
   return <Tag color="purple">Scheduled</Tag>;
 };
 
+const renderTimestamp = (iso: string) => (
+  <span className="flex flex-col items-end">
+    <span>{dayjs.utc(iso).local().format(getUserTimeFormat().format)}</span>
+    <span className="text-xs text-gray-500 dark:text-gray-400">
+      ({dayjs.utc(iso).local().fromNow()})
+    </span>
+  </span>
+);
+
 const renderInfoRow = (label: string, value: React.ReactNode) => (
   <div className="flex items-baseline justify-between border-b border-gray-100 py-1 last:border-b-0 dark:border-gray-700">
     <span className="text-xs text-gray-500 dark:text-gray-400">{label}</span>
@@ -155,7 +164,7 @@ export const VerificationDetailDrawer = ({ verificationId, onClose }: Props) => 
     <Drawer
       title="Restore check details"
       placement="right"
-      width={620}
+      width={520}
       onClose={onClose}
       open={true}
       maskClosable={true}
@@ -190,20 +199,11 @@ export const VerificationDetailDrawer = ({ verificationId, onClose }: Props) => 
           {renderSection(
             'Timeline',
             <>
-              {renderInfoRow(
-                'Created at',
-                dayjs.utc(verification.createdAt).local().format(getUserTimeFormat().format),
-              )}
+              {renderInfoRow('Created at', renderTimestamp(verification.createdAt))}
               {verification.startedAt &&
-                renderInfoRow(
-                  'Started at',
-                  dayjs.utc(verification.startedAt).local().format(getUserTimeFormat().format),
-                )}
+                renderInfoRow('Started at', renderTimestamp(verification.startedAt))}
               {verification.finishedAt &&
-                renderInfoRow(
-                  'Finished at',
-                  dayjs.utc(verification.finishedAt).local().format(getUserTimeFormat().format),
-                )}
+                renderInfoRow('Finished at', renderTimestamp(verification.finishedAt))}
             </>,
           )}
 

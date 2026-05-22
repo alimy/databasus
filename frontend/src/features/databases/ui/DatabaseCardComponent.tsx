@@ -33,10 +33,10 @@ export const DatabaseCardComponent = ({
       onClick={() => setSelectedDatabaseId(database.id)}
     >
       <div className="flex">
-        <div className="mb-1 font-bold">{database.name}</div>
+        <div className="mb-1 min-w-0 font-bold break-words">{database.name}</div>
 
         {database.healthStatus && (
-          <div className="ml-auto pl-1">
+          <div className="ml-auto shrink-0 pl-1">
             <div
               className={`rounded px-[6px] py-[2px] text-[10px] text-white ${
                 database.healthStatus === HealthStatus.AVAILABLE ? 'bg-green-500' : 'bg-red-500'

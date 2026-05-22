@@ -76,6 +76,10 @@ persistence:
   size: 10Gi
   # Mount path in container
   mountPath: /databasus-data
+  # Annotations applied to the PVC created by volumeClaimTemplates.
+  # Useful for backup tooling, e.g. k8up.io/backup: "false" to exclude
+  # the databasus-data volume from k8up/restic backups.
+  annotations: {}
 
 # Ingress configuration (disabled by default - using LoadBalancer instead)
 ingress:

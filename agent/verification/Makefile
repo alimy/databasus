@@ -20,7 +20,7 @@ run:
 		--token $(AGENT_TOKEN) \
 		--max-cpu 4 \
 		--max-ram-mb 4096 \
-		--max-disk-gb 50 \
+		--max-disk-gb 1000 \
 		--max-concurrent-jobs 2 \
 		--allow-insecure-http \
 		--skip-update

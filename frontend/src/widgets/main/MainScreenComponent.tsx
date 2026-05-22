@@ -22,7 +22,12 @@ import {
   CreateWorkspaceDialogComponent,
   WorkspaceSettingsComponent,
 } from '../../features/workspaces';
-import { useIsMobile, useScreenHeight } from '../../shared/hooks';
+import {
+  useIsMobile,
+  useIsNewGitHubVersionAvailable,
+  useScreenHeight,
+  useTemporaryVisibility,
+} from '../../shared/hooks';
 import { StarButtonComponent } from '../../shared/ui/StarButtonComponent';
 import { ThemeToggleComponent } from '../../shared/ui/ThemeToggleComponent';
 import { SidebarComponent } from './SidebarComponent';
@@ -32,6 +37,8 @@ export const MainScreenComponent = () => {
   const { message } = App.useApp();
   const screenHeight = useScreenHeight();
   const isMobile = useIsMobile();
+  const isNewGitHubVersionAvailable = useIsNewGitHubVersionAvailable();
+  const isCloudPulseVisible = useTemporaryVisibility(15_000);
   const contentHeight = screenHeight - (isMobile ? 70 : 95);
 
   const [selectedTab, setSelectedTab] = useState<
@@ -220,11 +227,16 @@ export const MainScreenComponent = () => {
                 target="_blank"
                 rel="noreferrer"
               >
+                {isCloudPulseVisible && (
+                  <span
+                    className="relative flex h-2 w-2"
+                    aria-label="99.9% uptime, 2 backup copies"
+                  >
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-500 opacity-75" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
+                  </span>
+                )}
                 Cloud
-                <span className="relative flex h-2 w-2" aria-label="99.9% uptime, 2 backup copies">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-500 opacity-75" />
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
-                </span>
               </a>
             </Tooltip>
           )}
@@ -394,7 +406,21 @@ export const MainScreenComponent = () => {
             <div className="absolute bottom-1 left-2 mb-[0px] hidden text-sm text-gray-400 md:block">
               v{APP_VERSION}
               <br />
-              {CONTAINER_ARCH}
+              <span className="inline-flex items-center gap-1.5">
+                {CONTAINER_ARCH}
+                {isNewGitHubVersionAvailable && (
+                  <Tooltip title="New version available">
+                    <a
+                      href="https://github.com/databasus/databasus/releases/latest"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex"
+                    >
+                      <span className="inline-flex h-2 w-2 rounded-full bg-green-500" />
+                    </a>
+                  </Tooltip>
+                )}
+              </span>
             </div>
           )}
         </div>
