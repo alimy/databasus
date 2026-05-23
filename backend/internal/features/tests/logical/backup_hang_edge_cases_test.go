@@ -47,7 +47,7 @@ func Test_BackupShouldFailNotHang_WhenSaveFileFails_RegressionForIssue582(t *tes
 	t.Run("MariaDB", func(t *testing.T) {
 		container, err := connectToMariadbContainer(
 			tools.MariadbVersion1011,
-			env.TestMariadb1011Port,
+			env.TestLogicalMariadb1011Port,
 		)
 		if err != nil {
 			t.Skipf("Skipping: failed to connect to MariaDB test container: %v", err)
@@ -69,7 +69,7 @@ func Test_BackupShouldFailNotHang_WhenSaveFileFails_RegressionForIssue582(t *tes
 	})
 
 	t.Run("PostgreSQL", func(t *testing.T) {
-		container, err := connectToPostgresContainer("16", env.TestPostgres16Port)
+		container, err := connectToPostgresContainer("16", env.TestLogicalPostgres16Port)
 		if err != nil {
 			t.Skipf("Skipping: failed to connect to PostgreSQL test container: %v", err)
 			return
@@ -92,7 +92,7 @@ func Test_BackupShouldFailNotHang_WhenSaveFileFails_RegressionForIssue582(t *tes
 	t.Run("MySQL", func(t *testing.T) {
 		container, err := connectToMysqlContainer(
 			tools.MysqlVersion80,
-			env.TestMysql80Port,
+			env.TestLogicalMysql80Port,
 		)
 		if err != nil {
 			t.Skipf("Skipping: failed to connect to MySQL test container: %v", err)
@@ -116,7 +116,7 @@ func Test_BackupShouldFailNotHang_WhenSaveFileFails_RegressionForIssue582(t *tes
 	t.Run("MongoDB", func(t *testing.T) {
 		container, err := connectToMongodbContainer(
 			tools.MongodbVersion7,
-			env.TestMongodb70Port,
+			env.TestLogicalMongodb70Port,
 		)
 		if err != nil {
 			t.Skipf("Skipping: failed to connect to MongoDB test container: %v", err)

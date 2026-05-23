@@ -24,17 +24,17 @@ func Test_TestConnection_InsufficientPermissions_ReturnsError(t *testing.T) {
 		version tools.MariadbVersion
 		port    string
 	}{
-		{"MariaDB 5.5", tools.MariadbVersion55, env.TestMariadb55Port},
-		{"MariaDB 10.1", tools.MariadbVersion101, env.TestMariadb101Port},
-		{"MariaDB 10.2", tools.MariadbVersion102, env.TestMariadb102Port},
-		{"MariaDB 10.3", tools.MariadbVersion103, env.TestMariadb103Port},
-		{"MariaDB 10.4", tools.MariadbVersion104, env.TestMariadb104Port},
-		{"MariaDB 10.5", tools.MariadbVersion105, env.TestMariadb105Port},
-		{"MariaDB 10.6", tools.MariadbVersion106, env.TestMariadb106Port},
-		{"MariaDB 10.11", tools.MariadbVersion1011, env.TestMariadb1011Port},
-		{"MariaDB 11.4", tools.MariadbVersion114, env.TestMariadb114Port},
-		{"MariaDB 11.8", tools.MariadbVersion118, env.TestMariadb118Port},
-		{"MariaDB 12.0", tools.MariadbVersion120, env.TestMariadb120Port},
+		{"MariaDB 5.5", tools.MariadbVersion55, env.TestLogicalMariadb55Port},
+		{"MariaDB 10.1", tools.MariadbVersion101, env.TestLogicalMariadb101Port},
+		{"MariaDB 10.2", tools.MariadbVersion102, env.TestLogicalMariadb102Port},
+		{"MariaDB 10.3", tools.MariadbVersion103, env.TestLogicalMariadb103Port},
+		{"MariaDB 10.4", tools.MariadbVersion104, env.TestLogicalMariadb104Port},
+		{"MariaDB 10.5", tools.MariadbVersion105, env.TestLogicalMariadb105Port},
+		{"MariaDB 10.6", tools.MariadbVersion106, env.TestLogicalMariadb106Port},
+		{"MariaDB 10.11", tools.MariadbVersion1011, env.TestLogicalMariadb1011Port},
+		{"MariaDB 11.4", tools.MariadbVersion114, env.TestLogicalMariadb114Port},
+		{"MariaDB 11.8", tools.MariadbVersion118, env.TestLogicalMariadb118Port},
+		{"MariaDB 12.0", tools.MariadbVersion120, env.TestLogicalMariadb120Port},
 	}
 
 	for _, tc := range cases {
@@ -104,17 +104,17 @@ func Test_TestConnection_SufficientPermissions_Success(t *testing.T) {
 		version tools.MariadbVersion
 		port    string
 	}{
-		{"MariaDB 5.5", tools.MariadbVersion55, env.TestMariadb55Port},
-		{"MariaDB 10.1", tools.MariadbVersion101, env.TestMariadb101Port},
-		{"MariaDB 10.2", tools.MariadbVersion102, env.TestMariadb102Port},
-		{"MariaDB 10.3", tools.MariadbVersion103, env.TestMariadb103Port},
-		{"MariaDB 10.4", tools.MariadbVersion104, env.TestMariadb104Port},
-		{"MariaDB 10.5", tools.MariadbVersion105, env.TestMariadb105Port},
-		{"MariaDB 10.6", tools.MariadbVersion106, env.TestMariadb106Port},
-		{"MariaDB 10.11", tools.MariadbVersion1011, env.TestMariadb1011Port},
-		{"MariaDB 11.4", tools.MariadbVersion114, env.TestMariadb114Port},
-		{"MariaDB 11.8", tools.MariadbVersion118, env.TestMariadb118Port},
-		{"MariaDB 12.0", tools.MariadbVersion120, env.TestMariadb120Port},
+		{"MariaDB 5.5", tools.MariadbVersion55, env.TestLogicalMariadb55Port},
+		{"MariaDB 10.1", tools.MariadbVersion101, env.TestLogicalMariadb101Port},
+		{"MariaDB 10.2", tools.MariadbVersion102, env.TestLogicalMariadb102Port},
+		{"MariaDB 10.3", tools.MariadbVersion103, env.TestLogicalMariadb103Port},
+		{"MariaDB 10.4", tools.MariadbVersion104, env.TestLogicalMariadb104Port},
+		{"MariaDB 10.5", tools.MariadbVersion105, env.TestLogicalMariadb105Port},
+		{"MariaDB 10.6", tools.MariadbVersion106, env.TestLogicalMariadb106Port},
+		{"MariaDB 10.11", tools.MariadbVersion1011, env.TestLogicalMariadb1011Port},
+		{"MariaDB 11.4", tools.MariadbVersion114, env.TestLogicalMariadb114Port},
+		{"MariaDB 11.8", tools.MariadbVersion118, env.TestLogicalMariadb118Port},
+		{"MariaDB 12.0", tools.MariadbVersion120, env.TestLogicalMariadb120Port},
 	}
 
 	for _, tc := range cases {
@@ -189,17 +189,17 @@ func Test_IsUserReadOnly_AdminUser_ReturnsFalse(t *testing.T) {
 		version tools.MariadbVersion
 		port    string
 	}{
-		{"MariaDB 5.5", tools.MariadbVersion55, env.TestMariadb55Port},
-		{"MariaDB 10.1", tools.MariadbVersion101, env.TestMariadb101Port},
-		{"MariaDB 10.2", tools.MariadbVersion102, env.TestMariadb102Port},
-		{"MariaDB 10.3", tools.MariadbVersion103, env.TestMariadb103Port},
-		{"MariaDB 10.4", tools.MariadbVersion104, env.TestMariadb104Port},
-		{"MariaDB 10.5", tools.MariadbVersion105, env.TestMariadb105Port},
-		{"MariaDB 10.6", tools.MariadbVersion106, env.TestMariadb106Port},
-		{"MariaDB 10.11", tools.MariadbVersion1011, env.TestMariadb1011Port},
-		{"MariaDB 11.4", tools.MariadbVersion114, env.TestMariadb114Port},
-		{"MariaDB 11.8", tools.MariadbVersion118, env.TestMariadb118Port},
-		{"MariaDB 12.0", tools.MariadbVersion120, env.TestMariadb120Port},
+		{"MariaDB 5.5", tools.MariadbVersion55, env.TestLogicalMariadb55Port},
+		{"MariaDB 10.1", tools.MariadbVersion101, env.TestLogicalMariadb101Port},
+		{"MariaDB 10.2", tools.MariadbVersion102, env.TestLogicalMariadb102Port},
+		{"MariaDB 10.3", tools.MariadbVersion103, env.TestLogicalMariadb103Port},
+		{"MariaDB 10.4", tools.MariadbVersion104, env.TestLogicalMariadb104Port},
+		{"MariaDB 10.5", tools.MariadbVersion105, env.TestLogicalMariadb105Port},
+		{"MariaDB 10.6", tools.MariadbVersion106, env.TestLogicalMariadb106Port},
+		{"MariaDB 10.11", tools.MariadbVersion1011, env.TestLogicalMariadb1011Port},
+		{"MariaDB 11.4", tools.MariadbVersion114, env.TestLogicalMariadb114Port},
+		{"MariaDB 11.8", tools.MariadbVersion118, env.TestLogicalMariadb118Port},
+		{"MariaDB 12.0", tools.MariadbVersion120, env.TestLogicalMariadb120Port},
 	}
 
 	for _, tc := range cases {
@@ -223,7 +223,7 @@ func Test_IsUserReadOnly_AdminUser_ReturnsFalse(t *testing.T) {
 
 func Test_IsUserReadOnly_ReadOnlyUser_ReturnsTrue(t *testing.T) {
 	env := config.GetEnv()
-	container := connectToMariadbContainer(t, env.TestMariadb1011Port, tools.MariadbVersion1011)
+	container := connectToMariadbContainer(t, env.TestLogicalMariadb1011Port, tools.MariadbVersion1011)
 	defer container.DB.Close()
 
 	_, err := container.DB.Exec(`DROP TABLE IF EXISTS readonly_check_test`)
@@ -270,17 +270,17 @@ func Test_CreateReadOnlyUser_UserCanReadButNotWrite(t *testing.T) {
 		version tools.MariadbVersion
 		port    string
 	}{
-		{"MariaDB 5.5", tools.MariadbVersion55, env.TestMariadb55Port},
-		{"MariaDB 10.1", tools.MariadbVersion101, env.TestMariadb101Port},
-		{"MariaDB 10.2", tools.MariadbVersion102, env.TestMariadb102Port},
-		{"MariaDB 10.3", tools.MariadbVersion103, env.TestMariadb103Port},
-		{"MariaDB 10.4", tools.MariadbVersion104, env.TestMariadb104Port},
-		{"MariaDB 10.5", tools.MariadbVersion105, env.TestMariadb105Port},
-		{"MariaDB 10.6", tools.MariadbVersion106, env.TestMariadb106Port},
-		{"MariaDB 10.11", tools.MariadbVersion1011, env.TestMariadb1011Port},
-		{"MariaDB 11.4", tools.MariadbVersion114, env.TestMariadb114Port},
-		{"MariaDB 11.8", tools.MariadbVersion118, env.TestMariadb118Port},
-		{"MariaDB 12.0", tools.MariadbVersion120, env.TestMariadb120Port},
+		{"MariaDB 5.5", tools.MariadbVersion55, env.TestLogicalMariadb55Port},
+		{"MariaDB 10.1", tools.MariadbVersion101, env.TestLogicalMariadb101Port},
+		{"MariaDB 10.2", tools.MariadbVersion102, env.TestLogicalMariadb102Port},
+		{"MariaDB 10.3", tools.MariadbVersion103, env.TestLogicalMariadb103Port},
+		{"MariaDB 10.4", tools.MariadbVersion104, env.TestLogicalMariadb104Port},
+		{"MariaDB 10.5", tools.MariadbVersion105, env.TestLogicalMariadb105Port},
+		{"MariaDB 10.6", tools.MariadbVersion106, env.TestLogicalMariadb106Port},
+		{"MariaDB 10.11", tools.MariadbVersion1011, env.TestLogicalMariadb1011Port},
+		{"MariaDB 11.4", tools.MariadbVersion114, env.TestLogicalMariadb114Port},
+		{"MariaDB 11.8", tools.MariadbVersion118, env.TestLogicalMariadb118Port},
+		{"MariaDB 12.0", tools.MariadbVersion120, env.TestLogicalMariadb120Port},
 	}
 
 	for _, tc := range cases {
@@ -383,7 +383,7 @@ func Test_CreateReadOnlyUser_UserCanReadButNotWrite(t *testing.T) {
 
 func Test_ReadOnlyUser_FutureTables_NoSelectPermission(t *testing.T) {
 	env := config.GetEnv()
-	container := connectToMariadbContainer(t, env.TestMariadb1011Port, tools.MariadbVersion1011)
+	container := connectToMariadbContainer(t, env.TestLogicalMariadb1011Port, tools.MariadbVersion1011)
 	defer container.DB.Close()
 
 	mariadbModel := createMariadbModel(container)
@@ -421,7 +421,7 @@ func Test_ReadOnlyUser_FutureTables_NoSelectPermission(t *testing.T) {
 
 func Test_CreateReadOnlyUser_DatabaseNameWithDash_Success(t *testing.T) {
 	env := config.GetEnv()
-	container := connectToMariadbContainer(t, env.TestMariadb1011Port, tools.MariadbVersion1011)
+	container := connectToMariadbContainer(t, env.TestLogicalMariadb1011Port, tools.MariadbVersion1011)
 	defer container.DB.Close()
 
 	dashDbName := "test-db-with-dash"
@@ -492,7 +492,7 @@ func Test_CreateReadOnlyUser_DatabaseNameWithDash_Success(t *testing.T) {
 
 func Test_ReadOnlyUser_CannotDropOrAlterTables(t *testing.T) {
 	env := config.GetEnv()
-	container := connectToMariadbContainer(t, env.TestMariadb1011Port, tools.MariadbVersion1011)
+	container := connectToMariadbContainer(t, env.TestLogicalMariadb1011Port, tools.MariadbVersion1011)
 	defer container.DB.Close()
 
 	_, err := container.DB.Exec(`DROP TABLE IF EXISTS drop_test`)
@@ -542,17 +542,17 @@ func Test_TestConnection_DatabaseSpecificPrivilegesWithGlobalProcess_Success(t *
 		version tools.MariadbVersion
 		port    string
 	}{
-		{"MariaDB 5.5", tools.MariadbVersion55, env.TestMariadb55Port},
-		{"MariaDB 10.1", tools.MariadbVersion101, env.TestMariadb101Port},
-		{"MariaDB 10.2", tools.MariadbVersion102, env.TestMariadb102Port},
-		{"MariaDB 10.3", tools.MariadbVersion103, env.TestMariadb103Port},
-		{"MariaDB 10.4", tools.MariadbVersion104, env.TestMariadb104Port},
-		{"MariaDB 10.5", tools.MariadbVersion105, env.TestMariadb105Port},
-		{"MariaDB 10.6", tools.MariadbVersion106, env.TestMariadb106Port},
-		{"MariaDB 10.11", tools.MariadbVersion1011, env.TestMariadb1011Port},
-		{"MariaDB 11.4", tools.MariadbVersion114, env.TestMariadb114Port},
-		{"MariaDB 11.8", tools.MariadbVersion118, env.TestMariadb118Port},
-		{"MariaDB 12.0", tools.MariadbVersion120, env.TestMariadb120Port},
+		{"MariaDB 5.5", tools.MariadbVersion55, env.TestLogicalMariadb55Port},
+		{"MariaDB 10.1", tools.MariadbVersion101, env.TestLogicalMariadb101Port},
+		{"MariaDB 10.2", tools.MariadbVersion102, env.TestLogicalMariadb102Port},
+		{"MariaDB 10.3", tools.MariadbVersion103, env.TestLogicalMariadb103Port},
+		{"MariaDB 10.4", tools.MariadbVersion104, env.TestLogicalMariadb104Port},
+		{"MariaDB 10.5", tools.MariadbVersion105, env.TestLogicalMariadb105Port},
+		{"MariaDB 10.6", tools.MariadbVersion106, env.TestLogicalMariadb106Port},
+		{"MariaDB 10.11", tools.MariadbVersion1011, env.TestLogicalMariadb1011Port},
+		{"MariaDB 11.4", tools.MariadbVersion114, env.TestLogicalMariadb114Port},
+		{"MariaDB 11.8", tools.MariadbVersion118, env.TestLogicalMariadb118Port},
+		{"MariaDB 12.0", tools.MariadbVersion120, env.TestLogicalMariadb120Port},
 	}
 
 	for _, tc := range cases {
@@ -622,7 +622,7 @@ func Test_TestConnection_DatabaseSpecificPrivilegesWithGlobalProcess_Success(t *
 
 func Test_TestConnection_DatabaseWithUnderscores_Success(t *testing.T) {
 	env := config.GetEnv()
-	container := connectToMariadbContainer(t, env.TestMariadb1011Port, tools.MariadbVersion1011)
+	container := connectToMariadbContainer(t, env.TestLogicalMariadb1011Port, tools.MariadbVersion1011)
 	defer container.DB.Close()
 
 	underscoreDbName := "test_db_name"
@@ -699,17 +699,17 @@ func Test_TestConnection_DatabaseWithUnderscoresAndAllPrivileges_Success(t *test
 		version tools.MariadbVersion
 		port    string
 	}{
-		{"MariaDB 5.5", tools.MariadbVersion55, env.TestMariadb55Port},
-		{"MariaDB 10.1", tools.MariadbVersion101, env.TestMariadb101Port},
-		{"MariaDB 10.2", tools.MariadbVersion102, env.TestMariadb102Port},
-		{"MariaDB 10.3", tools.MariadbVersion103, env.TestMariadb103Port},
-		{"MariaDB 10.4", tools.MariadbVersion104, env.TestMariadb104Port},
-		{"MariaDB 10.5", tools.MariadbVersion105, env.TestMariadb105Port},
-		{"MariaDB 10.6", tools.MariadbVersion106, env.TestMariadb106Port},
-		{"MariaDB 10.11", tools.MariadbVersion1011, env.TestMariadb1011Port},
-		{"MariaDB 11.4", tools.MariadbVersion114, env.TestMariadb114Port},
-		{"MariaDB 11.8", tools.MariadbVersion118, env.TestMariadb118Port},
-		{"MariaDB 12.0", tools.MariadbVersion120, env.TestMariadb120Port},
+		{"MariaDB 5.5", tools.MariadbVersion55, env.TestLogicalMariadb55Port},
+		{"MariaDB 10.1", tools.MariadbVersion101, env.TestLogicalMariadb101Port},
+		{"MariaDB 10.2", tools.MariadbVersion102, env.TestLogicalMariadb102Port},
+		{"MariaDB 10.3", tools.MariadbVersion103, env.TestLogicalMariadb103Port},
+		{"MariaDB 10.4", tools.MariadbVersion104, env.TestLogicalMariadb104Port},
+		{"MariaDB 10.5", tools.MariadbVersion105, env.TestLogicalMariadb105Port},
+		{"MariaDB 10.6", tools.MariadbVersion106, env.TestLogicalMariadb106Port},
+		{"MariaDB 10.11", tools.MariadbVersion1011, env.TestLogicalMariadb1011Port},
+		{"MariaDB 11.4", tools.MariadbVersion114, env.TestLogicalMariadb114Port},
+		{"MariaDB 11.8", tools.MariadbVersion118, env.TestLogicalMariadb118Port},
+		{"MariaDB 12.0", tools.MariadbVersion120, env.TestLogicalMariadb120Port},
 	}
 
 	for _, tc := range cases {
@@ -813,7 +813,7 @@ type MariadbContainer struct {
 
 func Test_GetRawDbSizeMb_Mariadb_ReturnsPositiveSize(t *testing.T) {
 	env := config.GetEnv()
-	container := connectToMariadbContainer(t, env.TestMariadb1011Port, tools.MariadbVersion1011)
+	container := connectToMariadbContainer(t, env.TestLogicalMariadb1011Port, tools.MariadbVersion1011)
 	defer container.DB.Close()
 
 	tableName := fmt.Sprintf("size_test_%s", uuid.New().String()[:8])
@@ -861,9 +861,9 @@ func Test_IsUserReadOnly_WithShowCreateRoutineGrant_ReturnsTrue(t *testing.T) {
 		version tools.MariadbVersion
 		port    string
 	}{
-		{"MariaDB 11.4", tools.MariadbVersion114, env.TestMariadb114Port},
-		{"MariaDB 11.8", tools.MariadbVersion118, env.TestMariadb118Port},
-		{"MariaDB 12.0", tools.MariadbVersion120, env.TestMariadb120Port},
+		{"MariaDB 11.4", tools.MariadbVersion114, env.TestLogicalMariadb114Port},
+		{"MariaDB 11.8", tools.MariadbVersion118, env.TestLogicalMariadb118Port},
+		{"MariaDB 12.0", tools.MariadbVersion120, env.TestLogicalMariadb120Port},
 	}
 
 	for _, tc := range cases {

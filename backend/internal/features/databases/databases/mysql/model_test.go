@@ -24,10 +24,10 @@ func Test_TestConnection_InsufficientPermissions_ReturnsError(t *testing.T) {
 		version tools.MysqlVersion
 		port    string
 	}{
-		{"MySQL 5.7", tools.MysqlVersion57, env.TestMysql57Port},
-		{"MySQL 8.0", tools.MysqlVersion80, env.TestMysql80Port},
-		{"MySQL 8.4", tools.MysqlVersion84, env.TestMysql84Port},
-		{"MySQL 9", tools.MysqlVersion9, env.TestMysql90Port},
+		{"MySQL 5.7", tools.MysqlVersion57, env.TestLogicalMysql57Port},
+		{"MySQL 8.0", tools.MysqlVersion80, env.TestLogicalMysql80Port},
+		{"MySQL 8.4", tools.MysqlVersion84, env.TestLogicalMysql84Port},
+		{"MySQL 9", tools.MysqlVersion9, env.TestLogicalMysql90Port},
 	}
 
 	for _, tc := range cases {
@@ -101,10 +101,10 @@ func Test_TestConnection_SufficientPermissions_Success(t *testing.T) {
 		version tools.MysqlVersion
 		port    string
 	}{
-		{"MySQL 5.7", tools.MysqlVersion57, env.TestMysql57Port},
-		{"MySQL 8.0", tools.MysqlVersion80, env.TestMysql80Port},
-		{"MySQL 8.4", tools.MysqlVersion84, env.TestMysql84Port},
-		{"MySQL 9", tools.MysqlVersion9, env.TestMysql90Port},
+		{"MySQL 5.7", tools.MysqlVersion57, env.TestLogicalMysql57Port},
+		{"MySQL 8.0", tools.MysqlVersion80, env.TestLogicalMysql80Port},
+		{"MySQL 8.4", tools.MysqlVersion84, env.TestLogicalMysql84Port},
+		{"MySQL 9", tools.MysqlVersion9, env.TestLogicalMysql90Port},
 	}
 
 	for _, tc := range cases {
@@ -184,10 +184,10 @@ func Test_TestConnection_DetectsZstdSupport(t *testing.T) {
 		port         string
 		isExpectZstd bool
 	}{
-		{"MySQL 5.7", tools.MysqlVersion57, env.TestMysql57Port, false},
-		{"MySQL 8.0", tools.MysqlVersion80, env.TestMysql80Port, true},
-		{"MySQL 8.4", tools.MysqlVersion84, env.TestMysql84Port, true},
-		{"MySQL 9", tools.MysqlVersion9, env.TestMysql90Port, true},
+		{"MySQL 5.7", tools.MysqlVersion57, env.TestLogicalMysql57Port, false},
+		{"MySQL 8.0", tools.MysqlVersion80, env.TestLogicalMysql80Port, true},
+		{"MySQL 8.4", tools.MysqlVersion84, env.TestLogicalMysql84Port, true},
+		{"MySQL 9", tools.MysqlVersion9, env.TestLogicalMysql90Port, true},
 	}
 
 	for _, tc := range cases {
@@ -215,10 +215,10 @@ func Test_IsUserReadOnly_AdminUser_ReturnsFalse(t *testing.T) {
 		version tools.MysqlVersion
 		port    string
 	}{
-		{"MySQL 5.7", tools.MysqlVersion57, env.TestMysql57Port},
-		{"MySQL 8.0", tools.MysqlVersion80, env.TestMysql80Port},
-		{"MySQL 8.4", tools.MysqlVersion84, env.TestMysql84Port},
-		{"MySQL 9", tools.MysqlVersion9, env.TestMysql90Port},
+		{"MySQL 5.7", tools.MysqlVersion57, env.TestLogicalMysql57Port},
+		{"MySQL 8.0", tools.MysqlVersion80, env.TestLogicalMysql80Port},
+		{"MySQL 8.4", tools.MysqlVersion84, env.TestLogicalMysql84Port},
+		{"MySQL 9", tools.MysqlVersion9, env.TestLogicalMysql90Port},
 	}
 
 	for _, tc := range cases {
@@ -242,7 +242,7 @@ func Test_IsUserReadOnly_AdminUser_ReturnsFalse(t *testing.T) {
 
 func Test_IsUserReadOnly_ReadOnlyUser_ReturnsTrue(t *testing.T) {
 	env := config.GetEnv()
-	container := connectToMysqlContainer(t, env.TestMysql80Port, tools.MysqlVersion80)
+	container := connectToMysqlContainer(t, env.TestLogicalMysql80Port, tools.MysqlVersion80)
 	defer container.DB.Close()
 
 	_, err := container.DB.Exec(`DROP TABLE IF EXISTS readonly_check_test`)
@@ -290,10 +290,10 @@ func Test_CreateReadOnlyUser_UserCanReadButNotWrite(t *testing.T) {
 		version tools.MysqlVersion
 		port    string
 	}{
-		{"MySQL 5.7", tools.MysqlVersion57, env.TestMysql57Port},
-		{"MySQL 8.0", tools.MysqlVersion80, env.TestMysql80Port},
-		{"MySQL 8.4", tools.MysqlVersion84, env.TestMysql84Port},
-		{"MySQL 9", tools.MysqlVersion9, env.TestMysql90Port},
+		{"MySQL 5.7", tools.MysqlVersion57, env.TestLogicalMysql57Port},
+		{"MySQL 8.0", tools.MysqlVersion80, env.TestLogicalMysql80Port},
+		{"MySQL 8.4", tools.MysqlVersion84, env.TestLogicalMysql84Port},
+		{"MySQL 9", tools.MysqlVersion9, env.TestLogicalMysql90Port},
 	}
 
 	for _, tc := range cases {
@@ -393,7 +393,7 @@ func Test_CreateReadOnlyUser_UserCanReadButNotWrite(t *testing.T) {
 
 func Test_ReadOnlyUser_FutureTables_NoSelectPermission(t *testing.T) {
 	env := config.GetEnv()
-	container := connectToMysqlContainer(t, env.TestMysql80Port, tools.MysqlVersion80)
+	container := connectToMysqlContainer(t, env.TestLogicalMysql80Port, tools.MysqlVersion80)
 	defer container.DB.Close()
 
 	mysqlModel := createMysqlModel(container)
@@ -432,7 +432,7 @@ func Test_ReadOnlyUser_FutureTables_NoSelectPermission(t *testing.T) {
 
 func Test_CreateReadOnlyUser_DatabaseNameWithDash_Success(t *testing.T) {
 	env := config.GetEnv()
-	container := connectToMysqlContainer(t, env.TestMysql80Port, tools.MysqlVersion80)
+	container := connectToMysqlContainer(t, env.TestLogicalMysql80Port, tools.MysqlVersion80)
 	defer container.DB.Close()
 
 	dashDbName := "test-db-with-dash"
@@ -504,7 +504,7 @@ func Test_CreateReadOnlyUser_DatabaseNameWithDash_Success(t *testing.T) {
 
 func Test_ReadOnlyUser_CannotDropOrAlterTables(t *testing.T) {
 	env := config.GetEnv()
-	container := connectToMysqlContainer(t, env.TestMysql80Port, tools.MysqlVersion80)
+	container := connectToMysqlContainer(t, env.TestLogicalMysql80Port, tools.MysqlVersion80)
 	defer container.DB.Close()
 
 	_, err := container.DB.Exec(`DROP TABLE IF EXISTS drop_test`)
@@ -555,10 +555,10 @@ func Test_TestConnection_DatabaseSpecificPrivilegesWithGlobalProcess_Success(t *
 		version tools.MysqlVersion
 		port    string
 	}{
-		{"MySQL 5.7", tools.MysqlVersion57, env.TestMysql57Port},
-		{"MySQL 8.0", tools.MysqlVersion80, env.TestMysql80Port},
-		{"MySQL 8.4", tools.MysqlVersion84, env.TestMysql84Port},
-		{"MySQL 9", tools.MysqlVersion9, env.TestMysql90Port},
+		{"MySQL 5.7", tools.MysqlVersion57, env.TestLogicalMysql57Port},
+		{"MySQL 8.0", tools.MysqlVersion80, env.TestLogicalMysql80Port},
+		{"MySQL 8.4", tools.MysqlVersion84, env.TestLogicalMysql84Port},
+		{"MySQL 9", tools.MysqlVersion9, env.TestLogicalMysql90Port},
 	}
 
 	for _, tc := range cases {
@@ -632,7 +632,7 @@ func Test_TestConnection_DatabaseSpecificPrivilegesWithGlobalProcess_Success(t *
 
 func Test_TestConnection_DatabaseWithUnderscores_Success(t *testing.T) {
 	env := config.GetEnv()
-	container := connectToMysqlContainer(t, env.TestMysql80Port, tools.MysqlVersion80)
+	container := connectToMysqlContainer(t, env.TestLogicalMysql80Port, tools.MysqlVersion80)
 	defer container.DB.Close()
 
 	underscoreDbName := "test_db_name"
@@ -711,10 +711,10 @@ func Test_TestConnection_DatabaseWithUnderscoresAndAllPrivileges_Success(t *test
 		version tools.MysqlVersion
 		port    string
 	}{
-		{"MySQL 5.7", tools.MysqlVersion57, env.TestMysql57Port},
-		{"MySQL 8.0", tools.MysqlVersion80, env.TestMysql80Port},
-		{"MySQL 8.4", tools.MysqlVersion84, env.TestMysql84Port},
-		{"MySQL 9", tools.MysqlVersion9, env.TestMysql90Port},
+		{"MySQL 5.7", tools.MysqlVersion57, env.TestLogicalMysql57Port},
+		{"MySQL 8.0", tools.MysqlVersion80, env.TestLogicalMysql80Port},
+		{"MySQL 8.4", tools.MysqlVersion84, env.TestLogicalMysql84Port},
+		{"MySQL 9", tools.MysqlVersion9, env.TestLogicalMysql90Port},
 	}
 
 	for _, tc := range cases {
@@ -822,7 +822,7 @@ type MysqlContainer struct {
 
 func Test_GetRawDbSizeMb_Mysql_ReturnsPositiveSize(t *testing.T) {
 	env := config.GetEnv()
-	container := connectToMysqlContainer(t, env.TestMysql80Port, tools.MysqlVersion80)
+	container := connectToMysqlContainer(t, env.TestLogicalMysql80Port, tools.MysqlVersion80)
 	defer container.DB.Close()
 
 	tableName := fmt.Sprintf("size_test_%s", uuid.New().String()[:8])

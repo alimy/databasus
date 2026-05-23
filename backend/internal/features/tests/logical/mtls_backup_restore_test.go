@@ -28,9 +28,9 @@ import (
 )
 
 func Test_BackupAndRestorePostgresqlMtls_Succeeds(t *testing.T) {
-	port := config.GetEnv().TestPostgresMtlsPort
+	port := config.GetEnv().TestLogicalPostgresMtlsPort
 	if port == "" {
-		t.Skip("TEST_POSTGRES_MTLS_PORT not configured")
+		t.Skip("TEST_LOGICAL_POSTGRES_MTLS_PORT not configured")
 	}
 
 	host := config.GetEnv().TestLocalhost
@@ -104,9 +104,9 @@ func Test_BackupAndRestorePostgresqlMtls_Succeeds(t *testing.T) {
 }
 
 func Test_CreatePostgresqlMtls_WhenClientCertMissing_IsRejected(t *testing.T) {
-	port := config.GetEnv().TestPostgresMtlsPort
+	port := config.GetEnv().TestLogicalPostgresMtlsPort
 	if port == "" {
-		t.Skip("TEST_POSTGRES_MTLS_PORT not configured")
+		t.Skip("TEST_LOGICAL_POSTGRES_MTLS_PORT not configured")
 	}
 
 	host := config.GetEnv().TestLocalhost

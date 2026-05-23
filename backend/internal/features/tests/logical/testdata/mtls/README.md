@@ -1,6 +1,6 @@
 # mTLS test certificates
 
-Certificate chain for the `test-postgres-mtls` container, which enforces mutual TLS -
+Certificate chain for the `test-logical-postgres-mtls` container, which enforces mutual TLS -
 it rejects any TCP client that does not present a client certificate signed by
 `ca.crt`. This reproduces a Cloud SQL instance with "Require trusted client
 certificates" enabled. Not used in production.

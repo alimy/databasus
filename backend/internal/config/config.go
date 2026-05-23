@@ -67,13 +67,13 @@ type EnvVariables struct {
 	PaddlePriceID       string `env:"PADDLE_PRICE_ID"`
 	PaddleClientToken   string `env:"PADDLE_CLIENT_TOKEN"`
 
-	TestPostgres12Port string `env:"TEST_POSTGRES_12_PORT"`
-	TestPostgres13Port string `env:"TEST_POSTGRES_13_PORT"`
-	TestPostgres14Port string `env:"TEST_POSTGRES_14_PORT"`
-	TestPostgres15Port string `env:"TEST_POSTGRES_15_PORT"`
-	TestPostgres16Port string `env:"TEST_POSTGRES_16_PORT"`
-	TestPostgres17Port string `env:"TEST_POSTGRES_17_PORT"`
-	TestPostgres18Port string `env:"TEST_POSTGRES_18_PORT"`
+	TestLogicalPostgres12Port string `env:"TEST_LOGICAL_POSTGRES_12_PORT"`
+	TestLogicalPostgres13Port string `env:"TEST_LOGICAL_POSTGRES_13_PORT"`
+	TestLogicalPostgres14Port string `env:"TEST_LOGICAL_POSTGRES_14_PORT"`
+	TestLogicalPostgres15Port string `env:"TEST_LOGICAL_POSTGRES_15_PORT"`
+	TestLogicalPostgres16Port string `env:"TEST_LOGICAL_POSTGRES_16_PORT"`
+	TestLogicalPostgres17Port string `env:"TEST_LOGICAL_POSTGRES_17_PORT"`
+	TestLogicalPostgres18Port string `env:"TEST_LOGICAL_POSTGRES_18_PORT"`
 
 	TestMinioPort        string `env:"TEST_MINIO_PORT"`
 	TestMinioConsolePort string `env:"TEST_MINIO_CONSOLE_PORT"`
@@ -84,36 +84,36 @@ type EnvVariables struct {
 	TestFTPPort  string `env:"TEST_FTP_PORT"`
 	TestSFTPPort string `env:"TEST_SFTP_PORT"`
 
-	TestMysql57Port string `env:"TEST_MYSQL_57_PORT"`
-	TestMysql80Port string `env:"TEST_MYSQL_80_PORT"`
-	TestMysql84Port string `env:"TEST_MYSQL_84_PORT"`
-	TestMysql90Port string `env:"TEST_MYSQL_90_PORT"`
+	TestLogicalMysql57Port string `env:"TEST_LOGICAL_MYSQL_57_PORT"`
+	TestLogicalMysql80Port string `env:"TEST_LOGICAL_MYSQL_80_PORT"`
+	TestLogicalMysql84Port string `env:"TEST_LOGICAL_MYSQL_84_PORT"`
+	TestLogicalMysql90Port string `env:"TEST_LOGICAL_MYSQL_90_PORT"`
 
-	TestMariadb55Port   string `env:"TEST_MARIADB_55_PORT"`
-	TestMariadb101Port  string `env:"TEST_MARIADB_101_PORT"`
-	TestMariadb102Port  string `env:"TEST_MARIADB_102_PORT"`
-	TestMariadb103Port  string `env:"TEST_MARIADB_103_PORT"`
-	TestMariadb104Port  string `env:"TEST_MARIADB_104_PORT"`
-	TestMariadb105Port  string `env:"TEST_MARIADB_105_PORT"`
-	TestMariadb106Port  string `env:"TEST_MARIADB_106_PORT"`
-	TestMariadb1011Port string `env:"TEST_MARIADB_1011_PORT"`
-	TestMariadb114Port  string `env:"TEST_MARIADB_114_PORT"`
-	TestMariadb118Port  string `env:"TEST_MARIADB_118_PORT"`
-	TestMariadb120Port  string `env:"TEST_MARIADB_120_PORT"`
+	TestLogicalMariadb55Port   string `env:"TEST_LOGICAL_MARIADB_55_PORT"`
+	TestLogicalMariadb101Port  string `env:"TEST_LOGICAL_MARIADB_101_PORT"`
+	TestLogicalMariadb102Port  string `env:"TEST_LOGICAL_MARIADB_102_PORT"`
+	TestLogicalMariadb103Port  string `env:"TEST_LOGICAL_MARIADB_103_PORT"`
+	TestLogicalMariadb104Port  string `env:"TEST_LOGICAL_MARIADB_104_PORT"`
+	TestLogicalMariadb105Port  string `env:"TEST_LOGICAL_MARIADB_105_PORT"`
+	TestLogicalMariadb106Port  string `env:"TEST_LOGICAL_MARIADB_106_PORT"`
+	TestLogicalMariadb1011Port string `env:"TEST_LOGICAL_MARIADB_1011_PORT"`
+	TestLogicalMariadb114Port  string `env:"TEST_LOGICAL_MARIADB_114_PORT"`
+	TestLogicalMariadb118Port  string `env:"TEST_LOGICAL_MARIADB_118_PORT"`
+	TestLogicalMariadb120Port  string `env:"TEST_LOGICAL_MARIADB_120_PORT"`
 
-	TestMongodb40Port string `env:"TEST_MONGODB_40_PORT"`
-	TestMongodb42Port string `env:"TEST_MONGODB_42_PORT"`
-	TestMongodb44Port string `env:"TEST_MONGODB_44_PORT"`
-	TestMongodb50Port string `env:"TEST_MONGODB_50_PORT"`
-	TestMongodb60Port string `env:"TEST_MONGODB_60_PORT"`
-	TestMongodb70Port string `env:"TEST_MONGODB_70_PORT"`
-	TestMongodb82Port string `env:"TEST_MONGODB_82_PORT"`
+	TestLogicalMongodb40Port string `env:"TEST_LOGICAL_MONGODB_40_PORT"`
+	TestLogicalMongodb42Port string `env:"TEST_LOGICAL_MONGODB_42_PORT"`
+	TestLogicalMongodb44Port string `env:"TEST_LOGICAL_MONGODB_44_PORT"`
+	TestLogicalMongodb50Port string `env:"TEST_LOGICAL_MONGODB_50_PORT"`
+	TestLogicalMongodb60Port string `env:"TEST_LOGICAL_MONGODB_60_PORT"`
+	TestLogicalMongodb70Port string `env:"TEST_LOGICAL_MONGODB_70_PORT"`
+	TestLogicalMongodb82Port string `env:"TEST_LOGICAL_MONGODB_82_PORT"`
 
-	TestPostgresSslPort  string `env:"TEST_POSTGRES_SSL_PORT"`
-	TestPostgresMtlsPort string `env:"TEST_POSTGRES_MTLS_PORT"`
-	TestMariadbSslPort   string `env:"TEST_MARIADB_SSL_PORT"`
-	TestMysqlSslPort     string `env:"TEST_MYSQL_SSL_PORT"`
-	TestMongodbSslPort   string `env:"TEST_MONGODB_SSL_PORT"`
+	TestLogicalPostgresSslPort  string `env:"TEST_LOGICAL_POSTGRES_SSL_PORT"`
+	TestLogicalPostgresMtlsPort string `env:"TEST_LOGICAL_POSTGRES_MTLS_PORT"`
+	TestLogicalMariadbSslPort   string `env:"TEST_LOGICAL_MARIADB_SSL_PORT"`
+	TestLogicalMysqlSslPort     string `env:"TEST_LOGICAL_MYSQL_SSL_PORT"`
+	TestLogicalMongodbSslPort   string `env:"TEST_LOGICAL_MONGODB_SSL_PORT"`
 
 	// oauth
 	GitHubClientID     string `env:"GITHUB_CLIENT_ID"`
@@ -295,32 +295,32 @@ func loadEnvVariables() {
 	)
 
 	if env.IsTesting {
-		if env.TestPostgres12Port == "" {
-			log.Error("TEST_POSTGRES_12_PORT is empty")
+		if env.TestLogicalPostgres12Port == "" {
+			log.Error("TEST_LOGICAL_POSTGRES_12_PORT is empty")
 			os.Exit(1)
 		}
-		if env.TestPostgres13Port == "" {
-			log.Error("TEST_POSTGRES_13_PORT is empty")
+		if env.TestLogicalPostgres13Port == "" {
+			log.Error("TEST_LOGICAL_POSTGRES_13_PORT is empty")
 			os.Exit(1)
 		}
-		if env.TestPostgres14Port == "" {
-			log.Error("TEST_POSTGRES_14_PORT is empty")
+		if env.TestLogicalPostgres14Port == "" {
+			log.Error("TEST_LOGICAL_POSTGRES_14_PORT is empty")
 			os.Exit(1)
 		}
-		if env.TestPostgres15Port == "" {
-			log.Error("TEST_POSTGRES_15_PORT is empty")
+		if env.TestLogicalPostgres15Port == "" {
+			log.Error("TEST_LOGICAL_POSTGRES_15_PORT is empty")
 			os.Exit(1)
 		}
-		if env.TestPostgres16Port == "" {
-			log.Error("TEST_POSTGRES_16_PORT is empty")
+		if env.TestLogicalPostgres16Port == "" {
+			log.Error("TEST_LOGICAL_POSTGRES_16_PORT is empty")
 			os.Exit(1)
 		}
-		if env.TestPostgres17Port == "" {
-			log.Error("TEST_POSTGRES_17_PORT is empty")
+		if env.TestLogicalPostgres17Port == "" {
+			log.Error("TEST_LOGICAL_POSTGRES_17_PORT is empty")
 			os.Exit(1)
 		}
-		if env.TestPostgres18Port == "" {
-			log.Error("TEST_POSTGRES_18_PORT is empty")
+		if env.TestLogicalPostgres18Port == "" {
+			log.Error("TEST_LOGICAL_POSTGRES_18_PORT is empty")
 			os.Exit(1)
 		}
 

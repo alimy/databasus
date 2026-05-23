@@ -316,63 +316,63 @@ jobs:
 
           # Wait for MySQL containers
           echo "Waiting for MySQL 5.7..."
-          timeout 120 bash -c 'until docker exec test-mysql-57 mysqladmin ping -h localhost -u root -prootpassword --silent 2>/dev/null; do sleep 2; done'
+          timeout 120 bash -c 'until docker exec test-logical-mysql-57 mysqladmin ping -h localhost -u root -prootpassword --silent 2>/dev/null; do sleep 2; done'
           echo "Waiting for MySQL 8.0..."
-          timeout 120 bash -c 'until docker exec test-mysql-80 mysqladmin ping -h localhost -u root -prootpassword --silent 2>/dev/null; do sleep 2; done'
+          timeout 120 bash -c 'until docker exec test-logical-mysql-80 mysqladmin ping -h localhost -u root -prootpassword --silent 2>/dev/null; do sleep 2; done'
           echo "Waiting for MySQL 8.4..."
-          timeout 120 bash -c 'until docker exec test-mysql-84 mysqladmin ping -h localhost -u root -prootpassword --silent 2>/dev/null; do sleep 2; done'
+          timeout 120 bash -c 'until docker exec test-logical-mysql-84 mysqladmin ping -h localhost -u root -prootpassword --silent 2>/dev/null; do sleep 2; done'
           echo "Waiting for MySQL 9.0..."
-          timeout 120 bash -c 'until docker exec test-mysql-90 mysqladmin ping -h localhost -u root -prootpassword --silent 2>/dev/null; do sleep 2; done'
+          timeout 120 bash -c 'until docker exec test-logical-mysql-90 mysqladmin ping -h localhost -u root -prootpassword --silent 2>/dev/null; do sleep 2; done'
 
           # Wait for MariaDB containers
           echo "Waiting for MariaDB 5.5..."
-          timeout 120 bash -c 'until docker exec test-mariadb-55 mysqladmin ping -h localhost -prootpassword --silent 2>/dev/null; do sleep 2; done'
+          timeout 120 bash -c 'until docker exec test-logical-mariadb-55 mysqladmin ping -h localhost -prootpassword --silent 2>/dev/null; do sleep 2; done'
           echo "Waiting for MariaDB 10.1..."
-          timeout 120 bash -c 'until docker exec test-mariadb-101 mysqladmin ping -h localhost -prootpassword --silent 2>/dev/null; do sleep 2; done'
+          timeout 120 bash -c 'until docker exec test-logical-mariadb-101 mysqladmin ping -h localhost -prootpassword --silent 2>/dev/null; do sleep 2; done'
           echo "Waiting for MariaDB 10.2..."
-          timeout 120 bash -c 'until docker exec test-mariadb-102 mysqladmin ping -h localhost -prootpassword --silent 2>/dev/null; do sleep 2; done'
+          timeout 120 bash -c 'until docker exec test-logical-mariadb-102 mysqladmin ping -h localhost -prootpassword --silent 2>/dev/null; do sleep 2; done'
           echo "Waiting for MariaDB 10.3..."
-          timeout 120 bash -c 'until docker exec test-mariadb-103 mysqladmin ping -h localhost -prootpassword --silent 2>/dev/null; do sleep 2; done'
+          timeout 120 bash -c 'until docker exec test-logical-mariadb-103 mysqladmin ping -h localhost -prootpassword --silent 2>/dev/null; do sleep 2; done'
           echo "Waiting for MariaDB 10.4..."
-          timeout 120 bash -c 'until docker exec test-mariadb-104 healthcheck.sh --connect --innodb_initialized 2>/dev/null; do sleep 2; done'
+          timeout 120 bash -c 'until docker exec test-logical-mariadb-104 healthcheck.sh --connect --innodb_initialized 2>/dev/null; do sleep 2; done'
           echo "Waiting for MariaDB 10.5..."
-          timeout 120 bash -c 'until docker exec test-mariadb-105 healthcheck.sh --connect --innodb_initialized 2>/dev/null; do sleep 2; done'
+          timeout 120 bash -c 'until docker exec test-logical-mariadb-105 healthcheck.sh --connect --innodb_initialized 2>/dev/null; do sleep 2; done'
           echo "Waiting for MariaDB 10.6..."
-          timeout 120 bash -c 'until docker exec test-mariadb-106 healthcheck.sh --connect --innodb_initialized 2>/dev/null; do sleep 2; done'
+          timeout 120 bash -c 'until docker exec test-logical-mariadb-106 healthcheck.sh --connect --innodb_initialized 2>/dev/null; do sleep 2; done'
           echo "Waiting for MariaDB 10.11..."
-          timeout 120 bash -c 'until docker exec test-mariadb-1011 healthcheck.sh --connect --innodb_initialized 2>/dev/null; do sleep 2; done'
+          timeout 120 bash -c 'until docker exec test-logical-mariadb-1011 healthcheck.sh --connect --innodb_initialized 2>/dev/null; do sleep 2; done'
           echo "Waiting for MariaDB 11.4..."
-          timeout 120 bash -c 'until docker exec test-mariadb-114 healthcheck.sh --connect --innodb_initialized 2>/dev/null; do sleep 2; done'
+          timeout 120 bash -c 'until docker exec test-logical-mariadb-114 healthcheck.sh --connect --innodb_initialized 2>/dev/null; do sleep 2; done'
           echo "Waiting for MariaDB 11.8..."
-          timeout 120 bash -c 'until docker exec test-mariadb-118 healthcheck.sh --connect --innodb_initialized 2>/dev/null; do sleep 2; done'
+          timeout 120 bash -c 'until docker exec test-logical-mariadb-118 healthcheck.sh --connect --innodb_initialized 2>/dev/null; do sleep 2; done'
           echo "Waiting for MariaDB 12.0..."
-          timeout 120 bash -c 'until docker exec test-mariadb-120 healthcheck.sh --connect --innodb_initialized 2>/dev/null; do sleep 2; done'
+          timeout 120 bash -c 'until docker exec test-logical-mariadb-120 healthcheck.sh --connect --innodb_initialized 2>/dev/null; do sleep 2; done'
 
           # Wait for MongoDB containers
           echo "Waiting for MongoDB 4.2..."
-          timeout 120 bash -c 'until docker exec test-mongodb-42 mongo --eval "db.adminCommand(\"ping\")" -u root -p rootpassword --authenticationDatabase admin 2>/dev/null; do sleep 2; done'
+          timeout 120 bash -c 'until docker exec test-logical-mongodb-42 mongo --eval "db.adminCommand(\"ping\")" -u root -p rootpassword --authenticationDatabase admin 2>/dev/null; do sleep 2; done'
           echo "Waiting for MongoDB 4.4..."
-          timeout 120 bash -c 'until docker exec test-mongodb-44 mongo --eval "db.adminCommand(\"ping\")" -u root -p rootpassword --authenticationDatabase admin 2>/dev/null; do sleep 2; done'
+          timeout 120 bash -c 'until docker exec test-logical-mongodb-44 mongo --eval "db.adminCommand(\"ping\")" -u root -p rootpassword --authenticationDatabase admin 2>/dev/null; do sleep 2; done'
           echo "Waiting for MongoDB 5.0..."
-          timeout 120 bash -c 'until docker exec test-mongodb-50 mongosh --eval "db.adminCommand(\"ping\")" -u root -p rootpassword --authenticationDatabase admin 2>/dev/null; do sleep 2; done'
+          timeout 120 bash -c 'until docker exec test-logical-mongodb-50 mongosh --eval "db.adminCommand(\"ping\")" -u root -p rootpassword --authenticationDatabase admin 2>/dev/null; do sleep 2; done'
           echo "Waiting for MongoDB 6.0..."
-          timeout 120 bash -c 'until docker exec test-mongodb-60 mongosh --eval "db.adminCommand(\"ping\")" -u root -p rootpassword --authenticationDatabase admin 2>/dev/null; do sleep 2; done'
+          timeout 120 bash -c 'until docker exec test-logical-mongodb-60 mongosh --eval "db.adminCommand(\"ping\")" -u root -p rootpassword --authenticationDatabase admin 2>/dev/null; do sleep 2; done'
           echo "Waiting for MongoDB 7.0..."
-          timeout 120 bash -c 'until docker exec test-mongodb-70 mongosh --eval "db.adminCommand(\"ping\")" -u root -p rootpassword --authenticationDatabase admin 2>/dev/null; do sleep 2; done'
+          timeout 120 bash -c 'until docker exec test-logical-mongodb-70 mongosh --eval "db.adminCommand(\"ping\")" -u root -p rootpassword --authenticationDatabase admin 2>/dev/null; do sleep 2; done'
           echo "Waiting for MongoDB 8.2..."
-          timeout 120 bash -c 'until docker exec test-mongodb-82 mongosh --eval "db.adminCommand(\"ping\")" -u root -p rootpassword --authenticationDatabase admin 2>/dev/null; do sleep 2; done'
+          timeout 120 bash -c 'until docker exec test-logical-mongodb-82 mongosh --eval "db.adminCommand(\"ping\")" -u root -p rootpassword --authenticationDatabase admin 2>/dev/null; do sleep 2; done'
 
           # Wait for SSL/TLS test containers
           echo "Waiting for PostgreSQL SSL..."
-          timeout 120 bash -c 'until docker exec test-postgres-ssl pg_isready -U testuser -d testdb 2>/dev/null; do sleep 2; done'
+          timeout 120 bash -c 'until docker exec test-logical-postgres-ssl pg_isready -U testuser -d testdb 2>/dev/null; do sleep 2; done'
           echo "Waiting for PostgreSQL mTLS..."
-          timeout 120 bash -c 'until docker exec test-postgres-mtls pg_isready -U testuser -d testdb 2>/dev/null; do sleep 2; done'
+          timeout 120 bash -c 'until docker exec test-logical-postgres-mtls pg_isready -U testuser -d testdb 2>/dev/null; do sleep 2; done'
           echo "Waiting for MariaDB SSL..."
-          timeout 120 bash -c 'until docker exec test-mariadb-ssl healthcheck.sh --connect --innodb_initialized 2>/dev/null; do sleep 2; done'
+          timeout 120 bash -c 'until docker exec test-logical-mariadb-ssl healthcheck.sh --connect --innodb_initialized 2>/dev/null; do sleep 2; done'
           echo "Waiting for MySQL SSL..."
-          timeout 120 bash -c 'until docker exec test-mysql-ssl mysqladmin ping -h localhost -u root -prootpassword --silent 2>/dev/null; do sleep 2; done'
+          timeout 120 bash -c 'until docker exec test-logical-mysql-ssl mysqladmin ping -h localhost -u root -prootpassword --silent 2>/dev/null; do sleep 2; done'
           echo "Waiting for MongoDB SSL..."
-          timeout 120 bash -c 'until docker exec test-mongodb-ssl mongosh --tls --tlsAllowInvalidCertificates -u root -p rootpassword --authenticationDatabase admin --eval "db.adminCommand(\"ping\")" 2>/dev/null; do sleep 2; done'
+          timeout 120 bash -c 'until docker exec test-logical-mongodb-ssl mongosh --tls --tlsAllowInvalidCertificates -u root -p rootpassword --authenticationDatabase admin --eval "db.adminCommand(\"ping\")" 2>/dev/null; do sleep 2; done'
 
       - name: Create data and temp directories
         run: |

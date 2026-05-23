@@ -76,20 +76,20 @@ func Test_BackupAndRestorePostgresql_RestoreIsSuccesful(t *testing.T) {
 		port     string
 		cpuCount int
 	}{
-		{"PostgreSQL 12 (CPU=1 streamed)", "12", env.TestPostgres12Port, 1},
-		{"PostgreSQL 12 (CPU=4 directory)", "12", env.TestPostgres12Port, 4},
-		{"PostgreSQL 13 (CPU=1 streamed)", "13", env.TestPostgres13Port, 1},
-		{"PostgreSQL 13 (CPU=4 directory)", "13", env.TestPostgres13Port, 4},
-		{"PostgreSQL 14 (CPU=1 streamed)", "14", env.TestPostgres14Port, 1},
-		{"PostgreSQL 14 (CPU=4 directory)", "14", env.TestPostgres14Port, 4},
-		{"PostgreSQL 15 (CPU=1 streamed)", "15", env.TestPostgres15Port, 1},
-		{"PostgreSQL 15 (CPU=4 directory)", "15", env.TestPostgres15Port, 4},
-		{"PostgreSQL 16 (CPU=1 streamed)", "16", env.TestPostgres16Port, 1},
-		{"PostgreSQL 16 (CPU=4 directory)", "16", env.TestPostgres16Port, 4},
-		{"PostgreSQL 17 (CPU=1 streamed)", "17", env.TestPostgres17Port, 1},
-		{"PostgreSQL 17 (CPU=4 directory)", "17", env.TestPostgres17Port, 4},
-		{"PostgreSQL 18 (CPU=1 streamed)", "18", env.TestPostgres18Port, 1},
-		{"PostgreSQL 18 (CPU=4 directory)", "18", env.TestPostgres18Port, 4},
+		{"PostgreSQL 12 (CPU=1 streamed)", "12", env.TestLogicalPostgres12Port, 1},
+		{"PostgreSQL 12 (CPU=4 directory)", "12", env.TestLogicalPostgres12Port, 4},
+		{"PostgreSQL 13 (CPU=1 streamed)", "13", env.TestLogicalPostgres13Port, 1},
+		{"PostgreSQL 13 (CPU=4 directory)", "13", env.TestLogicalPostgres13Port, 4},
+		{"PostgreSQL 14 (CPU=1 streamed)", "14", env.TestLogicalPostgres14Port, 1},
+		{"PostgreSQL 14 (CPU=4 directory)", "14", env.TestLogicalPostgres14Port, 4},
+		{"PostgreSQL 15 (CPU=1 streamed)", "15", env.TestLogicalPostgres15Port, 1},
+		{"PostgreSQL 15 (CPU=4 directory)", "15", env.TestLogicalPostgres15Port, 4},
+		{"PostgreSQL 16 (CPU=1 streamed)", "16", env.TestLogicalPostgres16Port, 1},
+		{"PostgreSQL 16 (CPU=4 directory)", "16", env.TestLogicalPostgres16Port, 4},
+		{"PostgreSQL 17 (CPU=1 streamed)", "17", env.TestLogicalPostgres17Port, 1},
+		{"PostgreSQL 17 (CPU=4 directory)", "17", env.TestLogicalPostgres17Port, 4},
+		{"PostgreSQL 18 (CPU=1 streamed)", "18", env.TestLogicalPostgres18Port, 1},
+		{"PostgreSQL 18 (CPU=4 directory)", "18", env.TestLogicalPostgres18Port, 4},
 	}
 
 	for _, tc := range cases {
@@ -107,13 +107,13 @@ func Test_BackupAndRestorePostgresqlWithEncryption_RestoreIsSuccessful(t *testin
 		version string
 		port    string
 	}{
-		{"PostgreSQL 12", "12", env.TestPostgres12Port},
-		{"PostgreSQL 13", "13", env.TestPostgres13Port},
-		{"PostgreSQL 14", "14", env.TestPostgres14Port},
-		{"PostgreSQL 15", "15", env.TestPostgres15Port},
-		{"PostgreSQL 16", "16", env.TestPostgres16Port},
-		{"PostgreSQL 17", "17", env.TestPostgres17Port},
-		{"PostgreSQL 18", "18", env.TestPostgres18Port},
+		{"PostgreSQL 12", "12", env.TestLogicalPostgres12Port},
+		{"PostgreSQL 13", "13", env.TestLogicalPostgres13Port},
+		{"PostgreSQL 14", "14", env.TestLogicalPostgres14Port},
+		{"PostgreSQL 15", "15", env.TestLogicalPostgres15Port},
+		{"PostgreSQL 16", "16", env.TestLogicalPostgres16Port},
+		{"PostgreSQL 17", "17", env.TestLogicalPostgres17Port},
+		{"PostgreSQL 18", "18", env.TestLogicalPostgres18Port},
 	}
 
 	for _, tc := range cases {
@@ -131,13 +131,13 @@ func Test_BackupPostgresql_SchemaSelection_AllSchemasWhenNoneSpecified(t *testin
 		version string
 		port    string
 	}{
-		{"PostgreSQL 12", "12", env.TestPostgres12Port},
-		{"PostgreSQL 13", "13", env.TestPostgres13Port},
-		{"PostgreSQL 14", "14", env.TestPostgres14Port},
-		{"PostgreSQL 15", "15", env.TestPostgres15Port},
-		{"PostgreSQL 16", "16", env.TestPostgres16Port},
-		{"PostgreSQL 17", "17", env.TestPostgres17Port},
-		{"PostgreSQL 18", "18", env.TestPostgres18Port},
+		{"PostgreSQL 12", "12", env.TestLogicalPostgres12Port},
+		{"PostgreSQL 13", "13", env.TestLogicalPostgres13Port},
+		{"PostgreSQL 14", "14", env.TestLogicalPostgres14Port},
+		{"PostgreSQL 15", "15", env.TestLogicalPostgres15Port},
+		{"PostgreSQL 16", "16", env.TestLogicalPostgres16Port},
+		{"PostgreSQL 17", "17", env.TestLogicalPostgres17Port},
+		{"PostgreSQL 18", "18", env.TestLogicalPostgres18Port},
 	}
 
 	for _, tc := range cases {
@@ -155,13 +155,13 @@ func Test_BackupAndRestorePostgresql_WithExcludeExtensions_RestoreIsSuccessful(t
 		version string
 		port    string
 	}{
-		{"PostgreSQL 12", "12", env.TestPostgres12Port},
-		{"PostgreSQL 13", "13", env.TestPostgres13Port},
-		{"PostgreSQL 14", "14", env.TestPostgres14Port},
-		{"PostgreSQL 15", "15", env.TestPostgres15Port},
-		{"PostgreSQL 16", "16", env.TestPostgres16Port},
-		{"PostgreSQL 17", "17", env.TestPostgres17Port},
-		{"PostgreSQL 18", "18", env.TestPostgres18Port},
+		{"PostgreSQL 12", "12", env.TestLogicalPostgres12Port},
+		{"PostgreSQL 13", "13", env.TestLogicalPostgres13Port},
+		{"PostgreSQL 14", "14", env.TestLogicalPostgres14Port},
+		{"PostgreSQL 15", "15", env.TestLogicalPostgres15Port},
+		{"PostgreSQL 16", "16", env.TestLogicalPostgres16Port},
+		{"PostgreSQL 17", "17", env.TestLogicalPostgres17Port},
+		{"PostgreSQL 18", "18", env.TestLogicalPostgres18Port},
 	}
 
 	for _, tc := range cases {
@@ -179,13 +179,13 @@ func Test_BackupAndRestorePostgresql_WithoutExcludeExtensions_ExtensionsAreRecov
 		version string
 		port    string
 	}{
-		{"PostgreSQL 12", "12", env.TestPostgres12Port},
-		{"PostgreSQL 13", "13", env.TestPostgres13Port},
-		{"PostgreSQL 14", "14", env.TestPostgres14Port},
-		{"PostgreSQL 15", "15", env.TestPostgres15Port},
-		{"PostgreSQL 16", "16", env.TestPostgres16Port},
-		{"PostgreSQL 17", "17", env.TestPostgres17Port},
-		{"PostgreSQL 18", "18", env.TestPostgres18Port},
+		{"PostgreSQL 12", "12", env.TestLogicalPostgres12Port},
+		{"PostgreSQL 13", "13", env.TestLogicalPostgres13Port},
+		{"PostgreSQL 14", "14", env.TestLogicalPostgres14Port},
+		{"PostgreSQL 15", "15", env.TestLogicalPostgres15Port},
+		{"PostgreSQL 16", "16", env.TestLogicalPostgres16Port},
+		{"PostgreSQL 17", "17", env.TestLogicalPostgres17Port},
+		{"PostgreSQL 18", "18", env.TestLogicalPostgres18Port},
 	}
 
 	for _, tc := range cases {
@@ -203,13 +203,13 @@ func Test_BackupAndRestorePostgresql_WithRestoreOwnership_OwnerIsRestored(t *tes
 		version string
 		port    string
 	}{
-		{"PostgreSQL 12", "12", env.TestPostgres12Port},
-		{"PostgreSQL 13", "13", env.TestPostgres13Port},
-		{"PostgreSQL 14", "14", env.TestPostgres14Port},
-		{"PostgreSQL 15", "15", env.TestPostgres15Port},
-		{"PostgreSQL 16", "16", env.TestPostgres16Port},
-		{"PostgreSQL 17", "17", env.TestPostgres17Port},
-		{"PostgreSQL 18", "18", env.TestPostgres18Port},
+		{"PostgreSQL 12", "12", env.TestLogicalPostgres12Port},
+		{"PostgreSQL 13", "13", env.TestLogicalPostgres13Port},
+		{"PostgreSQL 14", "14", env.TestLogicalPostgres14Port},
+		{"PostgreSQL 15", "15", env.TestLogicalPostgres15Port},
+		{"PostgreSQL 16", "16", env.TestLogicalPostgres16Port},
+		{"PostgreSQL 17", "17", env.TestLogicalPostgres17Port},
+		{"PostgreSQL 18", "18", env.TestLogicalPostgres18Port},
 	}
 
 	for _, tc := range cases {
@@ -227,13 +227,13 @@ func Test_BackupAndRestorePostgresql_WithRestorePrivileges_GrantIsRestored(t *te
 		version string
 		port    string
 	}{
-		{"PostgreSQL 12", "12", env.TestPostgres12Port},
-		{"PostgreSQL 13", "13", env.TestPostgres13Port},
-		{"PostgreSQL 14", "14", env.TestPostgres14Port},
-		{"PostgreSQL 15", "15", env.TestPostgres15Port},
-		{"PostgreSQL 16", "16", env.TestPostgres16Port},
-		{"PostgreSQL 17", "17", env.TestPostgres17Port},
-		{"PostgreSQL 18", "18", env.TestPostgres18Port},
+		{"PostgreSQL 12", "12", env.TestLogicalPostgres12Port},
+		{"PostgreSQL 13", "13", env.TestLogicalPostgres13Port},
+		{"PostgreSQL 14", "14", env.TestLogicalPostgres14Port},
+		{"PostgreSQL 15", "15", env.TestLogicalPostgres15Port},
+		{"PostgreSQL 16", "16", env.TestLogicalPostgres16Port},
+		{"PostgreSQL 17", "17", env.TestLogicalPostgres17Port},
+		{"PostgreSQL 18", "18", env.TestLogicalPostgres18Port},
 	}
 
 	for _, tc := range cases {
@@ -251,13 +251,13 @@ func Test_BackupPostgresql_SchemaSelection_OnlySpecifiedSchemas(t *testing.T) {
 		version string
 		port    string
 	}{
-		{"PostgreSQL 12", "12", env.TestPostgres12Port},
-		{"PostgreSQL 13", "13", env.TestPostgres13Port},
-		{"PostgreSQL 14", "14", env.TestPostgres14Port},
-		{"PostgreSQL 15", "15", env.TestPostgres15Port},
-		{"PostgreSQL 16", "16", env.TestPostgres16Port},
-		{"PostgreSQL 17", "17", env.TestPostgres17Port},
-		{"PostgreSQL 18", "18", env.TestPostgres18Port},
+		{"PostgreSQL 12", "12", env.TestLogicalPostgres12Port},
+		{"PostgreSQL 13", "13", env.TestLogicalPostgres13Port},
+		{"PostgreSQL 14", "14", env.TestLogicalPostgres14Port},
+		{"PostgreSQL 15", "15", env.TestLogicalPostgres15Port},
+		{"PostgreSQL 16", "16", env.TestLogicalPostgres16Port},
+		{"PostgreSQL 17", "17", env.TestLogicalPostgres17Port},
+		{"PostgreSQL 18", "18", env.TestLogicalPostgres18Port},
 	}
 
 	for _, tc := range cases {
@@ -275,13 +275,13 @@ func Test_BackupAndRestorePostgresql_WithExcludeTables_ExcludedTablesNotRestored
 		version string
 		port    string
 	}{
-		{"PostgreSQL 12", "12", env.TestPostgres12Port},
-		{"PostgreSQL 13", "13", env.TestPostgres13Port},
-		{"PostgreSQL 14", "14", env.TestPostgres14Port},
-		{"PostgreSQL 15", "15", env.TestPostgres15Port},
-		{"PostgreSQL 16", "16", env.TestPostgres16Port},
-		{"PostgreSQL 17", "17", env.TestPostgres17Port},
-		{"PostgreSQL 18", "18", env.TestPostgres18Port},
+		{"PostgreSQL 12", "12", env.TestLogicalPostgres12Port},
+		{"PostgreSQL 13", "13", env.TestLogicalPostgres13Port},
+		{"PostgreSQL 14", "14", env.TestLogicalPostgres14Port},
+		{"PostgreSQL 15", "15", env.TestLogicalPostgres15Port},
+		{"PostgreSQL 16", "16", env.TestLogicalPostgres16Port},
+		{"PostgreSQL 17", "17", env.TestLogicalPostgres17Port},
+		{"PostgreSQL 18", "18", env.TestLogicalPostgres18Port},
 	}
 
 	for _, tc := range cases {
@@ -301,13 +301,13 @@ func Test_BackupAndRestorePostgresql_WithSchemasAndExcludeTables_OnlyIncludedSch
 		version string
 		port    string
 	}{
-		{"PostgreSQL 12", "12", env.TestPostgres12Port},
-		{"PostgreSQL 13", "13", env.TestPostgres13Port},
-		{"PostgreSQL 14", "14", env.TestPostgres14Port},
-		{"PostgreSQL 15", "15", env.TestPostgres15Port},
-		{"PostgreSQL 16", "16", env.TestPostgres16Port},
-		{"PostgreSQL 17", "17", env.TestPostgres17Port},
-		{"PostgreSQL 18", "18", env.TestPostgres18Port},
+		{"PostgreSQL 12", "12", env.TestLogicalPostgres12Port},
+		{"PostgreSQL 13", "13", env.TestLogicalPostgres13Port},
+		{"PostgreSQL 14", "14", env.TestLogicalPostgres14Port},
+		{"PostgreSQL 15", "15", env.TestLogicalPostgres15Port},
+		{"PostgreSQL 16", "16", env.TestLogicalPostgres16Port},
+		{"PostgreSQL 17", "17", env.TestLogicalPostgres17Port},
+		{"PostgreSQL 18", "18", env.TestLogicalPostgres18Port},
 	}
 
 	for _, tc := range cases {
@@ -325,13 +325,13 @@ func Test_BackupAndRestorePostgresql_WithReadOnlyUser_RestoreIsSuccessful(t *tes
 		version string
 		port    string
 	}{
-		{"PostgreSQL 12", "12", env.TestPostgres12Port},
-		{"PostgreSQL 13", "13", env.TestPostgres13Port},
-		{"PostgreSQL 14", "14", env.TestPostgres14Port},
-		{"PostgreSQL 15", "15", env.TestPostgres15Port},
-		{"PostgreSQL 16", "16", env.TestPostgres16Port},
-		{"PostgreSQL 17", "17", env.TestPostgres17Port},
-		{"PostgreSQL 18", "18", env.TestPostgres18Port},
+		{"PostgreSQL 12", "12", env.TestLogicalPostgres12Port},
+		{"PostgreSQL 13", "13", env.TestLogicalPostgres13Port},
+		{"PostgreSQL 14", "14", env.TestLogicalPostgres14Port},
+		{"PostgreSQL 15", "15", env.TestLogicalPostgres15Port},
+		{"PostgreSQL 16", "16", env.TestLogicalPostgres16Port},
+		{"PostgreSQL 17", "17", env.TestLogicalPostgres17Port},
+		{"PostgreSQL 18", "18", env.TestLogicalPostgres18Port},
 	}
 
 	for _, tc := range cases {

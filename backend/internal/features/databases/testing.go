@@ -18,9 +18,9 @@ import (
 
 func GetTestPostgresConfig() *postgresql_logical.PostgresqlLogicalDatabase {
 	env := config.GetEnv()
-	port, err := strconv.Atoi(env.TestPostgres16Port)
+	port, err := strconv.Atoi(env.TestLogicalPostgres16Port)
 	if err != nil {
-		panic(fmt.Sprintf("Failed to parse TEST_POSTGRES_16_PORT: %v", err))
+		panic(fmt.Sprintf("Failed to parse TEST_LOGICAL_POSTGRES_16_PORT: %v", err))
 	}
 
 	testDbName := "testdb"
@@ -37,13 +37,13 @@ func GetTestPostgresConfig() *postgresql_logical.PostgresqlLogicalDatabase {
 
 func GetTestMariadbConfig() *mariadb.MariadbDatabase {
 	env := config.GetEnv()
-	portStr := env.TestMariadb1011Port
+	portStr := env.TestLogicalMariadb1011Port
 	if portStr == "" {
 		portStr = "33111"
 	}
 	port, err := strconv.Atoi(portStr)
 	if err != nil {
-		panic(fmt.Sprintf("Failed to parse TEST_MARIADB_1011_PORT: %v", err))
+		panic(fmt.Sprintf("Failed to parse TEST_LOGICAL_MARIADB_1011_PORT: %v", err))
 	}
 
 	testDbName := "testdb"
@@ -59,13 +59,13 @@ func GetTestMariadbConfig() *mariadb.MariadbDatabase {
 
 func GetTestMongodbConfig() *mongodb.MongodbDatabase {
 	env := config.GetEnv()
-	portStr := env.TestMongodb70Port
+	portStr := env.TestLogicalMongodb70Port
 	if portStr == "" {
 		portStr = "27070"
 	}
 	port, err := strconv.Atoi(portStr)
 	if err != nil {
-		panic(fmt.Sprintf("Failed to parse TEST_MONGODB_70_PORT: %v", err))
+		panic(fmt.Sprintf("Failed to parse TEST_LOGICAL_MONGODB_70_PORT: %v", err))
 	}
 
 	return &mongodb.MongodbDatabase{

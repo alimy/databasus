@@ -695,9 +695,9 @@ func setupPaddleTest(t *testing.T) (*gin.Engine, *users_dto.SignInResponseDTO, *
 
 func createTestDatabaseForPaddle(token string, workspaceID uuid.UUID, router *gin.Engine) *databases.Database {
 	env := config.GetEnv()
-	port, err := strconv.Atoi(env.TestPostgres16Port)
+	port, err := strconv.Atoi(env.TestLogicalPostgres16Port)
 	if err != nil {
-		panic(fmt.Sprintf("failed to parse TEST_POSTGRES_16_PORT: %v", err))
+		panic(fmt.Sprintf("failed to parse TEST_LOGICAL_POSTGRES_16_PORT: %v", err))
 	}
 
 	dbName := "testdb"

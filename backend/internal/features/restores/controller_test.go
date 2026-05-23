@@ -656,14 +656,14 @@ func createTestMySQLDatabase(
 	router *gin.Engine,
 ) *databases.Database {
 	env := env_config.GetEnv()
-	portStr := env.TestMysql80Port
+	portStr := env.TestLogicalMysql80Port
 	if portStr == "" {
 		portStr = "33080"
 	}
 
 	port, err := strconv.Atoi(portStr)
 	if err != nil {
-		panic(fmt.Sprintf("Failed to parse TEST_MYSQL_80_PORT: %v", err))
+		panic(fmt.Sprintf("Failed to parse TEST_LOGICAL_MYSQL_80_PORT: %v", err))
 	}
 
 	testDbName := "testdb"

@@ -97,81 +97,81 @@ services:
     command: server /data --console-address ":9001"
 
   # Test PostgreSQL containers
-  test-postgres-12:
+  test-logical-postgres-12:
     image: postgres:12
     ports:
-      - "${TEST_POSTGRES_12_PORT}:5432"
+      - "${TEST_LOGICAL_POSTGRES_12_PORT}:5432"
     environment:
       - POSTGRES_DB=testdb
       - POSTGRES_USER=testuser
       - POSTGRES_PASSWORD=testpassword
-    container_name: test-postgres-12
+    container_name: test-logical-postgres-12
     shm_size: 1gb
 
-  test-postgres-13:
+  test-logical-postgres-13:
     image: postgres:13
     ports:
-      - "${TEST_POSTGRES_13_PORT}:5432"
+      - "${TEST_LOGICAL_POSTGRES_13_PORT}:5432"
     environment:
       - POSTGRES_DB=testdb
       - POSTGRES_USER=testuser
       - POSTGRES_PASSWORD=testpassword
-    container_name: test-postgres-13
+    container_name: test-logical-postgres-13
     shm_size: 1gb
 
-  test-postgres-14:
+  test-logical-postgres-14:
     image: postgres:14
     ports:
-      - "${TEST_POSTGRES_14_PORT}:5432"
+      - "${TEST_LOGICAL_POSTGRES_14_PORT}:5432"
     environment:
       - POSTGRES_DB=testdb
       - POSTGRES_USER=testuser
       - POSTGRES_PASSWORD=testpassword
-    container_name: test-postgres-14
+    container_name: test-logical-postgres-14
     shm_size: 1gb
 
-  test-postgres-15:
+  test-logical-postgres-15:
     image: postgres:15
     ports:
-      - "${TEST_POSTGRES_15_PORT}:5432"
+      - "${TEST_LOGICAL_POSTGRES_15_PORT}:5432"
     environment:
       - POSTGRES_DB=testdb
       - POSTGRES_USER=testuser
       - POSTGRES_PASSWORD=testpassword
-    container_name: test-postgres-15
+    container_name: test-logical-postgres-15
     shm_size: 1gb
 
-  test-postgres-16:
+  test-logical-postgres-16:
     image: postgres:16
     ports:
-      - "${TEST_POSTGRES_16_PORT}:5432"
+      - "${TEST_LOGICAL_POSTGRES_16_PORT}:5432"
     environment:
       - POSTGRES_DB=testdb
       - POSTGRES_USER=testuser
       - POSTGRES_PASSWORD=testpassword
-    container_name: test-postgres-16
+    container_name: test-logical-postgres-16
     shm_size: 1gb
 
-  test-postgres-17:
+  test-logical-postgres-17:
     image: postgres:17
     ports:
-      - "${TEST_POSTGRES_17_PORT}:5432"
+      - "${TEST_LOGICAL_POSTGRES_17_PORT}:5432"
     environment:
       - POSTGRES_DB=testdb
       - POSTGRES_USER=testuser
       - POSTGRES_PASSWORD=testpassword
-    container_name: test-postgres-17
+    container_name: test-logical-postgres-17
     shm_size: 1gb
 
-  test-postgres-18:
+  test-logical-postgres-18:
     image: postgres:18
     ports:
-      - "${TEST_POSTGRES_18_PORT}:5432"
+      - "${TEST_LOGICAL_POSTGRES_18_PORT}:5432"
     environment:
       - POSTGRES_DB=testdb
       - POSTGRES_USER=testuser
       - POSTGRES_PASSWORD=testpassword
-    container_name: test-postgres-18
+    container_name: test-logical-postgres-18
     shm_size: 1gb
 
   # Test Azurite container
@@ -221,10 +221,10 @@ services:
     container_name: test-sftp
 
   # Test MySQL containers
-  test-mysql-57:
+  test-logical-mysql-57:
     image: mysql:5.7
     ports:
-      - "${TEST_MYSQL_57_PORT}:3306"
+      - "${TEST_LOGICAL_MYSQL_57_PORT}:3306"
     environment:
       - MYSQL_ROOT_PASSWORD=rootpassword
       - MYSQL_DATABASE=testdb
@@ -233,17 +233,17 @@ services:
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     volumes:
       - ./mysqldata/mysql-57:/var/lib/mysql
-    container_name: test-mysql-57
+    container_name: test-logical-mysql-57
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword"]
       interval: 5s
       timeout: 5s
       retries: 10
 
-  test-mysql-80:
+  test-logical-mysql-80:
     image: mysql:8.0
     ports:
-      - "${TEST_MYSQL_80_PORT}:3306"
+      - "${TEST_LOGICAL_MYSQL_80_PORT}:3306"
     environment:
       - MYSQL_ROOT_PASSWORD=rootpassword
       - MYSQL_DATABASE=testdb
@@ -252,17 +252,17 @@ services:
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --default-authentication-plugin=mysql_native_password
     volumes:
       - ./mysqldata/mysql-80:/var/lib/mysql
-    container_name: test-mysql-80
+    container_name: test-logical-mysql-80
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword"]
       interval: 5s
       timeout: 5s
       retries: 10
 
-  test-mysql-84:
+  test-logical-mysql-84:
     image: mysql:8.4
     ports:
-      - "${TEST_MYSQL_84_PORT}:3306"
+      - "${TEST_LOGICAL_MYSQL_84_PORT}:3306"
     environment:
       - MYSQL_ROOT_PASSWORD=rootpassword
       - MYSQL_DATABASE=testdb
@@ -271,17 +271,17 @@ services:
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     volumes:
       - ./mysqldata/mysql-84:/var/lib/mysql
-    container_name: test-mysql-84
+    container_name: test-logical-mysql-84
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword"]
       interval: 5s
       timeout: 5s
       retries: 10
 
-  test-mysql-90:
+  test-logical-mysql-90:
     image: mysql:9.5
     ports:
-      - "${TEST_MYSQL_90_PORT}:3306"
+      - "${TEST_LOGICAL_MYSQL_90_PORT}:3306"
     environment:
       - MYSQL_ROOT_PASSWORD=rootpassword
       - MYSQL_DATABASE=testdb
@@ -290,7 +290,7 @@ services:
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     volumes:
       - ./mysqldata/mysql-90:/var/lib/mysql
-    container_name: test-mysql-90
+    container_name: test-logical-mysql-90
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword"]
       interval: 5s
@@ -298,10 +298,10 @@ services:
       retries: 10
 
   # Test MariaDB containers
-  test-mariadb-55:
+  test-logical-mariadb-55:
     image: mariadb:5.5
     ports:
-      - "${TEST_MARIADB_55_PORT}:3306"
+      - "${TEST_LOGICAL_MARIADB_55_PORT}:3306"
     environment:
       - MYSQL_ROOT_PASSWORD=rootpassword
       - MYSQL_DATABASE=testdb
@@ -310,17 +310,17 @@ services:
     command: --character-set-server=utf8 --collation-server=utf8_unicode_ci
     volumes:
       - ./mariadbdata/mariadb-55:/var/lib/mysql
-    container_name: test-mariadb-55
+    container_name: test-logical-mariadb-55
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-prootpassword"]
       interval: 5s
       timeout: 5s
       retries: 10
 
-  test-mariadb-101:
+  test-logical-mariadb-101:
     image: mariadb:10.1
     ports:
-      - "${TEST_MARIADB_101_PORT}:3306"
+      - "${TEST_LOGICAL_MARIADB_101_PORT}:3306"
     environment:
       - MYSQL_ROOT_PASSWORD=rootpassword
       - MYSQL_DATABASE=testdb
@@ -329,17 +329,17 @@ services:
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     volumes:
       - ./mariadbdata/mariadb-101:/var/lib/mysql
-    container_name: test-mariadb-101
+    container_name: test-logical-mariadb-101
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-prootpassword"]
       interval: 5s
       timeout: 5s
       retries: 10
 
-  test-mariadb-102:
+  test-logical-mariadb-102:
     image: mariadb:10.2
     ports:
-      - "${TEST_MARIADB_102_PORT}:3306"
+      - "${TEST_LOGICAL_MARIADB_102_PORT}:3306"
     environment:
       - MYSQL_ROOT_PASSWORD=rootpassword
       - MYSQL_DATABASE=testdb
@@ -348,17 +348,17 @@ services:
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     volumes:
       - ./mariadbdata/mariadb-102:/var/lib/mysql
-    container_name: test-mariadb-102
+    container_name: test-logical-mariadb-102
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-prootpassword"]
       interval: 5s
       timeout: 5s
       retries: 10
 
-  test-mariadb-103:
+  test-logical-mariadb-103:
     image: mariadb:10.3
     ports:
-      - "${TEST_MARIADB_103_PORT}:3306"
+      - "${TEST_LOGICAL_MARIADB_103_PORT}:3306"
     environment:
       - MYSQL_ROOT_PASSWORD=rootpassword
       - MYSQL_DATABASE=testdb
@@ -367,17 +367,17 @@ services:
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     volumes:
       - ./mariadbdata/mariadb-103:/var/lib/mysql
-    container_name: test-mariadb-103
+    container_name: test-logical-mariadb-103
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-prootpassword"]
       interval: 5s
       timeout: 5s
       retries: 10
 
-  test-mariadb-104:
+  test-logical-mariadb-104:
     image: mariadb:10.4
     ports:
-      - "${TEST_MARIADB_104_PORT}:3306"
+      - "${TEST_LOGICAL_MARIADB_104_PORT}:3306"
     environment:
       - MARIADB_ROOT_PASSWORD=rootpassword
       - MARIADB_DATABASE=testdb
@@ -386,17 +386,17 @@ services:
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     volumes:
       - ./mariadbdata/mariadb-104:/var/lib/mysql
-    container_name: test-mariadb-104
+    container_name: test-logical-mariadb-104
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 5s
       timeout: 5s
       retries: 10
 
-  test-mariadb-105:
+  test-logical-mariadb-105:
     image: mariadb:10.5
     ports:
-      - "${TEST_MARIADB_105_PORT}:3306"
+      - "${TEST_LOGICAL_MARIADB_105_PORT}:3306"
     environment:
       - MARIADB_ROOT_PASSWORD=rootpassword
       - MARIADB_DATABASE=testdb
@@ -405,17 +405,17 @@ services:
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     volumes:
       - ./mariadbdata/mariadb-105:/var/lib/mysql
-    container_name: test-mariadb-105
+    container_name: test-logical-mariadb-105
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 5s
       timeout: 5s
       retries: 10
 
-  test-mariadb-106:
+  test-logical-mariadb-106:
     image: mariadb:10.6
     ports:
-      - "${TEST_MARIADB_106_PORT}:3306"
+      - "${TEST_LOGICAL_MARIADB_106_PORT}:3306"
     environment:
       - MARIADB_ROOT_PASSWORD=rootpassword
       - MARIADB_DATABASE=testdb
@@ -424,17 +424,17 @@ services:
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     volumes:
       - ./mariadbdata/mariadb-106:/var/lib/mysql
-    container_name: test-mariadb-106
+    container_name: test-logical-mariadb-106
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 5s
       timeout: 5s
       retries: 10
 
-  test-mariadb-1011:
+  test-logical-mariadb-1011:
     image: mariadb:10.11
     ports:
-      - "${TEST_MARIADB_1011_PORT}:3306"
+      - "${TEST_LOGICAL_MARIADB_1011_PORT}:3306"
     environment:
       - MARIADB_ROOT_PASSWORD=rootpassword
       - MARIADB_DATABASE=testdb
@@ -443,17 +443,17 @@ services:
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     volumes:
       - ./mariadbdata/mariadb-1011:/var/lib/mysql
-    container_name: test-mariadb-1011
+    container_name: test-logical-mariadb-1011
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 5s
       timeout: 5s
       retries: 10
 
-  test-mariadb-114:
+  test-logical-mariadb-114:
     image: mariadb:11.4
     ports:
-      - "${TEST_MARIADB_114_PORT}:3306"
+      - "${TEST_LOGICAL_MARIADB_114_PORT}:3306"
     environment:
       - MARIADB_ROOT_PASSWORD=rootpassword
       - MARIADB_DATABASE=testdb
@@ -462,17 +462,17 @@ services:
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     volumes:
       - ./mariadbdata/mariadb-114:/var/lib/mysql
-    container_name: test-mariadb-114
+    container_name: test-logical-mariadb-114
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 5s
       timeout: 5s
       retries: 10
 
-  test-mariadb-118:
+  test-logical-mariadb-118:
     image: mariadb:11.8
     ports:
-      - "${TEST_MARIADB_118_PORT}:3306"
+      - "${TEST_LOGICAL_MARIADB_118_PORT}:3306"
     environment:
       - MARIADB_ROOT_PASSWORD=rootpassword
       - MARIADB_DATABASE=testdb
@@ -481,17 +481,17 @@ services:
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     volumes:
       - ./mariadbdata/mariadb-118:/var/lib/mysql
-    container_name: test-mariadb-118
+    container_name: test-logical-mariadb-118
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 5s
       timeout: 5s
       retries: 10
 
-  test-mariadb-120:
+  test-logical-mariadb-120:
     image: mariadb:12.0
     ports:
-      - "${TEST_MARIADB_120_PORT}:3306"
+      - "${TEST_LOGICAL_MARIADB_120_PORT}:3306"
     environment:
       - MARIADB_ROOT_PASSWORD=rootpassword
       - MARIADB_DATABASE=testdb
@@ -500,7 +500,7 @@ services:
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     volumes:
       - ./mariadbdata/mariadb-120:/var/lib/mysql
-    container_name: test-mariadb-120
+    container_name: test-logical-mariadb-120
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 5s
@@ -508,11 +508,11 @@ services:
       retries: 10
 
   # Test MongoDB containers
-  test-mongodb-40:
+  test-logical-mongodb-40:
     image: mongo:4.0
-    container_name: test-mongodb-40
+    container_name: test-logical-mongodb-40
     ports:
-      - "${TEST_MONGODB_40_PORT}:27017"
+      - "${TEST_LOGICAL_MONGODB_40_PORT}:27017"
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: rootpassword
@@ -524,11 +524,11 @@ services:
       timeout: 5s
       retries: 10
 
-  test-mongodb-42:
+  test-logical-mongodb-42:
     image: mongo:4.2
-    container_name: test-mongodb-42
+    container_name: test-logical-mongodb-42
     ports:
-      - "${TEST_MONGODB_42_PORT}:27017"
+      - "${TEST_LOGICAL_MONGODB_42_PORT}:27017"
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: rootpassword
@@ -540,11 +540,11 @@ services:
       timeout: 5s
       retries: 10
 
-  test-mongodb-44:
+  test-logical-mongodb-44:
     image: mongo:4.4
-    container_name: test-mongodb-44
+    container_name: test-logical-mongodb-44
     ports:
-      - "${TEST_MONGODB_44_PORT}:27017"
+      - "${TEST_LOGICAL_MONGODB_44_PORT}:27017"
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: rootpassword
@@ -556,11 +556,11 @@ services:
       timeout: 5s
       retries: 10
 
-  test-mongodb-50:
+  test-logical-mongodb-50:
     image: mongo:5.0
-    container_name: test-mongodb-50
+    container_name: test-logical-mongodb-50
     ports:
-      - "${TEST_MONGODB_50_PORT}:27017"
+      - "${TEST_LOGICAL_MONGODB_50_PORT}:27017"
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: rootpassword
@@ -572,11 +572,11 @@ services:
       timeout: 5s
       retries: 10
 
-  test-mongodb-60:
+  test-logical-mongodb-60:
     image: mongo:6.0
-    container_name: test-mongodb-60
+    container_name: test-logical-mongodb-60
     ports:
-      - "${TEST_MONGODB_60_PORT}:27017"
+      - "${TEST_LOGICAL_MONGODB_60_PORT}:27017"
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: rootpassword
@@ -588,11 +588,11 @@ services:
       timeout: 5s
       retries: 10
 
-  test-mongodb-70:
+  test-logical-mongodb-70:
     image: mongo:7.0
-    container_name: test-mongodb-70
+    container_name: test-logical-mongodb-70
     ports:
-      - "${TEST_MONGODB_70_PORT}:27017"
+      - "${TEST_LOGICAL_MONGODB_70_PORT}:27017"
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: rootpassword
@@ -604,11 +604,11 @@ services:
       timeout: 5s
       retries: 10
 
-  test-mongodb-82:
+  test-logical-mongodb-82:
     image: mongo:8.2.3-noble
-    container_name: test-mongodb-82
+    container_name: test-logical-mongodb-82
     ports:
-      - "${TEST_MONGODB_82_PORT}:27017"
+      - "${TEST_LOGICAL_MONGODB_82_PORT}:27017"
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: rootpassword
@@ -626,9 +626,9 @@ services:
   # handshake regressions without multiplying the version matrix.
   # ================================================================
 
-  test-postgres-ssl:
+  test-logical-postgres-ssl:
     build:
-      context: ./backend/internal/features/tests/testdata/ssl
+      context: ./backend/internal/features/tests/logical/testdata/ssl
       dockerfile_inline: |
         FROM postgres:18
         COPY server.key /etc/ssl-test/server.key
@@ -638,13 +638,13 @@ services:
          && chmod 600 /etc/ssl-test/server.key \
          && chmod 644 /etc/ssl-test/server.crt /etc/ssl-test/pg_hba.conf
     ports:
-      - "${TEST_POSTGRES_SSL_PORT}:5432"
+      - "${TEST_LOGICAL_POSTGRES_SSL_PORT}:5432"
     environment:
       - POSTGRES_DB=testdb
       - POSTGRES_USER=testuser
       - POSTGRES_PASSWORD=testpassword
     command: postgres -c ssl=on -c ssl_cert_file=/etc/ssl-test/server.crt -c ssl_key_file=/etc/ssl-test/server.key -c hba_file=/etc/ssl-test/pg_hba.conf
-    container_name: test-postgres-ssl
+    container_name: test-logical-postgres-ssl
     shm_size: 1gb
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U testuser -d testdb"]
@@ -653,9 +653,9 @@ services:
       retries: 10
 
   # Enforces mutual TLS - rejects TCP clients without a CA-signed client cert.
-  test-postgres-mtls:
+  test-logical-postgres-mtls:
     build:
-      context: ./backend/internal/features/tests/testdata/mtls
+      context: ./backend/internal/features/tests/logical/testdata/mtls
       dockerfile_inline: |
         FROM postgres:18
         COPY server.key /etc/ssl-test/server.key
@@ -666,13 +666,13 @@ services:
          && chmod 600 /etc/ssl-test/server.key \
          && chmod 644 /etc/ssl-test/server.crt /etc/ssl-test/ca.crt /etc/ssl-test/pg_hba.conf
     ports:
-      - "${TEST_POSTGRES_MTLS_PORT:-5181}:5432"
+      - "${TEST_LOGICAL_POSTGRES_MTLS_PORT:-5181}:5432"
     environment:
       - POSTGRES_DB=testdb
       - POSTGRES_USER=testuser
       - POSTGRES_PASSWORD=testpassword
     command: postgres -c ssl=on -c ssl_cert_file=/etc/ssl-test/server.crt -c ssl_key_file=/etc/ssl-test/server.key -c ssl_ca_file=/etc/ssl-test/ca.crt -c hba_file=/etc/ssl-test/pg_hba.conf
-    container_name: test-postgres-mtls
+    container_name: test-logical-postgres-mtls
     shm_size: 1gb
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U testuser -d testdb"]
@@ -680,10 +680,10 @@ services:
       timeout: 5s
       retries: 10
 
-  test-mariadb-ssl:
+  test-logical-mariadb-ssl:
     image: mariadb:11.8
     ports:
-      - "${TEST_MARIADB_SSL_PORT}:3306"
+      - "${TEST_LOGICAL_MARIADB_SSL_PORT}:3306"
     environment:
       - MARIADB_ROOT_PASSWORD=rootpassword
       - MARIADB_DATABASE=testdb
@@ -695,17 +695,17 @@ services:
       - --require-secure-transport=ON
     volumes:
       - ./mariadbdata/mariadb-ssl:/var/lib/mysql
-    container_name: test-mariadb-ssl
+    container_name: test-logical-mariadb-ssl
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 5s
       timeout: 5s
       retries: 10
 
-  test-mysql-ssl:
+  test-logical-mysql-ssl:
     image: mysql:8.4
     ports:
-      - "${TEST_MYSQL_SSL_PORT}:3306"
+      - "${TEST_LOGICAL_MYSQL_SSL_PORT}:3306"
     environment:
       - MYSQL_ROOT_PASSWORD=rootpassword
       - MYSQL_DATABASE=testdb
@@ -717,17 +717,17 @@ services:
       - --require_secure_transport=ON
     volumes:
       - ./mysqldata/mysql-ssl:/var/lib/mysql
-    container_name: test-mysql-ssl
+    container_name: test-logical-mysql-ssl
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword"]
       interval: 5s
       timeout: 5s
       retries: 10
 
-  # Certs baked in via build context — see test-postgres-ssl note.
-  test-mongodb-ssl:
+  # Certs baked in via build context — see test-logical-postgres-ssl note.
+  test-logical-mongodb-ssl:
     build:
-      context: ./backend/internal/features/tests/testdata/ssl
+      context: ./backend/internal/features/tests/logical/testdata/ssl
       dockerfile_inline: |
         FROM mongo:8.2.3-noble
         COPY server.pem /etc/ssl-test/server.pem
@@ -735,9 +735,9 @@ services:
         RUN chown mongodb:mongodb /etc/ssl-test/server.pem /etc/ssl-test/server.crt \
          && chmod 600 /etc/ssl-test/server.pem \
          && chmod 644 /etc/ssl-test/server.crt
-    container_name: test-mongodb-ssl
+    container_name: test-logical-mongodb-ssl
     ports:
-      - "${TEST_MONGODB_SSL_PORT}:27017"
+      - "${TEST_LOGICAL_MONGODB_SSL_PORT}:27017"
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: rootpassword

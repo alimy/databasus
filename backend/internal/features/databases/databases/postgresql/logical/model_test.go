@@ -19,7 +19,7 @@ import (
 
 func Test_TestConnection_PasswordContainingSpaces_TestedSuccessfully(t *testing.T) {
 	env := config.GetEnv()
-	container := connectToPostgresContainer(t, env.TestPostgres16Port)
+	container := connectToPostgresContainer(t, env.TestLogicalPostgres16Port)
 	defer container.DB.Close()
 
 	passwordWithSpaces := "test password with spaces"
@@ -89,12 +89,12 @@ func Test_TestConnection_InsufficientPermissions_ReturnsError(t *testing.T) {
 		version string
 		port    string
 	}{
-		{"PostgreSQL 12", "12", env.TestPostgres12Port},
-		{"PostgreSQL 13", "13", env.TestPostgres13Port},
-		{"PostgreSQL 14", "14", env.TestPostgres14Port},
-		{"PostgreSQL 15", "15", env.TestPostgres15Port},
-		{"PostgreSQL 16", "16", env.TestPostgres16Port},
-		{"PostgreSQL 17", "17", env.TestPostgres17Port},
+		{"PostgreSQL 12", "12", env.TestLogicalPostgres12Port},
+		{"PostgreSQL 13", "13", env.TestLogicalPostgres13Port},
+		{"PostgreSQL 14", "14", env.TestLogicalPostgres14Port},
+		{"PostgreSQL 15", "15", env.TestLogicalPostgres15Port},
+		{"PostgreSQL 16", "16", env.TestLogicalPostgres16Port},
+		{"PostgreSQL 17", "17", env.TestLogicalPostgres17Port},
 	}
 
 	for _, tc := range cases {
@@ -164,12 +164,12 @@ func Test_TestConnection_SufficientPermissions_Success(t *testing.T) {
 		version string
 		port    string
 	}{
-		{"PostgreSQL 12", "12", env.TestPostgres12Port},
-		{"PostgreSQL 13", "13", env.TestPostgres13Port},
-		{"PostgreSQL 14", "14", env.TestPostgres14Port},
-		{"PostgreSQL 15", "15", env.TestPostgres15Port},
-		{"PostgreSQL 16", "16", env.TestPostgres16Port},
-		{"PostgreSQL 17", "17", env.TestPostgres17Port},
+		{"PostgreSQL 12", "12", env.TestLogicalPostgres12Port},
+		{"PostgreSQL 13", "13", env.TestLogicalPostgres13Port},
+		{"PostgreSQL 14", "14", env.TestLogicalPostgres14Port},
+		{"PostgreSQL 15", "15", env.TestLogicalPostgres15Port},
+		{"PostgreSQL 16", "16", env.TestLogicalPostgres16Port},
+		{"PostgreSQL 17", "17", env.TestLogicalPostgres17Port},
 	}
 
 	for _, tc := range cases {
@@ -248,12 +248,12 @@ func Test_IsUserReadOnly_AdminUser_ReturnsFalse(t *testing.T) {
 		version string
 		port    string
 	}{
-		{"PostgreSQL 12", "12", env.TestPostgres12Port},
-		{"PostgreSQL 13", "13", env.TestPostgres13Port},
-		{"PostgreSQL 14", "14", env.TestPostgres14Port},
-		{"PostgreSQL 15", "15", env.TestPostgres15Port},
-		{"PostgreSQL 16", "16", env.TestPostgres16Port},
-		{"PostgreSQL 17", "17", env.TestPostgres17Port},
+		{"PostgreSQL 12", "12", env.TestLogicalPostgres12Port},
+		{"PostgreSQL 13", "13", env.TestLogicalPostgres13Port},
+		{"PostgreSQL 14", "14", env.TestLogicalPostgres14Port},
+		{"PostgreSQL 15", "15", env.TestLogicalPostgres15Port},
+		{"PostgreSQL 16", "16", env.TestLogicalPostgres16Port},
+		{"PostgreSQL 17", "17", env.TestLogicalPostgres17Port},
 	}
 
 	for _, tc := range cases {
@@ -277,7 +277,7 @@ func Test_IsUserReadOnly_AdminUser_ReturnsFalse(t *testing.T) {
 
 func Test_IsUserReadOnly_ReadOnlyUser_ReturnsTrue(t *testing.T) {
 	env := config.GetEnv()
-	container := connectToPostgresContainer(t, env.TestPostgres16Port)
+	container := connectToPostgresContainer(t, env.TestLogicalPostgres16Port)
 	defer container.DB.Close()
 
 	_, err := container.DB.Exec(`
@@ -328,12 +328,12 @@ func Test_CreateReadOnlyUser_UserCanReadButNotWrite(t *testing.T) {
 		version string
 		port    string
 	}{
-		{"PostgreSQL 12", "12", env.TestPostgres12Port},
-		{"PostgreSQL 13", "13", env.TestPostgres13Port},
-		{"PostgreSQL 14", "14", env.TestPostgres14Port},
-		{"PostgreSQL 15", "15", env.TestPostgres15Port},
-		{"PostgreSQL 16", "16", env.TestPostgres16Port},
-		{"PostgreSQL 17", "17", env.TestPostgres17Port},
+		{"PostgreSQL 12", "12", env.TestLogicalPostgres12Port},
+		{"PostgreSQL 13", "13", env.TestLogicalPostgres13Port},
+		{"PostgreSQL 14", "14", env.TestLogicalPostgres14Port},
+		{"PostgreSQL 15", "15", env.TestLogicalPostgres15Port},
+		{"PostgreSQL 16", "16", env.TestLogicalPostgres16Port},
+		{"PostgreSQL 17", "17", env.TestLogicalPostgres17Port},
 	}
 
 	for _, tc := range cases {
@@ -430,7 +430,7 @@ func Test_CreateReadOnlyUser_UserCanReadButNotWrite(t *testing.T) {
 
 func Test_ReadOnlyUser_FutureTables_HaveSelectPermission(t *testing.T) {
 	env := config.GetEnv()
-	container := connectToPostgresContainer(t, env.TestPostgres16Port)
+	container := connectToPostgresContainer(t, env.TestLogicalPostgres16Port)
 	defer container.DB.Close()
 
 	pgModel := createPostgresModel(container)
@@ -471,7 +471,7 @@ func Test_ReadOnlyUser_FutureTables_HaveSelectPermission(t *testing.T) {
 
 func Test_ReadOnlyUser_MultipleSchemas_AllAccessible(t *testing.T) {
 	env := config.GetEnv()
-	container := connectToPostgresContainer(t, env.TestPostgres16Port)
+	container := connectToPostgresContainer(t, env.TestLogicalPostgres16Port)
 	defer container.DB.Close()
 
 	_, err := container.DB.Exec(`
@@ -522,7 +522,7 @@ func Test_ReadOnlyUser_MultipleSchemas_AllAccessible(t *testing.T) {
 
 func Test_CreateReadOnlyUser_DatabaseNameWithDash_Success(t *testing.T) {
 	env := config.GetEnv()
-	container := connectToPostgresContainer(t, env.TestPostgres16Port)
+	container := connectToPostgresContainer(t, env.TestLogicalPostgres16Port)
 	defer container.DB.Close()
 
 	dashDbName := "test-db-with-dash"
@@ -602,12 +602,12 @@ func Test_CreateReadOnlyUser_WithPublicSchema_Success(t *testing.T) {
 		version string
 		port    string
 	}{
-		{"PostgreSQL 12", "12", env.TestPostgres12Port},
-		{"PostgreSQL 13", "13", env.TestPostgres13Port},
-		{"PostgreSQL 14", "14", env.TestPostgres14Port},
-		{"PostgreSQL 15", "15", env.TestPostgres15Port},
-		{"PostgreSQL 16", "16", env.TestPostgres16Port},
-		{"PostgreSQL 17", "17", env.TestPostgres17Port},
+		{"PostgreSQL 12", "12", env.TestLogicalPostgres12Port},
+		{"PostgreSQL 13", "13", env.TestLogicalPostgres13Port},
+		{"PostgreSQL 14", "14", env.TestLogicalPostgres14Port},
+		{"PostgreSQL 15", "15", env.TestLogicalPostgres15Port},
+		{"PostgreSQL 16", "16", env.TestLogicalPostgres16Port},
+		{"PostgreSQL 17", "17", env.TestLogicalPostgres17Port},
 	}
 
 	for _, tc := range cases {
@@ -700,12 +700,12 @@ func Test_CreateReadOnlyUser_WithoutPublicSchema_Success(t *testing.T) {
 		version string
 		port    string
 	}{
-		{"PostgreSQL 12", "12", env.TestPostgres12Port},
-		{"PostgreSQL 13", "13", env.TestPostgres13Port},
-		{"PostgreSQL 14", "14", env.TestPostgres14Port},
-		{"PostgreSQL 15", "15", env.TestPostgres15Port},
-		{"PostgreSQL 16", "16", env.TestPostgres16Port},
-		{"PostgreSQL 17", "17", env.TestPostgres17Port},
+		{"PostgreSQL 12", "12", env.TestLogicalPostgres12Port},
+		{"PostgreSQL 13", "13", env.TestLogicalPostgres13Port},
+		{"PostgreSQL 14", "14", env.TestLogicalPostgres14Port},
+		{"PostgreSQL 15", "15", env.TestLogicalPostgres15Port},
+		{"PostgreSQL 16", "16", env.TestLogicalPostgres16Port},
+		{"PostgreSQL 17", "17", env.TestLogicalPostgres17Port},
 	}
 
 	for _, tc := range cases {
@@ -823,12 +823,12 @@ func Test_CreateReadOnlyUser_PublicSchemaExistsButNoPermissions_ReturnsError(t *
 		version string
 		port    string
 	}{
-		{"PostgreSQL 12", "12", env.TestPostgres12Port},
-		{"PostgreSQL 13", "13", env.TestPostgres13Port},
-		{"PostgreSQL 14", "14", env.TestPostgres14Port},
-		{"PostgreSQL 15", "15", env.TestPostgres15Port},
-		{"PostgreSQL 16", "16", env.TestPostgres16Port},
-		{"PostgreSQL 17", "17", env.TestPostgres17Port},
+		{"PostgreSQL 12", "12", env.TestLogicalPostgres12Port},
+		{"PostgreSQL 13", "13", env.TestLogicalPostgres13Port},
+		{"PostgreSQL 14", "14", env.TestLogicalPostgres14Port},
+		{"PostgreSQL 15", "15", env.TestLogicalPostgres15Port},
+		{"PostgreSQL 16", "16", env.TestLogicalPostgres16Port},
+		{"PostgreSQL 17", "17", env.TestLogicalPostgres17Port},
 	}
 
 	for _, tc := range cases {
@@ -1213,7 +1213,7 @@ type PostgresContainer struct {
 
 func Test_CreateReadOnlyUser_TablesCreatedByDifferentUser_ReadOnlyUserCanRead(t *testing.T) {
 	env := config.GetEnv()
-	container := connectToPostgresContainer(t, env.TestPostgres16Port)
+	container := connectToPostgresContainer(t, env.TestLogicalPostgres16Port)
 	defer container.DB.Close()
 
 	// Step 1: Create a second database user who will create tables
@@ -1367,7 +1367,7 @@ func Test_CreateReadOnlyUser_TablesCreatedByDifferentUser_ReadOnlyUserCanRead(t 
 
 func Test_CreateReadOnlyUser_WithIncludeSchemas_OnlyGrantsAccessToSpecifiedSchemas(t *testing.T) {
 	env := config.GetEnv()
-	container := connectToPostgresContainer(t, env.TestPostgres16Port)
+	container := connectToPostgresContainer(t, env.TestLogicalPostgres16Port)
 	defer container.DB.Close()
 
 	// Step 1: Create multiple schemas and tables
@@ -1551,7 +1551,7 @@ func Test_CreateReadOnlyUser_WithIncludeSchemas_OnlyGrantsAccessToSpecifiedSchem
 
 func Test_GetRawDbSizeMb_Postgresql_ReturnsPositiveSize(t *testing.T) {
 	env := config.GetEnv()
-	container := connectToPostgresContainer(t, env.TestPostgres16Port)
+	container := connectToPostgresContainer(t, env.TestLogicalPostgres16Port)
 	defer container.DB.Close()
 
 	tableName := fmt.Sprintf("size_test_%s", uuid.New().String()[:8])

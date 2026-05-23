@@ -56,9 +56,9 @@ func registerSSLMysqlTLSConfig(t *testing.T) {
 }
 
 func Test_BackupAndRestorePostgresqlSSL_Succeeds(t *testing.T) {
-	port := config.GetEnv().TestPostgresSslPort
+	port := config.GetEnv().TestLogicalPostgresSslPort
 	if port == "" {
-		t.Skip("TEST_POSTGRES_SSL_PORT not configured")
+		t.Skip("TEST_LOGICAL_POSTGRES_SSL_PORT not configured")
 	}
 
 	host := config.GetEnv().TestLocalhost
@@ -137,9 +137,9 @@ func Test_BackupAndRestorePostgresqlSSL_Succeeds(t *testing.T) {
 func Test_BackupAndRestoreMariadbSSL_Succeeds(t *testing.T) {
 	registerSSLMysqlTLSConfig(t)
 
-	port := config.GetEnv().TestMariadbSslPort
+	port := config.GetEnv().TestLogicalMariadbSslPort
 	if port == "" {
-		t.Skip("TEST_MARIADB_SSL_PORT not configured")
+		t.Skip("TEST_LOGICAL_MARIADB_SSL_PORT not configured")
 	}
 
 	host := config.GetEnv().TestLocalhost
@@ -214,9 +214,9 @@ func Test_BackupAndRestoreMariadbSSL_Succeeds(t *testing.T) {
 func Test_BackupAndRestoreMysqlSSL_Succeeds(t *testing.T) {
 	registerSSLMysqlTLSConfig(t)
 
-	port := config.GetEnv().TestMysqlSslPort
+	port := config.GetEnv().TestLogicalMysqlSslPort
 	if port == "" {
-		t.Skip("TEST_MYSQL_SSL_PORT not configured")
+		t.Skip("TEST_LOGICAL_MYSQL_SSL_PORT not configured")
 	}
 
 	host := config.GetEnv().TestLocalhost
@@ -289,9 +289,9 @@ func Test_BackupAndRestoreMysqlSSL_Succeeds(t *testing.T) {
 }
 
 func Test_BackupAndRestoreMongodbSSL_Succeeds(t *testing.T) {
-	port := config.GetEnv().TestMongodbSslPort
+	port := config.GetEnv().TestLogicalMongodbSslPort
 	if port == "" {
-		t.Skip("TEST_MONGODB_SSL_PORT not configured")
+		t.Skip("TEST_LOGICAL_MONGODB_SSL_PORT not configured")
 	}
 
 	host := config.GetEnv().TestLocalhost

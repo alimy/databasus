@@ -96,13 +96,13 @@ func resetTestPostgresContainers(ctx context.Context, log *slog.Logger, env *con
 		version string
 		port    string
 	}{
-		{"12", env.TestPostgres12Port},
-		{"13", env.TestPostgres13Port},
-		{"14", env.TestPostgres14Port},
-		{"15", env.TestPostgres15Port},
-		{"16", env.TestPostgres16Port},
-		{"17", env.TestPostgres17Port},
-		{"18", env.TestPostgres18Port},
+		{"12", env.TestLogicalPostgres12Port},
+		{"13", env.TestLogicalPostgres13Port},
+		{"14", env.TestLogicalPostgres14Port},
+		{"15", env.TestLogicalPostgres15Port},
+		{"16", env.TestLogicalPostgres16Port},
+		{"17", env.TestLogicalPostgres17Port},
+		{"18", env.TestLogicalPostgres18Port},
 	}
 
 	for _, c := range containers {

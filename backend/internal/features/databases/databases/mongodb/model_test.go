@@ -28,12 +28,12 @@ func Test_TestConnection_InsufficientPermissions_ReturnsError(t *testing.T) {
 		version tools.MongodbVersion
 		port    string
 	}{
-		{"MongoDB 4.2", tools.MongodbVersion4, env.TestMongodb42Port},
-		{"MongoDB 4.4", tools.MongodbVersion4, env.TestMongodb44Port},
-		{"MongoDB 5.0", tools.MongodbVersion5, env.TestMongodb50Port},
-		{"MongoDB 6.0", tools.MongodbVersion6, env.TestMongodb60Port},
-		{"MongoDB 7.0", tools.MongodbVersion7, env.TestMongodb70Port},
-		{"MongoDB 8.2", tools.MongodbVersion8, env.TestMongodb82Port},
+		{"MongoDB 4.2", tools.MongodbVersion4, env.TestLogicalMongodb42Port},
+		{"MongoDB 4.4", tools.MongodbVersion4, env.TestLogicalMongodb44Port},
+		{"MongoDB 5.0", tools.MongodbVersion5, env.TestLogicalMongodb50Port},
+		{"MongoDB 6.0", tools.MongodbVersion6, env.TestLogicalMongodb60Port},
+		{"MongoDB 7.0", tools.MongodbVersion7, env.TestLogicalMongodb70Port},
+		{"MongoDB 8.2", tools.MongodbVersion8, env.TestLogicalMongodb82Port},
 	}
 
 	for _, tc := range cases {
@@ -93,12 +93,12 @@ func Test_TestConnection_SufficientPermissions_Success(t *testing.T) {
 		version tools.MongodbVersion
 		port    string
 	}{
-		{"MongoDB 4.2", tools.MongodbVersion4, env.TestMongodb42Port},
-		{"MongoDB 4.4", tools.MongodbVersion4, env.TestMongodb44Port},
-		{"MongoDB 5.0", tools.MongodbVersion5, env.TestMongodb50Port},
-		{"MongoDB 6.0", tools.MongodbVersion6, env.TestMongodb60Port},
-		{"MongoDB 7.0", tools.MongodbVersion7, env.TestMongodb70Port},
-		{"MongoDB 8.2", tools.MongodbVersion8, env.TestMongodb82Port},
+		{"MongoDB 4.2", tools.MongodbVersion4, env.TestLogicalMongodb42Port},
+		{"MongoDB 4.4", tools.MongodbVersion4, env.TestLogicalMongodb44Port},
+		{"MongoDB 5.0", tools.MongodbVersion5, env.TestLogicalMongodb50Port},
+		{"MongoDB 6.0", tools.MongodbVersion6, env.TestLogicalMongodb60Port},
+		{"MongoDB 7.0", tools.MongodbVersion7, env.TestLogicalMongodb70Port},
+		{"MongoDB 8.2", tools.MongodbVersion8, env.TestLogicalMongodb82Port},
 	}
 
 	for _, tc := range cases {
@@ -162,12 +162,12 @@ func Test_IsUserReadOnly_AdminUser_ReturnsFalse(t *testing.T) {
 		version tools.MongodbVersion
 		port    string
 	}{
-		{"MongoDB 4.2", tools.MongodbVersion4, env.TestMongodb42Port},
-		{"MongoDB 4.4", tools.MongodbVersion4, env.TestMongodb44Port},
-		{"MongoDB 5.0", tools.MongodbVersion5, env.TestMongodb50Port},
-		{"MongoDB 6.0", tools.MongodbVersion6, env.TestMongodb60Port},
-		{"MongoDB 7.0", tools.MongodbVersion7, env.TestMongodb70Port},
-		{"MongoDB 8.2", tools.MongodbVersion8, env.TestMongodb82Port},
+		{"MongoDB 4.2", tools.MongodbVersion4, env.TestLogicalMongodb42Port},
+		{"MongoDB 4.4", tools.MongodbVersion4, env.TestLogicalMongodb44Port},
+		{"MongoDB 5.0", tools.MongodbVersion5, env.TestLogicalMongodb50Port},
+		{"MongoDB 6.0", tools.MongodbVersion6, env.TestLogicalMongodb60Port},
+		{"MongoDB 7.0", tools.MongodbVersion7, env.TestLogicalMongodb70Port},
+		{"MongoDB 8.2", tools.MongodbVersion8, env.TestLogicalMongodb82Port},
 	}
 
 	for _, tc := range cases {
@@ -191,7 +191,7 @@ func Test_IsUserReadOnly_AdminUser_ReturnsFalse(t *testing.T) {
 
 func Test_IsUserReadOnly_ReadOnlyUser_ReturnsTrue(t *testing.T) {
 	env := config.GetEnv()
-	container := connectToMongodbContainer(t, env.TestMongodb70Port, tools.MongodbVersion7)
+	container := connectToMongodbContainer(t, env.TestLogicalMongodb70Port, tools.MongodbVersion7)
 	defer container.Client.Disconnect(t.Context())
 
 	ctx := t.Context()
@@ -234,12 +234,12 @@ func Test_CreateReadOnlyUser_UserCanReadButNotWrite(t *testing.T) {
 		version tools.MongodbVersion
 		port    string
 	}{
-		{"MongoDB 4.2", tools.MongodbVersion4, env.TestMongodb42Port},
-		{"MongoDB 4.4", tools.MongodbVersion4, env.TestMongodb44Port},
-		{"MongoDB 5.0", tools.MongodbVersion5, env.TestMongodb50Port},
-		{"MongoDB 6.0", tools.MongodbVersion6, env.TestMongodb60Port},
-		{"MongoDB 7.0", tools.MongodbVersion7, env.TestMongodb70Port},
-		{"MongoDB 8.2", tools.MongodbVersion8, env.TestMongodb82Port},
+		{"MongoDB 4.2", tools.MongodbVersion4, env.TestLogicalMongodb42Port},
+		{"MongoDB 4.4", tools.MongodbVersion4, env.TestLogicalMongodb44Port},
+		{"MongoDB 5.0", tools.MongodbVersion5, env.TestLogicalMongodb50Port},
+		{"MongoDB 6.0", tools.MongodbVersion6, env.TestLogicalMongodb60Port},
+		{"MongoDB 7.0", tools.MongodbVersion7, env.TestLogicalMongodb70Port},
+		{"MongoDB 8.2", tools.MongodbVersion8, env.TestLogicalMongodb82Port},
 	}
 
 	for _, tc := range cases {
@@ -312,7 +312,7 @@ func Test_CreateReadOnlyUser_UserCanReadButNotWrite(t *testing.T) {
 
 func Test_ReadOnlyUser_FutureCollections_CanSelect(t *testing.T) {
 	env := config.GetEnv()
-	container := connectToMongodbContainer(t, env.TestMongodb70Port, tools.MongodbVersion7)
+	container := connectToMongodbContainer(t, env.TestLogicalMongodb70Port, tools.MongodbVersion7)
 	defer container.Client.Disconnect(t.Context())
 
 	ctx := t.Context()
@@ -343,7 +343,7 @@ func Test_ReadOnlyUser_FutureCollections_CanSelect(t *testing.T) {
 
 func Test_ReadOnlyUser_CannotDropOrModifyCollections(t *testing.T) {
 	env := config.GetEnv()
-	container := connectToMongodbContainer(t, env.TestMongodb70Port, tools.MongodbVersion7)
+	container := connectToMongodbContainer(t, env.TestLogicalMongodb70Port, tools.MongodbVersion7)
 	defer container.Client.Disconnect(t.Context())
 
 	ctx := t.Context()
@@ -390,7 +390,7 @@ type MongodbContainer struct {
 
 func Test_GetRawDbSizeMb_Mongodb_ReturnsPositiveSize(t *testing.T) {
 	env := config.GetEnv()
-	container := connectToMongodbContainer(t, env.TestMongodb70Port, tools.MongodbVersion7)
+	container := connectToMongodbContainer(t, env.TestLogicalMongodb70Port, tools.MongodbVersion7)
 	defer container.Client.Disconnect(t.Context())
 
 	collectionName := fmt.Sprintf("size_test_%s", uuid.New().String()[:8])

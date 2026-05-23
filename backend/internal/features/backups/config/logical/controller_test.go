@@ -1701,9 +1701,9 @@ func createTestDatabaseViaAPI(
 	router *gin.Engine,
 ) *databases.Database {
 	env := config.GetEnv()
-	port, err := strconv.Atoi(env.TestPostgres16Port)
+	port, err := strconv.Atoi(env.TestLogicalPostgres16Port)
 	if err != nil {
-		panic(fmt.Sprintf("Failed to parse TEST_POSTGRES_16_PORT: %v", err))
+		panic(fmt.Sprintf("Failed to parse TEST_LOGICAL_POSTGRES_16_PORT: %v", err))
 	}
 
 	testDbName := "testdb"
