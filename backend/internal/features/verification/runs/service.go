@@ -12,7 +12,7 @@ import (
 	"gorm.io/gorm"
 
 	"databasus-backend/internal/features/audit_logs"
-	backups_core "databasus-backend/internal/features/backups/backups/core"
+	backups_core_logical "databasus-backend/internal/features/backups/backups/core/logical"
 	backups_services "databasus-backend/internal/features/backups/backups/services"
 	"databasus-backend/internal/features/databases"
 	users_models "databasus-backend/internal/features/users/models"
@@ -615,13 +615,13 @@ func (s *VerificationService) syncBackupVerificationStatus(
 	verification *RestoreVerification,
 	terminalStatus VerificationStatus,
 ) {
-	var status backups_core.RestoreVerificationStatus
+	var status backups_core_logical.RestoreVerificationStatus
 
 	switch terminalStatus {
 	case VerificationStatusCompleted:
-		status = backups_core.RestoreVerificationStatusVerifiedSuccessful
+		status = backups_core_logical.RestoreVerificationStatusVerifiedSuccessful
 	case VerificationStatusFailed:
-		status = backups_core.RestoreVerificationStatusVerificationFailed
+		status = backups_core_logical.RestoreVerificationStatusVerificationFailed
 	default:
 		return
 	}
@@ -693,9 +693,9 @@ func (s *VerificationService) notifyTerminal(
 }
 
 func (s *VerificationService) guardBackupIsVerifiable(
-	backup *backups_core.Backup,
+	backup *backups_core_logical.LogicalBackup,
 ) error {
-	if backup.Status != backups_core.BackupStatusCompleted {
+	if backup.Status != backups_core_logical.BackupStatusCompleted {
 		return errors.New("only COMPLETED backups can be verified")
 	}
 

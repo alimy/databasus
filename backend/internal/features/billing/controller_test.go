@@ -18,7 +18,7 @@ import (
 	billing_models "databasus-backend/internal/features/billing/models"
 	billing_provider "databasus-backend/internal/features/billing/provider"
 	"databasus-backend/internal/features/databases"
-	"databasus-backend/internal/features/databases/databases/postgresql"
+	"databasus-backend/internal/features/databases/databases/postgresql/logical"
 	users_dto "databasus-backend/internal/features/users/dto"
 	users_enums "databasus-backend/internal/features/users/enums"
 	users_middleware "databasus-backend/internal/features/users/middleware"
@@ -1244,7 +1244,7 @@ func createTestDatabaseForBilling(token string, workspaceID uuid.UUID, router *g
 		Name:        "billing-test-" + uuid.New().String()[:8],
 		WorkspaceID: &workspaceID,
 		Type:        databases.DatabaseTypePostgres,
-		Postgresql: &postgresql.PostgresqlDatabase{
+		Postgresql: &postgresql_logical.PostgresqlLogicalDatabase{
 			Version:  tools.PostgresqlVersion16,
 			Host:     env.TestLocalhost,
 			Port:     port,

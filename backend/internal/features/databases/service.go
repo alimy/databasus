@@ -14,7 +14,7 @@ import (
 	"databasus-backend/internal/features/databases/databases/mariadb"
 	"databasus-backend/internal/features/databases/databases/mongodb"
 	"databasus-backend/internal/features/databases/databases/mysql"
-	"databasus-backend/internal/features/databases/databases/postgresql"
+	"databasus-backend/internal/features/databases/databases/postgresql/logical"
 	"databasus-backend/internal/features/notifiers"
 	users_models "databasus-backend/internal/features/users/models"
 	workspaces_services "databasus-backend/internal/features/workspaces/services"
@@ -452,7 +452,7 @@ func (s *DatabaseService) CopyDatabase(
 	switch existingDatabase.Type {
 	case DatabaseTypePostgres:
 		if existingDatabase.Postgresql != nil {
-			newDatabase.Postgresql = &postgresql.PostgresqlDatabase{
+			newDatabase.Postgresql = &postgresql_logical.PostgresqlLogicalDatabase{
 				ID:             uuid.Nil,
 				DatabaseID:     nil,
 				Version:        existingDatabase.Postgresql.Version,

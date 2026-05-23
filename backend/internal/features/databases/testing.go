@@ -9,14 +9,14 @@ import (
 	"databasus-backend/internal/config"
 	"databasus-backend/internal/features/databases/databases/mariadb"
 	"databasus-backend/internal/features/databases/databases/mongodb"
-	"databasus-backend/internal/features/databases/databases/postgresql"
+	"databasus-backend/internal/features/databases/databases/postgresql/logical"
 	"databasus-backend/internal/features/notifiers"
 	"databasus-backend/internal/features/storages"
 	"databasus-backend/internal/storage"
 	"databasus-backend/internal/util/tools"
 )
 
-func GetTestPostgresConfig() *postgresql.PostgresqlDatabase {
+func GetTestPostgresConfig() *postgresql_logical.PostgresqlLogicalDatabase {
 	env := config.GetEnv()
 	port, err := strconv.Atoi(env.TestPostgres16Port)
 	if err != nil {
@@ -24,7 +24,7 @@ func GetTestPostgresConfig() *postgresql.PostgresqlDatabase {
 	}
 
 	testDbName := "testdb"
-	return &postgresql.PostgresqlDatabase{
+	return &postgresql_logical.PostgresqlLogicalDatabase{
 		Version:  tools.PostgresqlVersion16,
 		Host:     config.GetEnv().TestLocalhost,
 		Port:     port,
@@ -155,11 +155,11 @@ func RemoveTestDatabase(database *Database) {
 	// (databases package cannot import backups package as backups already imports databases)
 	db := storage.GetDb()
 
-	if err := db.Exec("DELETE FROM backups WHERE database_id = ?", database.ID).Error; err != nil {
+	if err := db.Exec("DELETE FROM logical_backups WHERE database_id = ?", database.ID).Error; err != nil {
 		panic(fmt.Sprintf("failed to delete backups: %v", err))
 	}
 
-	if err := db.Exec("DELETE FROM backup_configs WHERE database_id = ?", database.ID).Error; err != nil {
+	if err := db.Exec("DELETE FROM logical_backup_configs WHERE database_id = ?", database.ID).Error; err != nil {
 		panic(fmt.Sprintf("failed to delete backup config: %v", err))
 	}
 

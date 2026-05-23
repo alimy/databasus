@@ -18,12 +18,12 @@ import (
 
 	env_config "databasus-backend/internal/config"
 	audit_logs "databasus-backend/internal/features/audit_logs"
-	backups_controllers "databasus-backend/internal/features/backups/backups/controllers"
-	backups_core "databasus-backend/internal/features/backups/backups/core"
-	backups_config "databasus-backend/internal/features/backups/config"
+	backups_controllers_logical "databasus-backend/internal/features/backups/backups/controllers/logical"
+	backups_core_logical "databasus-backend/internal/features/backups/backups/core/logical"
+	backups_config_logical "databasus-backend/internal/features/backups/config/logical"
 	"databasus-backend/internal/features/databases"
 	"databasus-backend/internal/features/databases/databases/mysql"
-	"databasus-backend/internal/features/databases/databases/postgresql"
+	"databasus-backend/internal/features/databases/databases/postgresql/logical"
 	"databasus-backend/internal/features/notifiers"
 	restores_core "databasus-backend/internal/features/restores/core"
 	"databasus-backend/internal/features/restores/restoring"
@@ -125,7 +125,7 @@ func Test_RestoreBackup_WhenUserIsWorkspaceMember_RestoreInitiated(t *testing.T)
 	defer cleanupDatabaseWithBackup(database, backup)
 
 	request := restores_core.RestoreBackupRequest{
-		PostgresqlDatabase: &postgresql.PostgresqlDatabase{
+		PostgresqlLogicalDatabase: &postgresql_logical.PostgresqlLogicalDatabase{
 			Version:  tools.PostgresqlVersion16,
 			Host:     env_config.GetEnv().TestLocalhost,
 			Port:     5432,
@@ -158,7 +158,7 @@ func Test_RestoreBackup_WhenUserIsNotWorkspaceMember_ReturnsForbidden(t *testing
 	nonMember := users_testing.CreateTestUser(users_enums.UserRoleMember)
 
 	request := restores_core.RestoreBackupRequest{
-		PostgresqlDatabase: &postgresql.PostgresqlDatabase{
+		PostgresqlLogicalDatabase: &postgresql_logical.PostgresqlLogicalDatabase{
 			Version:  tools.PostgresqlVersion16,
 			Host:     env_config.GetEnv().TestLocalhost,
 			Port:     5432,
@@ -193,7 +193,7 @@ func Test_RestoreBackup_WithIsExcludeExtensions_FlagPassedCorrectly(t *testing.T
 	defer cleanupDatabaseWithBackup(database, backup)
 
 	request := restores_core.RestoreBackupRequest{
-		PostgresqlDatabase: &postgresql.PostgresqlDatabase{
+		PostgresqlLogicalDatabase: &postgresql_logical.PostgresqlLogicalDatabase{
 			Version:             tools.PostgresqlVersion16,
 			Host:                env_config.GetEnv().TestLocalhost,
 			Port:                5432,
@@ -229,7 +229,7 @@ func Test_RestoreBackup_AuditLogWritten(t *testing.T) {
 	defer cleanupDatabaseWithBackup(database, backup)
 
 	request := restores_core.RestoreBackupRequest{
-		PostgresqlDatabase: &postgresql.PostgresqlDatabase{
+		PostgresqlLogicalDatabase: &postgresql_logical.PostgresqlLogicalDatabase{
 			Version:  tools.PostgresqlVersion16,
 			Host:     env_config.GetEnv().TestLocalhost,
 			Port:     5432,
@@ -312,7 +312,7 @@ func Test_RestoreBackup_DiskSpaceValidation(t *testing.T) {
 			defer workspaces_testing.RemoveTestWorkspace(workspace, router)
 
 			var database *databases.Database
-			var backup *backups_core.Backup
+			var backup *backups_core_logical.LogicalBackup
 			var storage *storages.Storage
 			var request restores_core.RestoreBackupRequest
 
@@ -320,7 +320,7 @@ func Test_RestoreBackup_DiskSpaceValidation(t *testing.T) {
 				database, backup = createTestDatabaseWithBackupForRestore(workspace, owner, router)
 				defer cleanupDatabaseWithBackup(database, backup)
 				request = restores_core.RestoreBackupRequest{
-					PostgresqlDatabase: &postgresql.PostgresqlDatabase{
+					PostgresqlLogicalDatabase: &postgresql_logical.PostgresqlLogicalDatabase{
 						Version:  tools.PostgresqlVersion16,
 						Host:     env_config.GetEnv().TestLocalhost,
 						Port:     5432,
@@ -347,7 +347,7 @@ func Test_RestoreBackup_DiskSpaceValidation(t *testing.T) {
 					storages.RemoveTestStorage(storage.ID)
 				}()
 
-				configService := backups_config.GetBackupConfigService()
+				configService := backups_config_logical.GetBackupConfigService()
 				config, err := configService.GetBackupConfigByDbId(mysqlDB.ID)
 				assert.NoError(t, err)
 
@@ -371,7 +371,7 @@ func Test_RestoreBackup_DiskSpaceValidation(t *testing.T) {
 			}
 
 			// Set huge backup size (10 TB) that would fail disk validation if checked
-			repo := &backups_core.BackupRepository{}
+			repo := &backups_core_logical.BackupRepository{}
 			backup.BackupSizeMb = 10485760.0
 			err := repo.Save(backup)
 			assert.NoError(t, err)
@@ -414,7 +414,7 @@ func Test_CancelRestore_InProgressRestore_SuccessfullyCancelled(t *testing.T) {
 	database := databases.CreateTestDatabase(workspace.ID, storage, notifier)
 
 	defer func() {
-		backupRepo := backups_core.BackupRepository{}
+		backupRepo := backups_core_logical.BackupRepository{}
 		backups, _ := backupRepo.FindByDatabaseID(database.ID)
 		for _, backup := range backups {
 			backupRepo.DeleteByID(backup.ID)
@@ -439,8 +439,8 @@ func Test_CancelRestore_InProgressRestore_SuccessfullyCancelled(t *testing.T) {
 		cache_utils.ClearAllCache()
 	}()
 
-	backups_config.EnableBackupsForTestDatabase(database.ID, storage)
-	backup := backups_controllers.CreateTestBackup(database.ID, storage.ID)
+	backups_config_logical.EnableBackupsForTestDatabase(database.ID, storage)
+	backup := backups_controllers_logical.CreateTestBackup(database.ID, storage.ID)
 
 	mockUsecase := &restoring.MockBlockingRestoreUsecase{
 		StartedChan: make(chan bool, 1),
@@ -453,7 +453,7 @@ func Test_CancelRestore_InProgressRestore_SuccessfullyCancelled(t *testing.T) {
 	time.Sleep(200 * time.Millisecond)
 
 	restoreRequest := restores_core.RestoreBackupRequest{
-		PostgresqlDatabase: &postgresql.PostgresqlDatabase{
+		PostgresqlLogicalDatabase: &postgresql_logical.PostgresqlLogicalDatabase{
 			Version:  tools.PostgresqlVersion16,
 			Host:     env_config.GetEnv().TestLocalhost,
 			Port:     5432,
@@ -552,7 +552,7 @@ func Test_RestoreBackup_WithParallelRestoreInProgress_ReturnsError(t *testing.T)
 	defer cleanupDatabaseWithBackup(database, backup)
 
 	request := restores_core.RestoreBackupRequest{
-		PostgresqlDatabase: &postgresql.PostgresqlDatabase{
+		PostgresqlLogicalDatabase: &postgresql_logical.PostgresqlLogicalDatabase{
 			Version:  tools.PostgresqlVersion16,
 			Host:     env_config.GetEnv().TestLocalhost,
 			Port:     5432,
@@ -591,11 +591,11 @@ func createTestDatabaseWithBackupForRestore(
 	workspace *workspaces_models.Workspace,
 	owner *users_dto.SignInResponseDTO,
 	router *gin.Engine,
-) (*databases.Database, *backups_core.Backup) {
+) (*databases.Database, *backups_core_logical.LogicalBackup) {
 	database := createTestDatabase("Test Database", workspace.ID, owner.Token, router)
 	storage := createTestStorage(workspace.ID)
 
-	configService := backups_config.GetBackupConfigService()
+	configService := backups_config_logical.GetBackupConfigService()
 	config, err := configService.GetBackupConfigByDbId(database.ID)
 	if err != nil {
 		panic(err)
@@ -727,20 +727,20 @@ func createTestStorage(workspaceID uuid.UUID) *storages.Storage {
 func createTestBackup(
 	database *databases.Database,
 	storage *storages.Storage,
-) *backups_core.Backup {
+) *backups_core_logical.LogicalBackup {
 	fieldEncryptor := util_encryption.GetFieldEncryptor()
 
-	backup := &backups_core.Backup{
+	backup := &backups_core_logical.LogicalBackup{
 		ID:               uuid.New(),
 		DatabaseID:       database.ID,
 		StorageID:        storage.ID,
-		Status:           backups_core.BackupStatusCompleted,
+		Status:           backups_core_logical.BackupStatusCompleted,
 		BackupSizeMb:     10.5,
 		BackupDurationMs: 1000,
 		CreatedAt:        time.Now().UTC(),
 	}
 
-	repo := &backups_core.BackupRepository{}
+	repo := &backups_core_logical.BackupRepository{}
 	if err := repo.Save(backup); err != nil {
 		panic(err)
 	}
@@ -761,14 +761,14 @@ func createTestBackup(
 	return backup
 }
 
-func cleanupDatabaseWithBackup(database *databases.Database, backup *backups_core.Backup) {
+func cleanupDatabaseWithBackup(database *databases.Database, backup *backups_core_logical.LogicalBackup) {
 	// Clean up in reverse dependency order
 	cleanupBackup(backup)
 	databases.RemoveTestDatabase(database)
 	time.Sleep(50 * time.Millisecond)
 
 	// Clean up storage last (after database and backup are removed)
-	configService := backups_config.GetBackupConfigService()
+	configService := backups_config_logical.GetBackupConfigService()
 	config, err := configService.GetBackupConfigByDbId(database.ID)
 	if err == nil && config.StorageID != nil {
 		storages.RemoveTestStorage(*config.StorageID)
@@ -787,7 +787,7 @@ func Test_RestoreBackup_WhenCloudAndCpuCountMoreThanOne_ReturnsBadRequest(t *tes
 	enableCloud(t)
 
 	request := restores_core.RestoreBackupRequest{
-		PostgresqlDatabase: &postgresql.PostgresqlDatabase{
+		PostgresqlLogicalDatabase: &postgresql_logical.PostgresqlLogicalDatabase{
 			Version:  tools.PostgresqlVersion16,
 			Host:     env_config.GetEnv().TestLocalhost,
 			Port:     5432,
@@ -825,7 +825,7 @@ func Test_RestoreBackup_WhenCloudAndCpuCountIsOne_RestoreInitiated(t *testing.T)
 	enableCloud(t)
 
 	request := restores_core.RestoreBackupRequest{
-		PostgresqlDatabase: &postgresql.PostgresqlDatabase{
+		PostgresqlLogicalDatabase: &postgresql_logical.PostgresqlLogicalDatabase{
 			Version:  tools.PostgresqlVersion16,
 			Host:     env_config.GetEnv().TestLocalhost,
 			Port:     5432,
@@ -861,7 +861,7 @@ func Test_RestoreBackup_WhenNotCloudAndCpuCountMoreThanOne_RestoreInitiated(t *t
 	defer cleanupDatabaseWithBackup(database, backup)
 
 	request := restores_core.RestoreBackupRequest{
-		PostgresqlDatabase: &postgresql.PostgresqlDatabase{
+		PostgresqlLogicalDatabase: &postgresql_logical.PostgresqlLogicalDatabase{
 			Version:  tools.PostgresqlVersion16,
 			Host:     env_config.GetEnv().TestLocalhost,
 			Port:     5432,
@@ -883,8 +883,8 @@ func Test_RestoreBackup_WhenNotCloudAndCpuCountMoreThanOne_RestoreInitiated(t *t
 	assert.Contains(t, string(testResp.Body), "restore started successfully")
 }
 
-func cleanupBackup(backup *backups_core.Backup) {
-	repo := &backups_core.BackupRepository{}
+func cleanupBackup(backup *backups_core_logical.LogicalBackup) {
+	repo := &backups_core_logical.BackupRepository{}
 	repo.DeleteByID(backup.ID)
 }
 

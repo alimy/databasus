@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"databasus-backend/internal/features/backups/backups/backuping"
+	"databasus-backend/internal/features/backups/backups/backuping/logical"
 	"databasus-backend/internal/features/databases"
 	"databasus-backend/internal/features/notifiers"
 	"databasus-backend/internal/features/storages"
@@ -39,7 +39,7 @@ func Test_ClaimVerification_AssignmentDatabase_StripsSensitiveData(t *testing.T)
 	require.NotEmpty(t, database.Postgresql.Password,
 		"fixture must persist a password so we can prove HideSensitiveData stripped it")
 
-	backup := backuping.SeedTestBackup(t, database.ID, testStorage.ID, 100)
+	backup := backuping_logical.SeedTestBackup(t, database.ID, testStorage.ID, 100)
 	agent := verification_agents.CreateTestVerificationAgent(
 		t, router, owner.Token, "sanitize-"+uuid.New().String(),
 	)

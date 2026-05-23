@@ -15,12 +15,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	backups_core "databasus-backend/internal/features/backups/backups/core"
+	backups_core_logical "databasus-backend/internal/features/backups/backups/core/logical"
 	"databasus-backend/internal/features/databases"
 	"databasus-backend/internal/features/databases/databases/mariadb"
 	"databasus-backend/internal/features/databases/databases/mongodb"
 	"databasus-backend/internal/features/databases/databases/mysql"
-	"databasus-backend/internal/features/databases/databases/postgresql"
+	"databasus-backend/internal/features/databases/databases/postgresql/logical"
 	"databasus-backend/internal/features/intervals"
 	"databasus-backend/internal/features/notifiers"
 	"databasus-backend/internal/features/storages"
@@ -68,7 +68,7 @@ func (f *fakeNotifierLister) GetAllNotifiers() ([]*notifiers.Notifier, error) {
 
 type fakeBackupChecker struct {
 	hasBackupSince map[uuid.UUID]bool
-	latestBackups  map[uuid.UUID]*backups_core.Backup
+	latestBackups  map[uuid.UUID]*backups_core_logical.LogicalBackup
 	err            error
 	latestErr      error
 }
@@ -86,7 +86,7 @@ func (f *fakeBackupChecker) HasSuccessfulBackupSince(
 
 func (f *fakeBackupChecker) GetLatestCompletedBackup(
 	databaseID uuid.UUID,
-) (*backups_core.Backup, error) {
+) (*backups_core_logical.LogicalBackup, error) {
 	if f.latestErr != nil {
 		return nil, f.latestErr
 	}
@@ -161,7 +161,7 @@ func postgresDatabase(name string, status *databases.HealthStatus) *databases.Da
 		Name:         name,
 		Type:         databases.DatabaseTypePostgres,
 		HealthStatus: status,
-		Postgresql: &postgresql.PostgresqlDatabase{
+		Postgresql: &postgresql_logical.PostgresqlLogicalDatabase{
 			Version: tools.PostgresqlVersion("16"),
 		},
 	}
@@ -425,7 +425,7 @@ func Test_BuildAndSend_WhenLatestBackupHasBothSizes_IncludesBoth(t *testing.T) {
 		&fakeStorageLister{},
 		&fakeNotifierLister{},
 		&fakeBackupChecker{
-			latestBackups: map[uuid.UUID]*backups_core.Backup{
+			latestBackups: map[uuid.UUID]*backups_core_logical.LogicalBackup{
 				db.ID: {BackupSizeMb: 870.4, BackupRawDbSizeMb: 4321.7},
 			},
 		},
@@ -453,7 +453,7 @@ func Test_BuildAndSend_WhenSizesAreSubMb_RoundsUpToOne(t *testing.T) {
 		&fakeStorageLister{},
 		&fakeNotifierLister{},
 		&fakeBackupChecker{
-			latestBackups: map[uuid.UUID]*backups_core.Backup{
+			latestBackups: map[uuid.UUID]*backups_core_logical.LogicalBackup{
 				db.ID: {BackupSizeMb: 0.3, BackupRawDbSizeMb: 0.1},
 			},
 		},
@@ -486,7 +486,7 @@ func Test_BuildAndSend_WhenRawSizeZero_IncludesOnlyBackupSize(t *testing.T) {
 		&fakeStorageLister{},
 		&fakeNotifierLister{},
 		&fakeBackupChecker{
-			latestBackups: map[uuid.UUID]*backups_core.Backup{
+			latestBackups: map[uuid.UUID]*backups_core_logical.LogicalBackup{
 				db.ID: {BackupSizeMb: 100, BackupRawDbSizeMb: 0},
 			},
 		},
@@ -519,7 +519,7 @@ func Test_BuildAndSend_WhenBackupSizeZero_IncludesOnlyRawSize(t *testing.T) {
 		&fakeStorageLister{},
 		&fakeNotifierLister{},
 		&fakeBackupChecker{
-			latestBackups: map[uuid.UUID]*backups_core.Backup{
+			latestBackups: map[uuid.UUID]*backups_core_logical.LogicalBackup{
 				db.ID: {BackupSizeMb: 0, BackupRawDbSizeMb: 999},
 			},
 		},

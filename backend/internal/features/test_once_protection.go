@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"databasus-backend/internal/features/audit_logs"
-	"databasus-backend/internal/features/backups/backups/backuping"
+	"databasus-backend/internal/features/backups/backups/backuping/logical"
 	backups_services "databasus-backend/internal/features/backups/backups/services"
-	backups_config "databasus-backend/internal/features/backups/config"
+	backups_config_logical "databasus-backend/internal/features/backups/config/logical"
 	"databasus-backend/internal/features/databases"
 	healthcheck_config "databasus-backend/internal/features/healthcheck/config"
 	"databasus-backend/internal/features/notifiers"
@@ -28,8 +28,8 @@ func Test_SetupDependencies_CalledTwice_LogsWarning(t *testing.T) {
 	backups_services.SetupDependencies()
 	backups_services.SetupDependencies()
 
-	backups_config.SetupDependencies()
-	backups_config.SetupDependencies()
+	backups_config_logical.SetupDependencies()
+	backups_config_logical.SetupDependencies()
 
 	databases.SetupDependencies()
 	databases.SetupDependencies()
@@ -105,7 +105,7 @@ func Test_BackgroundService_Run_CalledTwice_Panics(t *testing.T) {
 func Test_BackupsScheduler_Run_CalledTwice_Panics(t *testing.T) {
 	ctx := t.Context()
 
-	scheduler := backuping.GetBackupsScheduler()
+	scheduler := backuping_logical.GetBackupsScheduler()
 
 	// Start first Run() in goroutine
 	go func() {

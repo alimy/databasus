@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 
 	backups_services "databasus-backend/internal/features/backups/backups/services"
-	backups_config "databasus-backend/internal/features/backups/config"
+	backups_config_logical "databasus-backend/internal/features/backups/config/logical"
 	"databasus-backend/internal/features/databases"
 	restores_core "databasus-backend/internal/features/restores/core"
 	"databasus-backend/internal/features/restores/usecases"
@@ -41,7 +41,7 @@ var restorerNode = &RestorerNode{
 	backups_services.GetBackupService(),
 	encryption.GetFieldEncryptor(),
 	restoreRepository,
-	backups_config.GetBackupConfigService(),
+	backups_config_logical.GetBackupConfigService(),
 	storages.GetStorageService(),
 	restoreNodesRegistry,
 	logger.GetLogger(),
@@ -56,7 +56,7 @@ var restoresScheduler = &RestoresScheduler{
 	restoreRepository,
 	backups_services.GetBackupService(),
 	storages.GetStorageService(),
-	backups_config.GetBackupConfigService(),
+	backups_config_logical.GetBackupConfigService(),
 	restoreNodesRegistry,
 	time.Now().UTC(),
 	logger.GetLogger(),

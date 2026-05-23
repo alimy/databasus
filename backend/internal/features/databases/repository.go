@@ -9,7 +9,7 @@ import (
 	"databasus-backend/internal/features/databases/databases/mariadb"
 	"databasus-backend/internal/features/databases/databases/mongodb"
 	"databasus-backend/internal/features/databases/databases/mysql"
-	"databasus-backend/internal/features/databases/databases/postgresql"
+	"databasus-backend/internal/features/databases/databases/postgresql/logical"
 	"databasus-backend/internal/storage"
 )
 
@@ -182,7 +182,7 @@ func (r *DatabaseRepository) Delete(id uuid.UUID) error {
 		case DatabaseTypePostgres:
 			if err := tx.
 				Where("database_id = ?", id).
-				Delete(&postgresql.PostgresqlDatabase{}).Error; err != nil {
+				Delete(&postgresql_logical.PostgresqlLogicalDatabase{}).Error; err != nil {
 				return err
 			}
 		case DatabaseTypeMysql:

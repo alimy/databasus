@@ -17,11 +17,11 @@ import (
 	"github.com/google/uuid"
 
 	"databasus-backend/internal/config"
-	backups_core "databasus-backend/internal/features/backups/backups/core"
+	backups_core_logical "databasus-backend/internal/features/backups/backups/core/logical"
 	"databasus-backend/internal/features/backups/backups/encryption"
-	backups_config "databasus-backend/internal/features/backups/config"
+	backups_config_logical "databasus-backend/internal/features/backups/config/logical"
 	"databasus-backend/internal/features/databases"
-	pgtypes "databasus-backend/internal/features/databases/databases/postgresql"
+	pgtypes "databasus-backend/internal/features/databases/databases/postgresql/logical"
 	encryption_secrets "databasus-backend/internal/features/encryption/secrets"
 	restores_core "databasus-backend/internal/features/restores/core"
 	"databasus-backend/internal/features/storages"
@@ -38,9 +38,9 @@ func (uc *RestorePostgresqlBackupUsecase) Execute(
 	parentCtx context.Context,
 	originalDB *databases.Database,
 	restoringToDB *databases.Database,
-	backupConfig *backups_config.BackupConfig,
+	backupConfig *backups_config_logical.LogicalBackupConfig,
 	restore restores_core.Restore,
-	backup *backups_core.Backup,
+	backup *backups_core_logical.LogicalBackup,
 	storage *storages.Storage,
 	isExcludeExtensions bool,
 ) error {
@@ -91,9 +91,9 @@ func (uc *RestorePostgresqlBackupUsecase) restoreCustomType(
 	parentCtx context.Context,
 	originalDB *databases.Database,
 	pgBin string,
-	backup *backups_core.Backup,
+	backup *backups_core_logical.LogicalBackup,
 	storage *storages.Storage,
-	pg *pgtypes.PostgresqlDatabase,
+	pg *pgtypes.PostgresqlLogicalDatabase,
 	isExcludeExtensions bool,
 ) error {
 	uc.logger.Info(
@@ -127,9 +127,9 @@ func (uc *RestorePostgresqlBackupUsecase) restoreViaStdin(
 	parentCtx context.Context,
 	originalDB *databases.Database,
 	pgBin string,
-	backup *backups_core.Backup,
+	backup *backups_core_logical.LogicalBackup,
 	storage *storages.Storage,
-	pg *pgtypes.PostgresqlDatabase,
+	pg *pgtypes.PostgresqlLogicalDatabase,
 ) error {
 	uc.logger.Info("Restoring via stdin streaming (CPU=1)", "backupId", backup.ID)
 
@@ -200,7 +200,7 @@ func (uc *RestorePostgresqlBackupUsecase) restoreViaStdin(
 	}()
 
 	var backupReader io.Reader = rawReader
-	if backup.Encryption == backups_config.BackupEncryptionEncrypted {
+	if backup.Encryption == backups_config_logical.BackupEncryptionEncrypted {
 		// Validate encryption metadata
 		if backup.EncryptionSalt == nil || backup.EncryptionIV == nil {
 			return fmt.Errorf("backup is encrypted but missing encryption metadata")
@@ -343,9 +343,9 @@ func (uc *RestorePostgresqlBackupUsecase) restoreViaFile(
 	parentCtx context.Context,
 	originalDB *databases.Database,
 	pgBin string,
-	backup *backups_core.Backup,
+	backup *backups_core_logical.LogicalBackup,
 	storage *storages.Storage,
-	pg *pgtypes.PostgresqlDatabase,
+	pg *pgtypes.PostgresqlLogicalDatabase,
 	isExcludeExtensions bool,
 ) error {
 	uc.logger.Info(
@@ -399,9 +399,9 @@ func (uc *RestorePostgresqlBackupUsecase) restoreFromStorage(
 	pgBin string,
 	args []string,
 	password string,
-	backup *backups_core.Backup,
+	backup *backups_core_logical.LogicalBackup,
 	storage *storages.Storage,
-	pgConfig *pgtypes.PostgresqlDatabase,
+	pgConfig *pgtypes.PostgresqlLogicalDatabase,
 	isExcludeExtensions bool,
 ) error {
 	uc.logger.Info(
@@ -485,7 +485,7 @@ func (uc *RestorePostgresqlBackupUsecase) restoreFromStorage(
 // downloadBackupToTempFile downloads backup data from storage to a temporary file
 func (uc *RestorePostgresqlBackupUsecase) downloadBackupToTempFile(
 	ctx context.Context,
-	backup *backups_core.Backup,
+	backup *backups_core_logical.LogicalBackup,
 	storage *storages.Storage,
 ) (string, func(), error) {
 	// Create temporary directory for backup data
@@ -508,7 +508,7 @@ func (uc *RestorePostgresqlBackupUsecase) downloadBackupToTempFile(
 		"tempFile",
 		tempBackupFile,
 		"encrypted",
-		backup.Encryption == backups_config.BackupEncryptionEncrypted,
+		backup.Encryption == backups_config_logical.BackupEncryptionEncrypted,
 	)
 
 	fieldEncryptor := util_encryption.GetFieldEncryptor()
@@ -526,7 +526,7 @@ func (uc *RestorePostgresqlBackupUsecase) downloadBackupToTempFile(
 
 	// Create a reader that handles decryption if needed
 	var backupReader io.Reader = rawReader
-	if backup.Encryption == backups_config.BackupEncryptionEncrypted {
+	if backup.Encryption == backups_config_logical.BackupEncryptionEncrypted {
 		// Validate encryption metadata
 		if backup.EncryptionSalt == nil || backup.EncryptionIV == nil {
 			cleanupFunc()
@@ -603,7 +603,7 @@ func (uc *RestorePostgresqlBackupUsecase) executePgRestore(
 	pgBin string,
 	args []string,
 	credentials *pgtypes.CredentialFiles,
-	pgConfig *pgtypes.PostgresqlDatabase,
+	pgConfig *pgtypes.PostgresqlLogicalDatabase,
 ) error {
 	cmd := exec.CommandContext(ctx, pgBin, args...)
 	uc.logger.Info("Executing PostgreSQL restore command", "command", cmd.String())
@@ -680,7 +680,7 @@ func (uc *RestorePostgresqlBackupUsecase) executePgRestore(
 func (uc *RestorePostgresqlBackupUsecase) setupPgRestoreEnvironment(
 	cmd *exec.Cmd,
 	credentials *pgtypes.CredentialFiles,
-	pgConfig *pgtypes.PostgresqlDatabase,
+	pgConfig *pgtypes.PostgresqlLogicalDatabase,
 ) {
 	cmd.Env = os.Environ()
 
@@ -719,7 +719,7 @@ func (uc *RestorePostgresqlBackupUsecase) handlePgRestoreError(
 	stderrOutput []byte,
 	pgBin string,
 	args []string,
-	pgConfig *pgtypes.PostgresqlDatabase,
+	pgConfig *pgtypes.PostgresqlLogicalDatabase,
 ) error {
 	// Enhanced error handling for PostgreSQL connection and restore issues
 	stderrStr := string(stderrOutput)
@@ -879,7 +879,7 @@ func (uc *RestorePostgresqlBackupUsecase) generateFilteredTocList(
 	pgBin string,
 	backupFile string,
 	credentials *pgtypes.CredentialFiles,
-	pgConfig *pgtypes.PostgresqlDatabase,
+	pgConfig *pgtypes.PostgresqlLogicalDatabase,
 ) (string, error) {
 	uc.logger.Info("Generating filtered TOC list to exclude extensions", "backupFile", backupFile)
 

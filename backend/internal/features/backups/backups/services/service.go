@@ -11,12 +11,12 @@ import (
 	"github.com/google/uuid"
 
 	audit_logs "databasus-backend/internal/features/audit_logs"
-	"databasus-backend/internal/features/backups/backups/backuping"
-	backups_core "databasus-backend/internal/features/backups/backups/core"
+	"databasus-backend/internal/features/backups/backups/backuping/logical"
+	backups_core_logical "databasus-backend/internal/features/backups/backups/core/logical"
 	backups_download "databasus-backend/internal/features/backups/backups/download"
-	backups_dto "databasus-backend/internal/features/backups/backups/dto"
+	backups_dto_logical "databasus-backend/internal/features/backups/backups/dto/logical"
 	"databasus-backend/internal/features/backups/backups/encryption"
-	backups_config "databasus-backend/internal/features/backups/config"
+	backups_config_logical "databasus-backend/internal/features/backups/config/logical"
 	"databasus-backend/internal/features/databases"
 	encryption_secrets "databasus-backend/internal/features/encryption/secrets"
 	"databasus-backend/internal/features/notifiers"
@@ -31,28 +31,28 @@ import (
 type BackupService struct {
 	databaseService     *databases.DatabaseService
 	storageService      *storages.StorageService
-	backupRepository    *backups_core.BackupRepository
+	backupRepository    *backups_core_logical.BackupRepository
 	notifierService     *notifiers.NotifierService
-	notificationSender  backups_core.NotificationSender
-	backupConfigService *backups_config.BackupConfigService
+	notificationSender  backups_core_logical.NotificationSender
+	backupConfigService *backups_config_logical.BackupConfigService
 	secretKeyService    *encryption_secrets.SecretKeyService
 	fieldEncryptor      util_encryption.FieldEncryptor
 
-	createBackupUseCase backups_core.CreateBackupUsecase
+	createBackupUseCase backups_core_logical.CreateBackupUsecase
 
 	logger *slog.Logger
 
-	backupRemoveListeners []backups_core.BackupRemoveListener
+	backupRemoveListeners []backups_core_logical.BackupRemoveListener
 
 	workspaceService       *workspaces_services.WorkspaceService
 	auditLogService        *audit_logs.AuditLogService
 	taskCancelManager      *task_cancellation.TaskCancelManager
 	downloadTokenService   *backups_download.DownloadTokenService
-	backupSchedulerService *backuping.BackupsScheduler
-	backupCleaner          *backuping.BackupCleaner
+	backupSchedulerService *backuping_logical.BackupsScheduler
+	backupCleaner          *backuping_logical.BackupCleaner
 }
 
-func (s *BackupService) AddBackupRemoveListener(listener backups_core.BackupRemoveListener) {
+func (s *BackupService) AddBackupRemoveListener(listener backups_core_logical.BackupRemoveListener) {
 	s.backupRemoveListeners = append(s.backupRemoveListeners, listener)
 }
 
@@ -65,7 +65,7 @@ func (s *BackupService) HasSuccessfulBackupSince(
 
 func (s *BackupService) GetLatestCompletedBackup(
 	databaseID uuid.UUID,
-) (*backups_core.Backup, error) {
+) (*backups_core_logical.LogicalBackup, error) {
 	return s.backupRepository.FindLatestCompleted(databaseID)
 }
 
@@ -123,8 +123,8 @@ func (s *BackupService) GetBackups(
 	user *users_models.User,
 	databaseID uuid.UUID,
 	limit, offset int,
-	filters *backups_core.BackupFilters,
-) (*backups_dto.GetBackupsResponse, error) {
+	filters *backups_core_logical.BackupFilters,
+) (*backups_dto_logical.GetBackupsResponse, error) {
 	database, err := s.databaseService.GetDatabaseByID(databaseID)
 	if err != nil {
 		return nil, err
@@ -161,7 +161,7 @@ func (s *BackupService) GetBackups(
 		return nil, err
 	}
 
-	return &backups_dto.GetBackupsResponse{
+	return &backups_dto_logical.GetBackupsResponse{
 		Backups: backups,
 		Total:   total,
 		Limit:   limit,
@@ -195,7 +195,7 @@ func (s *BackupService) DeleteBackup(
 		return errors.New("insufficient permissions to delete backup for this database")
 	}
 
-	if backup.Status == backups_core.BackupStatusInProgress {
+	if backup.Status == backups_core_logical.BackupStatusInProgress {
 		return errors.New("backup is in progress")
 	}
 
@@ -208,13 +208,13 @@ func (s *BackupService) DeleteBackup(
 	return s.backupCleaner.DeleteBackup(backup)
 }
 
-func (s *BackupService) GetBackup(backupID uuid.UUID) (*backups_core.Backup, error) {
+func (s *BackupService) GetBackup(backupID uuid.UUID) (*backups_core_logical.LogicalBackup, error) {
 	return s.backupRepository.FindByID(backupID)
 }
 
 func (s *BackupService) SetRestoreVerificationStatus(
 	backupID uuid.UUID,
-	status backups_core.RestoreVerificationStatus,
+	status backups_core_logical.RestoreVerificationStatus,
 ) error {
 	return s.backupRepository.UpdateRestoreVerificationStatus(backupID, status)
 }
@@ -245,7 +245,7 @@ func (s *BackupService) CancelBackup(
 		return errors.New("insufficient permissions to cancel backup for this database")
 	}
 
-	if backup.Status != backups_core.BackupStatusInProgress {
+	if backup.Status != backups_core_logical.BackupStatusInProgress {
 		return errors.New("backup is not in progress")
 	}
 
@@ -265,7 +265,7 @@ func (s *BackupService) CancelBackup(
 func (s *BackupService) GetBackupFile(
 	user *users_models.User,
 	backupID uuid.UUID,
-) (io.ReadCloser, *backups_core.Backup, *databases.Database, error) {
+) (io.ReadCloser, *backups_core_logical.LogicalBackup, *databases.Database, error) {
 	backup, err := s.backupRepository.FindByID(backupID)
 	if err != nil {
 		return nil, nil, nil, err
@@ -326,13 +326,13 @@ func (s *BackupService) GetBackupReader(backupID uuid.UUID) (io.ReadCloser, erro
 	}
 
 	// If not encrypted, return raw reader
-	if backup.Encryption == backups_config.BackupEncryptionNone {
+	if backup.Encryption == backups_config_logical.BackupEncryptionNone {
 		s.logger.Info("Returning non-encrypted backup", "backupId", backupID)
 		return fileReader, nil
 	}
 
 	// Decrypt on-the-fly for encrypted backups
-	if backup.Encryption != backups_config.BackupEncryptionEncrypted {
+	if backup.Encryption != backups_config_logical.BackupEncryptionEncrypted {
 		if err := fileReader.Close(); err != nil {
 			s.logger.Error("Failed to close file reader", "error", err)
 		}
@@ -389,7 +389,7 @@ func (s *BackupService) GetBackupReader(backupID uuid.UUID) (io.ReadCloser, erro
 
 	s.logger.Info("Returning encrypted backup with decryption", "backupId", backupID)
 
-	return &backups_dto.DecryptionReaderCloser{
+	return &backups_dto_logical.DecryptionReaderCloser{
 		DecryptionReader: decryptionReader,
 		BaseReader:       fileReader,
 	}, nil
@@ -449,13 +449,13 @@ func (s *BackupService) ValidateDownloadToken(
 
 func (s *BackupService) GetLatestVerifiableBackup(
 	databaseID uuid.UUID,
-) (*backups_core.Backup, error) {
+) (*backups_core_logical.LogicalBackup, error) {
 	return s.backupRepository.FindLatestCompleted(databaseID)
 }
 
 func (s *BackupService) GetBackupFileWithoutAuth(
 	backupID uuid.UUID,
-) (io.ReadCloser, *backups_core.Backup, *databases.Database, error) {
+) (io.ReadCloser, *backups_core_logical.LogicalBackup, *databases.Database, error) {
 	backup, err := s.backupRepository.FindByID(backupID)
 	if err != nil {
 		return nil, nil, nil, err
@@ -476,7 +476,7 @@ func (s *BackupService) GetBackupFileWithoutAuth(
 
 func (s *BackupService) WriteAuditLogForDownload(
 	userID uuid.UUID,
-	backup *backups_core.Backup,
+	backup *backups_core_logical.LogicalBackup,
 	database *databases.Database,
 ) {
 	s.auditLogService.WriteAuditLog(
@@ -505,7 +505,7 @@ func (s *BackupService) UnregisterDownload(userID uuid.UUID) {
 func (s *BackupService) deleteDbBackups(databaseID uuid.UUID) error {
 	dbBackupsInProgress, err := s.backupRepository.FindByDatabaseIdAndStatus(
 		databaseID,
-		backups_core.BackupStatusInProgress,
+		backups_core_logical.BackupStatusInProgress,
 	)
 	if err != nil {
 		return err
@@ -533,7 +533,7 @@ func (s *BackupService) deleteDbBackups(databaseID uuid.UUID) error {
 }
 
 func (s *BackupService) generateBackupFilename(
-	backup *backups_core.Backup,
+	backup *backups_core_logical.LogicalBackup,
 	database *databases.Database,
 ) string {
 	timestamp := backup.CreatedAt.Format("2006-01-02_15-04-05")

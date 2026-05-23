@@ -11,7 +11,7 @@ import (
 	"databasus-backend/internal/features/databases/databases/mariadb"
 	"databasus-backend/internal/features/databases/databases/mongodb"
 	"databasus-backend/internal/features/databases/databases/mysql"
-	"databasus-backend/internal/features/databases/databases/postgresql"
+	"databasus-backend/internal/features/databases/databases/postgresql/logical"
 	"databasus-backend/internal/features/notifiers"
 	"databasus-backend/internal/util/encryption"
 )
@@ -25,10 +25,10 @@ type Database struct {
 	Name        string       `json:"name"        gorm:"column:name;type:text;not null"`
 	Type        DatabaseType `json:"type"        gorm:"column:type;type:text;not null"`
 
-	Postgresql *postgresql.PostgresqlDatabase `json:"postgresql,omitzero" gorm:"foreignKey:DatabaseID"`
-	Mysql      *mysql.MysqlDatabase           `json:"mysql,omitzero"      gorm:"foreignKey:DatabaseID"`
-	Mariadb    *mariadb.MariadbDatabase       `json:"mariadb,omitzero"    gorm:"foreignKey:DatabaseID"`
-	Mongodb    *mongodb.MongodbDatabase       `json:"mongodb,omitzero"    gorm:"foreignKey:DatabaseID"`
+	Postgresql *postgresql_logical.PostgresqlLogicalDatabase `json:"postgresql,omitzero" gorm:"foreignKey:DatabaseID"`
+	Mysql      *mysql.MysqlDatabase                          `json:"mysql,omitzero"      gorm:"foreignKey:DatabaseID"`
+	Mariadb    *mariadb.MariadbDatabase                      `json:"mariadb,omitzero"    gorm:"foreignKey:DatabaseID"`
+	Mongodb    *mongodb.MongodbDatabase                      `json:"mongodb,omitzero"    gorm:"foreignKey:DatabaseID"`
 
 	Notifiers []notifiers.Notifier `json:"notifiers" gorm:"many2many:database_notifiers;"`
 
@@ -93,7 +93,12 @@ func (d *Database) TestConnection(
 	logger *slog.Logger,
 	encryptor encryption.FieldEncryptor,
 ) error {
-	return d.getSpecificDatabase().TestConnection(logger, encryptor)
+	source, err := d.AsLogicalSource()
+	if err != nil {
+		return err
+	}
+
+	return source.TestConnection(logger, encryptor)
 }
 
 func (d *Database) GetRawDbSizeMb(
@@ -101,7 +106,12 @@ func (d *Database) GetRawDbSizeMb(
 	logger *slog.Logger,
 	encryptor encryption.FieldEncryptor,
 ) (float64, error) {
-	return d.getSpecificDatabase().GetRawDbSizeMb(ctx, logger, encryptor)
+	source, err := d.AsLogicalSource()
+	if err != nil {
+		return 0, err
+	}
+
+	return source.GetRawDbSizeMb(ctx, logger, encryptor)
 }
 
 func (d *Database) IsUserReadOnly(
@@ -124,7 +134,12 @@ func (d *Database) IsUserReadOnly(
 }
 
 func (d *Database) HideSensitiveData() {
-	d.getSpecificDatabase().HideSensitiveData()
+	source, err := d.AsLogicalSource()
+	if err != nil {
+		return
+	}
+
+	source.HideSensitiveData()
 }
 
 func (d *Database) EncryptSensitiveFields(encryptor encryption.FieldEncryptor) error {
@@ -187,17 +202,26 @@ func (d *Database) Update(incoming *Database) {
 	}
 }
 
-func (d *Database) getSpecificDatabase() DatabaseConnector {
+// AsLogicalSource returns the per-DB connector that satisfies LogicalBackupSource.
+// Errors if Type has no logical implementation.
+func (d *Database) AsLogicalSource() (LogicalBackupSource, error) {
 	switch d.Type {
 	case DatabaseTypePostgres:
-		return d.Postgresql
+		return d.Postgresql, nil
 	case DatabaseTypeMysql:
-		return d.Mysql
+		return d.Mysql, nil
 	case DatabaseTypeMariadb:
-		return d.Mariadb
+		return d.Mariadb, nil
 	case DatabaseTypeMongodb:
-		return d.Mongodb
+		return d.Mongodb, nil
+	default:
+		return nil, errors.New("logical backup not supported for database type: " + string(d.Type))
 	}
+}
 
-	panic("invalid database type: " + string(d.Type))
+// AsPhysicalSource returns the per-DB connector that satisfies PhysicalBackupSource.
+// No database type yet implements physical — always returns ErrPhysicalNotSupported.
+// Defined now so callers can be written against a stable signature.
+func (d *Database) AsPhysicalSource() (PhysicalBackupSource, error) {
+	return nil, ErrPhysicalNotSupported
 }

@@ -27,7 +27,7 @@ import (
 	billing_repositories "databasus-backend/internal/features/billing/repositories"
 	billing_webhooks "databasus-backend/internal/features/billing/webhooks"
 	"databasus-backend/internal/features/databases"
-	"databasus-backend/internal/features/databases/databases/postgresql"
+	"databasus-backend/internal/features/databases/databases/postgresql/logical"
 	users_dto "databasus-backend/internal/features/users/dto"
 	users_enums "databasus-backend/internal/features/users/enums"
 	users_middleware "databasus-backend/internal/features/users/middleware"
@@ -705,7 +705,7 @@ func createTestDatabaseForPaddle(token string, workspaceID uuid.UUID, router *gi
 		Name:        "paddle-test-" + uuid.New().String()[:8],
 		WorkspaceID: &workspaceID,
 		Type:        databases.DatabaseTypePostgres,
-		Postgresql: &postgresql.PostgresqlDatabase{
+		Postgresql: &postgresql_logical.PostgresqlLogicalDatabase{
 			Version:  tools.PostgresqlVersion16,
 			Host:     env.TestLocalhost,
 			Port:     port,

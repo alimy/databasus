@@ -10,7 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
-	backups_core "databasus-backend/internal/features/backups/backups/core"
+	backups_core_logical "databasus-backend/internal/features/backups/backups/core/logical"
 	"databasus-backend/internal/features/databases"
 	"databasus-backend/internal/features/notifiers"
 	"databasus-backend/internal/features/storages"
@@ -41,7 +41,7 @@ type notifierLister interface {
 
 type backupChecker interface {
 	HasSuccessfulBackupSince(databaseID uuid.UUID, since time.Time) (bool, error)
-	GetLatestCompletedBackup(databaseID uuid.UUID) (*backups_core.Backup, error)
+	GetLatestCompletedBackup(databaseID uuid.UUID) (*backups_core_logical.LogicalBackup, error)
 }
 
 type verificationAgentLister interface {

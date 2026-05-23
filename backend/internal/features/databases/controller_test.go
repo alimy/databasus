@@ -16,7 +16,7 @@ import (
 	"databasus-backend/internal/features/audit_logs"
 	"databasus-backend/internal/features/databases/databases/mariadb"
 	"databasus-backend/internal/features/databases/databases/mongodb"
-	"databasus-backend/internal/features/databases/databases/postgresql"
+	"databasus-backend/internal/features/databases/databases/postgresql/logical"
 	users_enums "databasus-backend/internal/features/users/enums"
 	users_middleware "databasus-backend/internal/features/users/middleware"
 	users_services "databasus-backend/internal/features/users/services"
@@ -157,7 +157,7 @@ func Test_CreateDatabase_WithoutConnectionFields_ValidationFails(t *testing.T) {
 		Name:        "Test Database",
 		WorkspaceID: &workspace.ID,
 		Type:        DatabaseTypePostgres,
-		Postgresql: &postgresql.PostgresqlDatabase{
+		Postgresql: &postgresql_logical.PostgresqlLogicalDatabase{
 			CpuCount: 1,
 		},
 	}
@@ -1117,7 +1117,7 @@ func createTestDatabaseViaAPI(
 		Name:        name,
 		WorkspaceID: &workspaceID,
 		Type:        DatabaseTypePostgres,
-		Postgresql: &postgresql.PostgresqlDatabase{
+		Postgresql: &postgresql_logical.PostgresqlLogicalDatabase{
 			Version:  tools.PostgresqlVersion16,
 			Host:     config.GetEnv().TestLocalhost,
 			Port:     port,
@@ -1168,7 +1168,7 @@ func createTestRouter() *gin.Engine {
 	return router
 }
 
-func getTestPostgresConfig() *postgresql.PostgresqlDatabase {
+func getTestPostgresConfig() *postgresql_logical.PostgresqlLogicalDatabase {
 	env := config.GetEnv()
 	port, err := strconv.Atoi(env.TestPostgres16Port)
 	if err != nil {
@@ -1176,7 +1176,7 @@ func getTestPostgresConfig() *postgresql.PostgresqlDatabase {
 	}
 
 	testDbName := "testdb"
-	return &postgresql.PostgresqlDatabase{
+	return &postgresql_logical.PostgresqlLogicalDatabase{
 		Version:  tools.PostgresqlVersion16,
 		Host:     config.GetEnv().TestLocalhost,
 		Port:     port,

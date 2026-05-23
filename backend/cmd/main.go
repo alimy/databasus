@@ -22,11 +22,11 @@ import (
 
 	"databasus-backend/internal/config"
 	"databasus-backend/internal/features/audit_logs"
-	"databasus-backend/internal/features/backups/backups/backuping"
-	backups_controllers "databasus-backend/internal/features/backups/backups/controllers"
+	"databasus-backend/internal/features/backups/backups/backuping/logical"
+	backups_controllers_logical "databasus-backend/internal/features/backups/backups/controllers/logical"
 	backups_download "databasus-backend/internal/features/backups/backups/download"
 	backups_services "databasus-backend/internal/features/backups/backups/services"
-	backups_config "databasus-backend/internal/features/backups/config"
+	backups_config_logical "databasus-backend/internal/features/backups/config/logical"
 	"databasus-backend/internal/features/billing"
 	billing_paddle "databasus-backend/internal/features/billing/paddle"
 	"databasus-backend/internal/features/databases"
@@ -227,7 +227,7 @@ func setUpRoutes(r *gin.Engine) {
 	system_healthcheck.GetHealthcheckController().RegisterRoutes(v1)
 	system_version.GetVersionController().RegisterRoutes(v1)
 	system_agent.GetAgentController().RegisterRoutes(v1)
-	backups_controllers.GetBackupController().RegisterPublicRoutes(v1)
+	backups_controllers_logical.GetBackupController().RegisterPublicRoutes(v1)
 	databases.GetDatabaseController().RegisterPublicRoutes(v1)
 	verification_agents.GetAgentFacingController().RegisterRoutes(v1)
 	verification_runs.GetVerificationAgentController().RegisterRoutes(v1)
@@ -251,11 +251,11 @@ func setUpRoutes(r *gin.Engine) {
 	notifiers.GetNotifierController().RegisterRoutes(protected)
 	storages.GetStorageController().RegisterRoutes(protected)
 	databases.GetDatabaseController().RegisterRoutes(protected)
-	backups_controllers.GetBackupController().RegisterRoutes(protected)
+	backups_controllers_logical.GetBackupController().RegisterRoutes(protected)
 	restores.GetRestoreController().RegisterRoutes(protected)
 	healthcheck_config.GetHealthcheckConfigController().RegisterRoutes(protected)
 	healthcheck_attempt.GetHealthcheckAttemptController().RegisterRoutes(protected)
-	backups_config.GetBackupConfigController().RegisterRoutes(protected)
+	backups_config_logical.GetBackupConfigController().RegisterRoutes(protected)
 	audit_logs.GetAuditLogController().RegisterRoutes(protected)
 	users_controllers.GetManagementController().RegisterRoutes(protected)
 	users_controllers.GetSettingsController().RegisterRoutes(protected)
@@ -273,7 +273,7 @@ func setUpDependencies() {
 	audit_logs.SetupDependencies()
 	notifiers.SetupDependencies()
 	storages.SetupDependencies()
-	backups_config.SetupDependencies()
+	backups_config_logical.SetupDependencies()
 	verification_config.SetupDependencies()
 	verification_runs.SetupDependencies()
 	task_cancellation.SetupDependencies()
@@ -325,7 +325,7 @@ func runBackgroundTasks(log *slog.Logger) {
 		log.Info("Starting primary node background tasks...")
 
 		go runWithPanicLogging(log, "backup background service", func() {
-			backuping.GetBackupsScheduler().Run(ctx)
+			backuping_logical.GetBackupsScheduler().Run(ctx)
 		})
 
 		go runWithPanicLogging(log, "verification scheduler", func() {
@@ -333,7 +333,7 @@ func runBackgroundTasks(log *slog.Logger) {
 		})
 
 		go runWithPanicLogging(log, "backup cleaner background service", func() {
-			backuping.GetBackupCleaner().Run(ctx)
+			backuping_logical.GetBackupCleaner().Run(ctx)
 		})
 
 		go runWithPanicLogging(log, "restore background service", func() {
@@ -353,7 +353,7 @@ func runBackgroundTasks(log *slog.Logger) {
 		})
 
 		go runWithPanicLogging(log, "backup nodes registry background service", func() {
-			backuping.GetBackupNodesRegistry().Run(ctx)
+			backuping_logical.GetBackupNodesRegistry().Run(ctx)
 		})
 
 		go runWithPanicLogging(log, "restore nodes registry background service", func() {
@@ -377,7 +377,7 @@ func runBackgroundTasks(log *slog.Logger) {
 		log.Info("Starting backup node background tasks...")
 
 		go runWithPanicLogging(log, "backup node", func() {
-			backuping.GetBackuperNode().Run(ctx)
+			backuping_logical.GetBackuperNode().Run(ctx)
 		})
 
 		go runWithPanicLogging(log, "restore node", func() {

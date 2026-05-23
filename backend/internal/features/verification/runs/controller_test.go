@@ -12,8 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"databasus-backend/internal/features/audit_logs"
-	"databasus-backend/internal/features/backups/backups/backuping"
-	backups_controllers "databasus-backend/internal/features/backups/backups/controllers"
+	"databasus-backend/internal/features/backups/backups/backuping/logical"
+	backups_controllers_logical "databasus-backend/internal/features/backups/backups/controllers/logical"
 	"databasus-backend/internal/features/databases"
 	"databasus-backend/internal/features/notifiers"
 	"databasus-backend/internal/features/storages"
@@ -40,7 +40,7 @@ func createTestRouter() *gin.Engine {
 		workspaces_controllers.GetWorkspaceController().RegisterRoutes(routerGroup)
 		workspaces_controllers.GetMembershipController().RegisterRoutes(routerGroup)
 		databases.GetDatabaseController().RegisterRoutes(routerGroup)
-		backups_controllers.GetBackupController().RegisterRoutes(routerGroup)
+		backups_controllers_logical.GetBackupController().RegisterRoutes(routerGroup)
 		GetVerificationController().RegisterRoutes(routerGroup)
 		verification_agents.GetAgentController().RegisterRoutes(routerGroup)
 		verification_config.GetVerificationConfigController().RegisterRoutes(routerGroup)
@@ -71,7 +71,7 @@ func Test_EnqueueManualVerification_AsOwner_CreatesPendingRow(t *testing.T) {
 	database := databases.CreateTestDatabase(workspace.ID, testStorage, notifier)
 	defer databases.RemoveTestDatabase(database)
 
-	backup := backuping.SeedTestBackup(t, database.ID, testStorage.ID, 500)
+	backup := backuping_logical.SeedTestBackup(t, database.ID, testStorage.ID, 500)
 
 	var verification RestoreVerification
 	test_utils.MakePostRequestAndUnmarshal(
@@ -105,8 +105,8 @@ func Test_EnqueueManualVerification_WhenManualPendingExists_Returns400(t *testin
 	database := databases.CreateTestDatabase(workspace.ID, testStorage, notifier)
 	defer databases.RemoveTestDatabase(database)
 
-	firstBackup := backuping.SeedTestBackup(t, database.ID, testStorage.ID, 100)
-	secondBackup := backuping.SeedTestBackup(t, database.ID, testStorage.ID, 200)
+	firstBackup := backuping_logical.SeedTestBackup(t, database.ID, testStorage.ID, 100)
+	secondBackup := backuping_logical.SeedTestBackup(t, database.ID, testStorage.ID, 200)
 
 	var firstVerification RestoreVerification
 	test_utils.MakePostRequestAndUnmarshal(
@@ -145,7 +145,7 @@ func Test_EnqueueManualVerification_WhenRunningExists_Returns400(t *testing.T) {
 	database := databases.CreateTestDatabase(workspace.ID, testStorage, notifier)
 	defer databases.RemoveTestDatabase(database)
 
-	backup := backuping.SeedTestBackup(t, database.ID, testStorage.ID, 100)
+	backup := backuping_logical.SeedTestBackup(t, database.ID, testStorage.ID, 100)
 
 	agent := verification_agents.CreateTestVerificationAgent(t, router, owner.Token, "running-"+uuid.New().String())
 	defer verification_agents.RemoveTestVerificationAgent(t, router, owner.Token, agent.Agent.ID)
@@ -179,7 +179,7 @@ func Test_EnqueueManualVerification_WhenScheduledNonTerminalExists_DoesNotDispla
 	database := databases.CreateTestDatabase(workspace.ID, testStorage, notifier)
 	defer databases.RemoveTestDatabase(database)
 
-	backup := backuping.SeedTestBackup(t, database.ID, testStorage.ID, 100)
+	backup := backuping_logical.SeedTestBackup(t, database.ID, testStorage.ID, 100)
 
 	scheduledRow := &RestoreVerification{
 		ID:           uuid.New(),
@@ -243,7 +243,7 @@ func Test_EnqueueManualVerification_AsNonWorkspaceMember_ReturnsForbidden(t *tes
 	database := databases.CreateTestDatabase(workspace.ID, testStorage, notifier)
 	defer databases.RemoveTestDatabase(database)
 
-	backup := backuping.SeedTestBackup(t, database.ID, testStorage.ID, 100)
+	backup := backuping_logical.SeedTestBackup(t, database.ID, testStorage.ID, 100)
 
 	outsider := users_testing.CreateTestUser(users_enums.UserRoleMember)
 
@@ -270,7 +270,7 @@ func Test_GetVerificationByID_ReturnsTableStats_WhileListByDatabaseOmitsThem(t *
 	database := databases.CreateTestDatabase(workspace.ID, testStorage, notifier)
 	defer databases.RemoveTestDatabase(database)
 
-	backup := backuping.SeedTestBackup(t, database.ID, testStorage.ID, 100)
+	backup := backuping_logical.SeedTestBackup(t, database.ID, testStorage.ID, 100)
 	agent := verification_agents.CreateTestVerificationAgent(t, router, owner.Token, "stats-"+uuid.New().String())
 	defer verification_agents.RemoveTestVerificationAgent(t, router, owner.Token, agent.Agent.ID)
 
@@ -330,7 +330,7 @@ func Test_ListVerificationsByDatabase_WithLimit_CapsRowsAndReturnsTotal(t *testi
 	database := databases.CreateTestDatabase(workspace.ID, testStorage, notifier)
 	defer databases.RemoveTestDatabase(database)
 
-	backup := backuping.SeedTestBackup(t, database.ID, testStorage.ID, 100)
+	backup := backuping_logical.SeedTestBackup(t, database.ID, testStorage.ID, 100)
 
 	for range 3 {
 		verification := EnqueueManualVerificationViaAPI(t, router, owner.Token, backup.ID)
@@ -367,7 +367,7 @@ func Test_CancelVerification_AsOwner_FlipsToCanceled(t *testing.T) {
 	database := databases.CreateTestDatabase(workspace.ID, testStorage, notifier)
 	defer databases.RemoveTestDatabase(database)
 
-	backup := backuping.SeedTestBackup(t, database.ID, testStorage.ID, 100)
+	backup := backuping_logical.SeedTestBackup(t, database.ID, testStorage.ID, 100)
 
 	enqueued := EnqueueManualVerificationViaAPI(t, router, owner.Token, backup.ID)
 
@@ -393,7 +393,7 @@ func Test_CancelVerification_WhenAlreadyCompleted_Returns400(t *testing.T) {
 	database := databases.CreateTestDatabase(workspace.ID, testStorage, notifier)
 	defer databases.RemoveTestDatabase(database)
 
-	backup := backuping.SeedTestBackup(t, database.ID, testStorage.ID, 100)
+	backup := backuping_logical.SeedTestBackup(t, database.ID, testStorage.ID, 100)
 	agent := verification_agents.CreateTestVerificationAgent(
 		t,
 		router,
@@ -444,7 +444,7 @@ func Test_CancelVerification_AsNonWorkspaceMember_ReturnsForbidden(t *testing.T)
 	database := databases.CreateTestDatabase(workspace.ID, testStorage, notifier)
 	defer databases.RemoveTestDatabase(database)
 
-	backup := backuping.SeedTestBackup(t, database.ID, testStorage.ID, 100)
+	backup := backuping_logical.SeedTestBackup(t, database.ID, testStorage.ID, 100)
 	enqueued := EnqueueManualVerificationViaAPI(t, router, owner.Token, backup.ID)
 
 	outsider := users_testing.CreateTestUser(users_enums.UserRoleMember)
@@ -477,7 +477,7 @@ func Test_CancelVerification_WithAgentToken_Returns401(t *testing.T) {
 	database := databases.CreateTestDatabase(workspace.ID, testStorage, notifier)
 	defer databases.RemoveTestDatabase(database)
 
-	backup := backuping.SeedTestBackup(t, database.ID, testStorage.ID, 100)
+	backup := backuping_logical.SeedTestBackup(t, database.ID, testStorage.ID, 100)
 	enqueued := EnqueueManualVerificationViaAPI(t, router, owner.Token, backup.ID)
 
 	agent := verification_agents.CreateTestVerificationAgent(
@@ -511,7 +511,7 @@ func Test_DeleteDatabase_RemovesVerifications_ViaCascade(t *testing.T) {
 
 	database := databases.CreateTestDatabase(workspace.ID, testStorage, notifier)
 
-	backup := backuping.SeedTestBackup(t, database.ID, testStorage.ID, 100)
+	backup := backuping_logical.SeedTestBackup(t, database.ID, testStorage.ID, 100)
 	enqueued := EnqueueManualVerificationViaAPI(t, router, owner.Token, backup.ID)
 
 	test_utils.MakeDeleteRequest(
@@ -544,7 +544,7 @@ func Test_DeleteBackup_RemovesVerifications_ViaCascade(t *testing.T) {
 	database := databases.CreateTestDatabase(workspace.ID, testStorage, notifier)
 	defer databases.RemoveTestDatabase(database)
 
-	backup := backuping.SeedTestBackup(t, database.ID, testStorage.ID, 100)
+	backup := backuping_logical.SeedTestBackup(t, database.ID, testStorage.ID, 100)
 	enqueued := EnqueueManualVerificationViaAPI(t, router, owner.Token, backup.ID)
 
 	test_utils.MakeDeleteRequest(
