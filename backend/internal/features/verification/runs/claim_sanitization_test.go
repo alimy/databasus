@@ -71,12 +71,6 @@ func Test_ClaimVerification_AssignmentDatabase_StripsSensitiveData(t *testing.T)
 			},
 		},
 		{
-			name: "agent token is absent",
-			check: func(t *testing.T, db *databases.Database) {
-				assert.Nil(t, db.AgentToken)
-			},
-		},
-		{
 			name: "non-sensitive identifying fields are preserved",
 			check: func(t *testing.T, db *databases.Database) {
 				assert.Equal(t, database.ID, db.ID)

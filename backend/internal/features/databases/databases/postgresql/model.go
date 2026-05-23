@@ -14,16 +14,8 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
 
-	"databasus-backend/internal/config"
 	"databasus-backend/internal/util/encryption"
 	"databasus-backend/internal/util/tools"
-)
-
-type PostgresBackupType string
-
-const (
-	PostgresBackupTypePgDump PostgresBackupType = "PG_DUMP"
-	PostgresBackupTypeWalV1  PostgresBackupType = "WAL_V1"
 )
 
 type PostgresqlDatabase struct {
@@ -33,13 +25,10 @@ type PostgresqlDatabase struct {
 
 	Version tools.PostgresqlVersion `json:"version" gorm:"type:text;not null"`
 
-	BackupType PostgresBackupType `json:"backupType" gorm:"column:backup_type;type:text;not null;default:'PG_DUMP'"`
-
-	// connection data — required for PG_DUMP, optional for WAL_V1
-	Host     string  `json:"host"     gorm:"type:text"`
-	Port     int     `json:"port"     gorm:"type:int"`
-	Username string  `json:"username" gorm:"type:text"`
-	Password string  `json:"password" gorm:"type:text"`
+	Host     string  `json:"host"     gorm:"type:text;not null"`
+	Port     int     `json:"port"     gorm:"type:int;not null"`
+	Username string  `json:"username" gorm:"type:text;not null"`
+	Password string  `json:"password" gorm:"type:text;not null"`
 	Database *string `json:"database" gorm:"type:text"`
 
 	// SSL / TLS connection settings
@@ -98,34 +87,24 @@ func (p *PostgresqlDatabase) AfterFind(_ *gorm.DB) error {
 }
 
 func (p *PostgresqlDatabase) Validate() error {
-	if p.BackupType == "" {
-		p.BackupType = PostgresBackupTypePgDump
-	}
-
 	if p.SslMode == "" {
 		p.SslMode = PostgresSslModeDisable
 	}
 
-	if p.BackupType != PostgresBackupTypePgDump && config.GetEnv().IsCloud {
-		return errors.New("only PG_DUMP backup type is supported in cloud mode")
+	if p.Host == "" {
+		return errors.New("host is required")
 	}
 
-	if p.BackupType == PostgresBackupTypePgDump {
-		if p.Host == "" {
-			return errors.New("host is required")
-		}
+	if p.Port == 0 {
+		return errors.New("port is required")
+	}
 
-		if p.Port == 0 {
-			return errors.New("port is required")
-		}
+	if p.Username == "" {
+		return errors.New("username is required")
+	}
 
-		if p.Username == "" {
-			return errors.New("username is required")
-		}
-
-		if p.Password == "" {
-			return errors.New("password is required")
-		}
+	if p.Password == "" {
+		return errors.New("password is required")
 	}
 
 	if p.CpuCount <= 0 {
@@ -140,7 +119,7 @@ func (p *PostgresqlDatabase) Validate() error {
 	// Databasus runs an internal PostgreSQL instance that should not be backed up through the UI
 	// because it would expose internal metadata to non-system administrators.
 	// To properly backup Databasus, see: https://databasus.com/faq#backup-databasus
-	if p.BackupType == PostgresBackupTypePgDump && p.Database != nil && *p.Database != "" {
+	if p.Database != nil && *p.Database != "" {
 		localhostHosts := []string{
 			"localhost",
 			"127.0.0.1",
@@ -179,10 +158,6 @@ func (p *PostgresqlDatabase) TestConnection(
 	logger *slog.Logger,
 	encryptor encryption.FieldEncryptor,
 ) error {
-	if p.BackupType == PostgresBackupTypeWalV1 {
-		return errors.New("test connection is not supported for WAL backup type")
-	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
@@ -196,10 +171,6 @@ func (p *PostgresqlDatabase) GetRawDbSizeMb(
 	logger *slog.Logger,
 	encryptor encryption.FieldEncryptor,
 ) (float64, error) {
-	if p.BackupType == PostgresBackupTypeWalV1 {
-		return 0, nil
-	}
-
 	if p.Database == nil || *p.Database == "" {
 		return 0, nil
 	}
@@ -231,21 +202,11 @@ func (p *PostgresqlDatabase) HideSensitiveData() {
 	p.SslClientKey = ""
 }
 
-func (p *PostgresqlDatabase) ValidateUpdate(old *PostgresqlDatabase) error {
-	// BackupType cannot be changed after creation — the full backup structure
-	// (WAL hierarchy, storage files, cleanup logic) is built around
-	// the type chosen at creation time. Automatically migrating this state is
-	// error-prone; it is safer for the user to create a new database and
-	// remove the old one.
-	if old.BackupType != p.BackupType {
-		return errors.New("backup type cannot be changed; create a new database instead")
-	}
-
+func (p *PostgresqlDatabase) ValidateUpdate(_ *PostgresqlDatabase) error {
 	return nil
 }
 
 func (p *PostgresqlDatabase) Update(incoming *PostgresqlDatabase) {
-	p.BackupType = incoming.BackupType
 	p.Version = incoming.Version
 	p.Host = incoming.Host
 	p.Port = incoming.Port
@@ -297,10 +258,6 @@ func (p *PostgresqlDatabase) PopulateDbData(
 	logger *slog.Logger,
 	encryptor encryption.FieldEncryptor,
 ) error {
-	if p.BackupType == PostgresBackupTypeWalV1 {
-		return nil
-	}
-
 	return p.PopulateVersion(logger, encryptor)
 }
 
@@ -354,10 +311,6 @@ func (p *PostgresqlDatabase) IsUserReadOnly(
 	logger *slog.Logger,
 	encryptor encryption.FieldEncryptor,
 ) (bool, []string, error) {
-	if p.BackupType == PostgresBackupTypeWalV1 {
-		return false, nil, errors.New("read-only check is not supported for WAL backup type")
-	}
-
 	conn, err := openPgConn(ctx, p, *p.Database, encryptor)
 	if err != nil {
 		return false, nil, fmt.Errorf("failed to connect to database: %w", err)
@@ -522,10 +475,6 @@ func (p *PostgresqlDatabase) CreateReadOnlyUser(
 	logger *slog.Logger,
 	encryptor encryption.FieldEncryptor,
 ) (string, string, error) {
-	if p.BackupType == PostgresBackupTypeWalV1 {
-		return "", "", errors.New("read-only user creation is not supported for WAL backup type")
-	}
-
 	conn, err := openPgConn(ctx, p, *p.Database, encryptor)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to connect to database: %w", err)

@@ -8,7 +8,6 @@ import {
   type MongodbDatabase,
   type MysqlDatabase,
   Period,
-  PostgresBackupType,
   type PostgresqlDatabase,
   databaseApi,
 } from '../../../entity/databases';
@@ -39,8 +38,6 @@ const createInitialDatabase = (workspaceId: string): Database =>
 
     notifiers: [],
     sendNotificationsOn: [],
-
-    isAgentTokenGenerated: false,
   }) as Database;
 
 const initializeDatabaseTypeData = (db: Database): Database => {
@@ -60,7 +57,6 @@ const initializeDatabaseTypeData = (db: Database): Database => {
           db.postgresql ??
           ({
             cpuCount: 1,
-            backupType: PostgresBackupType.PG_DUMP,
           } as PostgresqlDatabase),
       };
     case DatabaseType.MYSQL:
@@ -93,10 +89,7 @@ export const CreateDatabaseComponent = ({ user, workspaceId, onCreated, onClose 
       backupConfig.databaseId = createdDatabase.id;
       await backupConfigApi.saveBackupConfig(backupConfig);
 
-      if (
-        backupConfig.isBackupsEnabled &&
-        createdDatabase.postgresql?.backupType !== PostgresBackupType.WAL_V1
-      ) {
+      if (backupConfig.isBackupsEnabled) {
         await backupsApi.makeBackup(createdDatabase.id);
       }
 
@@ -141,12 +134,7 @@ export const CreateDatabaseComponent = ({ user, workspaceId, onCreated, onClose 
         isSaveToApi={false}
         onSaved={(database) => {
           setDatabase({ ...database });
-
-          const isWalBackup =
-            database.type === DatabaseType.POSTGRES &&
-            database.postgresql?.backupType === PostgresBackupType.WAL_V1;
-
-          setStep(isWalBackup ? 'backup-config' : 'create-readonly-user');
+          setStep('create-readonly-user');
         }}
       />
     );

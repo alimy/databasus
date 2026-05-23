@@ -40,14 +40,6 @@ func Test_RunPendingBackups_ByDatabaseType_OnlySchedulesNonAgentManagedBackups(t
 			needsBackuperNode: true,
 		},
 		{
-			name: "PostgreSQL WAL_V1 - backup skipped (agent-managed)",
-			createDatabase: func(workspaceID uuid.UUID, _ *storages.Storage, notifier *notifiers.Notifier) *databases.Database {
-				return databases.CreateTestPostgresWalDatabase(workspaceID, notifier)
-			},
-			isBackupExpected:  false,
-			needsBackuperNode: false,
-		},
-		{
 			name: "MariaDB - backup runs",
 			createDatabase: func(workspaceID uuid.UUID, _ *storages.Storage, notifier *notifiers.Notifier) *databases.Database {
 				return databases.CreateTestMariadbDatabase(workspaceID, notifier)

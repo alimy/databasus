@@ -228,7 +228,6 @@ func setUpRoutes(r *gin.Engine) {
 	system_version.GetVersionController().RegisterRoutes(v1)
 	system_agent.GetAgentController().RegisterRoutes(v1)
 	backups_controllers.GetBackupController().RegisterPublicRoutes(v1)
-	backups_controllers.GetPostgresWalBackupController().RegisterRoutes(v1)
 	databases.GetDatabaseController().RegisterPublicRoutes(v1)
 	verification_agents.GetAgentFacingController().RegisterRoutes(v1)
 	verification_runs.GetVerificationAgentController().RegisterRoutes(v1)

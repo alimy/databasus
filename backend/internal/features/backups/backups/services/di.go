@@ -45,19 +45,6 @@ func GetBackupService() *BackupService {
 	return backupService
 }
 
-var walService = &PostgreWalBackupService{
-	backups_config.GetBackupConfigService(),
-	backups_core.GetBackupRepository(),
-	encryption.GetFieldEncryptor(),
-	encryption_secrets.GetSecretKeyService(),
-	logger.GetLogger(),
-	backupService,
-}
-
-func GetWalService() *PostgreWalBackupService {
-	return walService
-}
-
 var SetupDependencies = sync.OnceFunc(func() {
 	backups_config.
 		GetBackupConfigService().

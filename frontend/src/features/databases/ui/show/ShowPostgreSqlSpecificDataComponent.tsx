@@ -1,9 +1,4 @@
-import {
-  type Database,
-  PostgresBackupType,
-  PostgresSslMode,
-  PostgresqlVersion,
-} from '../../../../entity/databases';
+import { type Database, PostgresSslMode, PostgresqlVersion } from '../../../../entity/databases';
 
 interface Props {
   database: Database;
@@ -19,11 +14,6 @@ const postgresqlVersionLabels = {
   [PostgresqlVersion.PostgresqlVersion18]: '18',
 };
 
-const backupTypeLabels: Record<string, string> = {
-  [PostgresBackupType.PG_DUMP]: 'Remote (logical)',
-  [PostgresBackupType.WAL_V1]: 'Agent (physical)',
-};
-
 const sslModeLabels: Record<string, string> = {
   [PostgresSslMode.Disable]: 'Disable',
   [PostgresSslMode.Require]: 'Require',
@@ -32,13 +22,8 @@ const sslModeLabels: Record<string, string> = {
 };
 
 export const ShowPostgreSqlSpecificDataComponent = ({ database }: Props) => {
-  const backupType = database.postgresql?.backupType;
-  const backupTypeLabel = backupType
-    ? (backupTypeLabels[backupType] ?? backupType)
-    : 'Remote (pg_dump)';
-
-  const renderPgDumpDetails = () => (
-    <>
+  return (
+    <div>
       <div className="mb-1 flex w-full items-center">
         <div className="min-w-[150px]">PG version</div>
         <div>
@@ -97,37 +82,6 @@ export const ShowPostgreSqlSpecificDataComponent = ({ database }: Props) => {
           <div>{database.postgresql.excludeTables.join(', ')}</div>
         </div>
       )}
-    </>
-  );
-
-  const renderWalDetails = () => (
-    <>
-      {database.postgresql?.version && (
-        <div className="mb-1 flex w-full items-center">
-          <div className="min-w-[150px]">PG version</div>
-          <div>{postgresqlVersionLabels[database.postgresql.version]}</div>
-        </div>
-      )}
-    </>
-  );
-
-  const renderDetails = () => {
-    switch (backupType) {
-      case PostgresBackupType.WAL_V1:
-        return renderWalDetails();
-      default:
-        return renderPgDumpDetails();
-    }
-  };
-
-  return (
-    <div>
-      <div className="mb-1 flex w-full items-center">
-        <div className="min-w-[150px]">Backup type</div>
-        <div>{backupTypeLabel}</div>
-      </div>
-
-      {renderDetails()}
     </div>
   );
 };

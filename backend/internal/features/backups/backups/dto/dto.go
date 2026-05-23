@@ -11,12 +11,11 @@ import (
 )
 
 type GetBackupsRequest struct {
-	DatabaseID      string     `form:"database_id"     binding:"required"`
-	Limit           int        `form:"limit"`
-	Offset          int        `form:"offset"`
-	Statuses        []string   `form:"status"`
-	BeforeDate      *time.Time `form:"beforeDate"`
-	PgWalBackupType *string    `form:"pgWalBackupType"`
+	DatabaseID string     `form:"database_id" binding:"required"`
+	Limit      int        `form:"limit"`
+	Offset     int        `form:"offset"`
+	Statuses   []string   `form:"status"`
+	BeforeDate *time.Time `form:"beforeDate"`
 }
 
 type GetBackupsResponse struct {
@@ -37,57 +36,4 @@ func (r *DecryptionReaderCloser) Close() error {
 
 type MakeBackupRequest struct {
 	DatabaseID uuid.UUID `json:"database_id" binding:"required"`
-}
-
-type GetNextFullBackupTimeResponse struct {
-	NextFullBackupTime *time.Time `json:"nextFullBackupTime"`
-}
-
-type ReportErrorRequest struct {
-	Error string `json:"error" binding:"required"`
-}
-
-type IsWalChainValidResponse struct {
-	IsValid               bool   `json:"isValid"`
-	Error                 string `json:"error,omitempty"`
-	LastContiguousSegment string `json:"lastContiguousSegment,omitempty"`
-}
-
-type RestorePlanFullBackup struct {
-	BackupID                  uuid.UUID `json:"id"`
-	FullBackupWalStartSegment string    `json:"fullBackupWalStartSegment"`
-	FullBackupWalStopSegment  string    `json:"fullBackupWalStopSegment"`
-	PgVersion                 string    `json:"pgVersion"`
-	CreatedAt                 time.Time `json:"createdAt"`
-	SizeBytes                 int64     `json:"sizeBytes"`
-}
-
-type RestorePlanWalSegment struct {
-	BackupID    uuid.UUID `json:"backupId"`
-	SegmentName string    `json:"segmentName"`
-	SizeBytes   int64     `json:"sizeBytes"`
-}
-
-type GetRestorePlanErrorResponse struct {
-	Error                 string `json:"error"`
-	Message               string `json:"message"`
-	LastContiguousSegment string `json:"lastContiguousSegment,omitempty"`
-}
-
-type GetRestorePlanResponse struct {
-	FullBackup             RestorePlanFullBackup   `json:"fullBackup"`
-	WalSegments            []RestorePlanWalSegment `json:"walSegments"`
-	TotalSizeBytes         int64                   `json:"totalSizeBytes"`
-	LatestAvailableSegment string                  `json:"latestAvailableSegment"`
-}
-
-type UploadBasebackupResponse struct {
-	BackupID uuid.UUID `json:"backupId"`
-}
-
-type FinalizeBasebackupRequest struct {
-	BackupID     uuid.UUID `json:"backupId"     binding:"required"`
-	StartSegment string    `json:"startSegment"`
-	StopSegment  string    `json:"stopSegment"`
-	Error        *string   `json:"error"`
 }

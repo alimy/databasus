@@ -450,7 +450,7 @@ func (s *BackupService) ValidateDownloadToken(
 func (s *BackupService) GetLatestVerifiableBackup(
 	databaseID uuid.UUID,
 ) (*backups_core.Backup, error) {
-	return s.backupRepository.FindLatestVerifiableBackup(databaseID)
+	return s.backupRepository.FindLatestCompleted(databaseID)
 }
 
 func (s *BackupService) GetBackupFileWithoutAuth(

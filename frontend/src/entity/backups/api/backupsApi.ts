@@ -6,7 +6,6 @@ import type { GetBackupsResponse } from '../model/GetBackupsResponse';
 export interface BackupsFilters {
   statuses?: string[];
   beforeDate?: string;
-  pgWalBackupType?: string;
 }
 
 export const backupsApi = {
@@ -22,9 +21,6 @@ export const backupsApi = {
     }
     if (filters?.beforeDate) {
       params.append('beforeDate', filters.beforeDate);
-    }
-    if (filters?.pgWalBackupType) {
-      params.append('pgWalBackupType', filters.pgWalBackupType);
     }
 
     return apiHelper.fetchGetJson<GetBackupsResponse>(

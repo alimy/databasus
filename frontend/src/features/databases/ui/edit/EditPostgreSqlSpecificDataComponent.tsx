@@ -5,7 +5,6 @@ import { useEffect, useState } from 'react';
 import { IS_CLOUD } from '../../../../constants';
 import {
   type Database,
-  PostgresBackupType,
   PostgresSslMode,
   type PostgresqlDatabase,
   databaseApi,
@@ -271,40 +270,6 @@ export const EditPostgreSqlSpecificDataComponent = ({
   }, [database]);
 
   if (!editingDatabase) return null;
-
-  const backupType = editingDatabase.postgresql?.backupType;
-
-  const renderBackupTypeSelector = () => {
-    if (editingDatabase.id || IS_CLOUD) return null;
-
-    return (
-      <div className="mb-3 flex w-full items-center">
-        <div className="min-w-[150px]">Backup type</div>
-        <Select
-          value={
-            backupType === PostgresBackupType.WAL_V1
-              ? PostgresBackupType.WAL_V1
-              : PostgresBackupType.PG_DUMP
-          }
-          onChange={(value: PostgresBackupType) => {
-            if (!editingDatabase.postgresql) return;
-
-            setEditingDatabase({
-              ...editingDatabase,
-              postgresql: { ...editingDatabase.postgresql, backupType: value },
-            });
-            setIsConnectionTested(false);
-          }}
-          options={[
-            { label: 'Remote (recommended)', value: PostgresBackupType.PG_DUMP },
-            { label: 'Agent (incremental)', value: PostgresBackupType.WAL_V1 },
-          ]}
-          size="small"
-          className="min-w-[200px]"
-        />
-      </div>
-    );
-  };
 
   const renderFooter = (footerContent?: React.ReactNode) => (
     <div className="mt-5 flex">
@@ -831,42 +796,9 @@ export const EditPostgreSqlSpecificDataComponent = ({
     );
   };
 
-  const renderWalForm = () => {
-    return (
-      <>
-        <div className="mb-3 flex">
-          <div className="text-sm text-gray-500 dark:text-gray-400">
-            Agent mode uses physical and WAL-based incremental backups. Best suited for DBs without
-            public access, for large databases (100 GB+) or when PITR is required
-            <br />
-            <br />
-            Configuration is more complicated than remote backup and requires installing a Databasus
-            agent near DB
-          </div>
-        </div>
-
-        {renderFooter(
-          <Button type="primary" onClick={() => saveDatabase()} loading={isSaving} className="mr-5">
-            {saveButtonText || 'Save'}
-          </Button>,
-        )}
-      </>
-    );
-  };
-
-  const renderFormContent = () => {
-    switch (backupType) {
-      case PostgresBackupType.WAL_V1:
-        return renderWalForm();
-      default:
-        return renderPgDumpForm();
-    }
-  };
-
   return (
     <div>
-      {renderBackupTypeSelector()}
-      {renderFormContent()}
+      {renderPgDumpForm()}
 
       <ClipboardPasteModalComponent
         open={isShowPasteModal}

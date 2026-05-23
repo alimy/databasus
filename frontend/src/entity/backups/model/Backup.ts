@@ -2,7 +2,6 @@ import type { Database } from '../../databases/model/Database';
 import type { Storage } from '../../storages';
 import { BackupEncryption } from './BackupEncryption';
 import { BackupStatus } from './BackupStatus';
-import type { PgWalBackupType } from './PgWalBackupType';
 import { RestoreVerificationStatus } from './RestoreVerificationStatus';
 
 export interface Backup {
@@ -15,7 +14,6 @@ export interface Backup {
   backupRawDbSizeMb: number;
   backupDurationMs: number;
   encryption: BackupEncryption;
-  pgWalBackupType?: PgWalBackupType;
   restoreVerificationStatus?: RestoreVerificationStatus;
   createdAt: Date;
 }

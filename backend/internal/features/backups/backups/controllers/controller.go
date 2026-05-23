@@ -369,8 +369,7 @@ func (c *BackupController) buildBackupFilters(
 	request *backups_dto.GetBackupsRequest,
 ) *backups_core.BackupFilters {
 	isHasFilters := len(request.Statuses) > 0 ||
-		request.BeforeDate != nil ||
-		request.PgWalBackupType != nil
+		request.BeforeDate != nil
 
 	if !isHasFilters {
 		return nil
@@ -388,11 +387,6 @@ func (c *BackupController) buildBackupFilters(
 	}
 
 	filters.BeforeDate = request.BeforeDate
-
-	if request.PgWalBackupType != nil {
-		walType := backups_core.PgWalBackupType(*request.PgWalBackupType)
-		filters.PgWalBackupType = &walType
-	}
 
 	return filters
 }

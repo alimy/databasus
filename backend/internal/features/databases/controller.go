@@ -30,11 +30,9 @@ func (c *DatabaseController) RegisterRoutes(router *gin.RouterGroup) {
 	router.GET("/databases/notifier/:id/databases-count", c.CountDatabasesByNotifier)
 	router.POST("/databases/is-readonly", c.IsUserReadOnly)
 	router.POST("/databases/create-readonly-user", c.CreateReadOnlyUser)
-	router.POST("/databases/:id/regenerate-token", c.RegenerateAgentToken)
 }
 
-func (c *DatabaseController) RegisterPublicRoutes(router *gin.RouterGroup) {
-	router.POST("/databases/verify-token", c.VerifyAgentToken)
+func (c *DatabaseController) RegisterPublicRoutes(_ *gin.RouterGroup) {
 }
 
 // CreateDatabase
@@ -443,62 +441,4 @@ func (c *DatabaseController) CreateReadOnlyUser(ctx *gin.Context) {
 		Username: username,
 		Password: password,
 	})
-}
-
-// RegenerateAgentToken
-// @Summary Regenerate agent token for a database
-// @Description Generate a new agent token for the database. The token is returned once and stored as a hash.
-// @Tags databases
-// @Produce json
-// @Security BearerAuth
-// @Param id path string true "Database ID"
-// @Success 200 {object} map[string]string
-// @Failure 400 {object} map[string]string
-// @Failure 401 {object} map[string]string
-// @Router /databases/{id}/regenerate-token [post]
-func (c *DatabaseController) RegenerateAgentToken(ctx *gin.Context) {
-	user, ok := users_middleware.GetUserFromContext(ctx)
-	if !ok {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
-		return
-	}
-
-	id, err := uuid.Parse(ctx.Param("id"))
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid database ID"})
-		return
-	}
-
-	token, err := c.databaseService.RegenerateAgentToken(user, id)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	ctx.JSON(http.StatusOK, gin.H{"token": token})
-}
-
-// VerifyAgentToken
-// @Summary Verify agent token
-// @Description Verify that a given agent token is valid for any database
-// @Tags databases
-// @Accept json
-// @Produce json
-// @Param request body VerifyAgentTokenRequest true "Token to verify"
-// @Success 200 {object} map[string]string
-// @Failure 401 {object} map[string]string
-// @Router /databases/verify-token [post]
-func (c *DatabaseController) VerifyAgentToken(ctx *gin.Context) {
-	var request VerifyAgentTokenRequest
-	if err := ctx.ShouldBindJSON(&request); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	if err := c.databaseService.VerifyAgentToken(request.Token); err != nil {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
-		return
-	}
-
-	ctx.JSON(http.StatusOK, gin.H{"message": "token is valid"})
 }

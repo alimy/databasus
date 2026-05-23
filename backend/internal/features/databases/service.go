@@ -2,11 +2,9 @@ package databases
 
 import (
 	"context"
-	"crypto/sha256"
 	"errors"
 	"fmt"
 	"log/slog"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -457,7 +455,6 @@ func (s *DatabaseService) CopyDatabase(
 			newDatabase.Postgresql = &postgresql.PostgresqlDatabase{
 				ID:             uuid.Nil,
 				DatabaseID:     nil,
-				BackupType:     existingDatabase.Postgresql.BackupType,
 				Version:        existingDatabase.Postgresql.Version,
 				Host:           existingDatabase.Postgresql.Host,
 				Port:           existingDatabase.Postgresql.Port,
@@ -612,71 +609,6 @@ func (s *DatabaseService) SetHealthStatus(
 	}
 
 	return nil
-}
-
-func (s *DatabaseService) RegenerateAgentToken(
-	user *users_models.User,
-	databaseID uuid.UUID,
-) (string, error) {
-	database, err := s.dbRepository.FindByID(databaseID)
-	if err != nil {
-		return "", err
-	}
-
-	if database.WorkspaceID == nil {
-		return "", errors.New("cannot regenerate token for database without workspace")
-	}
-
-	canManage, err := s.workspaceService.CanUserManageDBs(*database.WorkspaceID, user)
-	if err != nil {
-		return "", err
-	}
-	if !canManage {
-		return "", errors.New(
-			"insufficient permissions to regenerate agent token for this database",
-		)
-	}
-
-	plainToken := strings.ReplaceAll(uuid.New().String(), "-", "")
-	tokenHash := hashAgentToken(plainToken)
-
-	database.AgentToken = &tokenHash
-	database.IsAgentTokenGenerated = true
-
-	_, err = s.dbRepository.Save(database)
-	if err != nil {
-		return "", err
-	}
-
-	s.auditLogService.WriteAuditLog(
-		fmt.Sprintf("Agent token regenerated for database: %s", database.Name),
-		&user.ID,
-		database.WorkspaceID,
-	)
-
-	return plainToken, nil
-}
-
-func (s *DatabaseService) VerifyAgentToken(token string) error {
-	hash := hashAgentToken(token)
-
-	_, err := s.dbRepository.FindByAgentTokenHash(hash)
-	if err != nil {
-		return errors.New("invalid token")
-	}
-
-	return nil
-}
-
-func (s *DatabaseService) GetDatabaseByAgentToken(token string) (*Database, error) {
-	hash := hashAgentToken(token)
-
-	partial, err := s.dbRepository.FindByAgentTokenHash(hash)
-	if err != nil {
-		return nil, errors.New("invalid agent token")
-	}
-
-	return s.dbRepository.FindByID(partial.ID)
 }
 
 func (s *DatabaseService) OnBeforeWorkspaceDeletion(workspaceID uuid.UUID) error {
@@ -856,11 +788,6 @@ func (s *DatabaseService) verifyReadOnlyUserIfNeeded(database *Database) error {
 		return nil
 	}
 
-	if database.Postgresql != nil &&
-		database.Postgresql.BackupType == postgresql.PostgresBackupTypeWalV1 {
-		return nil
-	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
@@ -877,9 +804,4 @@ func (s *DatabaseService) verifyReadOnlyUserIfNeeded(database *Database) error {
 	}
 
 	return nil
-}
-
-func hashAgentToken(token string) string {
-	hash := sha256.Sum256([]byte(token))
-	return fmt.Sprintf("%x", hash)
 }

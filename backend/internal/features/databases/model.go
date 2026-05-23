@@ -38,9 +38,6 @@ type Database struct {
 	LastBackupErrorMessage *string    `json:"lastBackupErrorMessage,omitempty" gorm:"column:last_backup_error_message;type:text"`
 
 	HealthStatus *HealthStatus `json:"healthStatus" gorm:"column:health_status;type:text;not null"`
-
-	AgentToken            *string `json:"-"                     gorm:"column:agent_token;type:text"`
-	IsAgentTokenGenerated bool    `json:"isAgentTokenGenerated" gorm:"column:is_agent_token_generated;not null;default:false"`
 }
 
 func (d *Database) Validate() error {
@@ -76,10 +73,9 @@ func (d *Database) Validate() error {
 
 func (d *Database) ValidateUpdate(old, new Database) error {
 	// Database type cannot be changed after creation — the entire backup
-	// structure (storage files, schedulers, WAL hierarchy, etc.) is tied to
-	// the type at creation time. Recreating that state automatically is
-	// error-prone; it is safer for the user to create a new database and
-	// remove the old one.
+	// structure (storage files, schedulers, etc.) is tied to the type at
+	// creation time. Recreating that state automatically is error-prone;
+	// it is safer for the user to create a new database and remove the old.
 	if old.Type != new.Type {
 		return errors.New("database type cannot be changed; create a new database instead")
 	}
@@ -189,12 +185,6 @@ func (d *Database) Update(incoming *Database) {
 			d.Mongodb.Update(incoming.Mongodb)
 		}
 	}
-}
-
-func (d *Database) IsAgentManagedBackup() bool {
-	return d.Type == DatabaseTypePostgres &&
-		d.Postgresql != nil &&
-		d.Postgresql.BackupType == postgresql.PostgresBackupTypeWalV1
 }
 
 func (d *Database) getSpecificDatabase() DatabaseConnector {

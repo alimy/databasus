@@ -105,32 +105,6 @@ func CreateTestDatabase(
 	return database
 }
 
-func CreateTestPostgresWalDatabase(
-	workspaceID uuid.UUID,
-	notifier *notifiers.Notifier,
-) *Database {
-	database := &Database{
-		WorkspaceID: &workspaceID,
-		Name:        "test-wal " + uuid.New().String(),
-		Type:        DatabaseTypePostgres,
-		Postgresql: &postgresql.PostgresqlDatabase{
-			BackupType: postgresql.PostgresBackupTypeWalV1,
-			Version:    tools.PostgresqlVersion16,
-			CpuCount:   1,
-		},
-		Notifiers: []notifiers.Notifier{
-			*notifier,
-		},
-	}
-
-	database, err := databaseRepository.Save(database)
-	if err != nil {
-		panic(err)
-	}
-
-	return database
-}
-
 func CreateTestMariadbDatabase(
 	workspaceID uuid.UUID,
 	notifier *notifiers.Notifier,

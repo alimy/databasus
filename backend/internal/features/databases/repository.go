@@ -244,18 +244,6 @@ func (r *DatabaseRepository) GetAllDatabases() ([]*Database, error) {
 	return databases, nil
 }
 
-func (r *DatabaseRepository) FindByAgentTokenHash(hash string) (*Database, error) {
-	var database Database
-
-	if err := storage.GetDb().
-		Where("agent_token = ?", hash).
-		First(&database).Error; err != nil {
-		return nil, err
-	}
-
-	return &database, nil
-}
-
 func (r *DatabaseRepository) GetDatabasesIDsByNotifierID(
 	notifierID uuid.UUID,
 ) ([]uuid.UUID, error) {

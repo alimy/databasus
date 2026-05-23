@@ -1194,38 +1194,6 @@ func Test_Validate_WhenRequiredFieldsMissing_ReturnsError(t *testing.T) {
 	}
 }
 
-func Test_Validate_WhenCloudAndBackupTypeIsNotPgDump_ValidationFails(t *testing.T) {
-	enableCloud(t)
-
-	model := &PostgresqlDatabase{
-		Host:       "example.com",
-		Port:       5432,
-		Username:   "user",
-		Password:   "pass",
-		CpuCount:   1,
-		BackupType: PostgresBackupTypeWalV1,
-	}
-
-	err := model.Validate()
-	assert.EqualError(t, err, "only PG_DUMP backup type is supported in cloud mode")
-}
-
-func Test_Validate_WhenCloudAndBackupTypeIsPgDump_ValidationPasses(t *testing.T) {
-	enableCloud(t)
-
-	model := &PostgresqlDatabase{
-		Host:       "example.com",
-		Port:       5432,
-		Username:   "user",
-		Password:   "pass",
-		CpuCount:   1,
-		BackupType: PostgresBackupTypePgDump,
-	}
-
-	err := model.Validate()
-	assert.NoError(t, err)
-}
-
 func enableCloud(t *testing.T) {
 	t.Helper()
 	config.GetEnv().IsCloud = true
@@ -1610,7 +1578,6 @@ func Test_HideSensitiveData_WhenCalled_ClearsPasswordAndPreservesOtherFields(t *
 	databaseName := "appdb"
 	pgModel := &PostgresqlDatabase{
 		Version:        tools.GetPostgresqlVersionEnum("16"),
-		BackupType:     PostgresBackupTypePgDump,
 		Host:           "db.example.com",
 		Port:           5432,
 		Username:       "appuser",
@@ -1630,7 +1597,6 @@ func Test_HideSensitiveData_WhenCalled_ClearsPasswordAndPreservesOtherFields(t *
 	assert.Equal(t, "appuser", pgModel.Username)
 	assert.Equal(t, &databaseName, pgModel.Database)
 	assert.Equal(t, PostgresSslModeRequire, pgModel.SslMode)
-	assert.Equal(t, PostgresBackupTypePgDump, pgModel.BackupType)
 	assert.Equal(t, []string{"public"}, pgModel.IncludeSchemas)
 	assert.Equal(t, []string{"audit_logs"}, pgModel.ExcludeTables)
 	assert.Equal(t, 4, pgModel.CpuCount)

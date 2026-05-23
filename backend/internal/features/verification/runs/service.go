@@ -15,7 +15,6 @@ import (
 	backups_core "databasus-backend/internal/features/backups/backups/core"
 	backups_services "databasus-backend/internal/features/backups/backups/services"
 	"databasus-backend/internal/features/databases"
-	"databasus-backend/internal/features/databases/databases/postgresql"
 	users_models "databasus-backend/internal/features/users/models"
 	verification_agents "databasus-backend/internal/features/verification/agents"
 	verification_config "databasus-backend/internal/features/verification/config"
@@ -64,7 +63,7 @@ func (s *VerificationService) EnqueueManualVerification(
 		return nil, errors.New("insufficient permissions to trigger verification for this database")
 	}
 
-	if err := s.guardBackupIsVerifiable(backup, database); err != nil {
+	if err := s.guardBackupIsVerifiable(backup); err != nil {
 		return nil, err
 	}
 
@@ -695,19 +694,9 @@ func (s *VerificationService) notifyTerminal(
 
 func (s *VerificationService) guardBackupIsVerifiable(
 	backup *backups_core.Backup,
-	database *databases.Database,
 ) error {
 	if backup.Status != backups_core.BackupStatusCompleted {
 		return errors.New("only COMPLETED backups can be verified")
-	}
-
-	if backup.PgWalBackupType != nil {
-		return errors.New("WAL segments cannot be verified standalone; only PG_DUMP backups are supported")
-	}
-
-	if database.Postgresql != nil &&
-		database.Postgresql.BackupType == postgresql.PostgresBackupTypeWalV1 {
-		return errors.New("verification is not supported for WAL-based databases")
 	}
 
 	return nil
@@ -733,13 +722,12 @@ func validateDatabaseIsVerifiable(database *databases.Database) error {
 
 // sanitizeDatabaseForAgent strips every field the agent has no business seeing
 // before the row goes over the wire: engine-specific credentials via the
-// existing HideSensitiveData contract, notifier secrets (webhook URLs, SMTP
-// creds), and the agent token. Mutates the passed row in place — gorm doesn't
-// auto-save, and the caller owns the row from GetDatabaseByID.
+// existing HideSensitiveData contract and notifier secrets (webhook URLs, SMTP
+// creds). Mutates the passed row in place — gorm doesn't auto-save, and the
+// caller owns the row from GetDatabaseByID.
 func sanitizeDatabaseForAgent(database *databases.Database) *databases.Database {
 	database.HideSensitiveData()
 	database.Notifiers = nil
-	database.AgentToken = nil
 
 	return database
 }

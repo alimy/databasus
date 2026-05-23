@@ -81,37 +81,6 @@ services:
     restart: unless-stopped
 
   # ================================================================
-  # Agent dev services
-  # ================================================================
-
-  agent-db:
-    image: postgres:17
-    container_name: agent-db
-    environment:
-      POSTGRES_DB: devdb
-      POSTGRES_USER: devuser
-      POSTGRES_PASSWORD: devpassword
-    ports:
-      - "${AGENT_DB_PORT:-7433}:5432"
-    command:
-      - bash
-      - -c
-      - |
-        mkdir -p /wal-queue && chown postgres:postgres /wal-queue
-        exec docker-entrypoint.sh postgres \
-          -c wal_level=replica \
-          -c max_wal_senders=3 \
-          -c archive_mode=on \
-          -c "archive_command=cp %p /wal-queue/%f"
-    volumes:
-      - ./wal-queue:/wal-queue
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U devuser -d devdb"]
-      interval: 2s
-      timeout: 5s
-      retries: 30
-
-  # ================================================================
   # Test containers
   # ================================================================
 

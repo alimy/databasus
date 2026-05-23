@@ -259,54 +259,6 @@ func Test_GetBackups_WithBeforeDateFilter_ReturnsFilteredBackups(t *testing.T) {
 	assert.Equal(t, olderBackup.ID, response.Backups[0].ID)
 }
 
-func Test_GetBackups_WithPgWalBackupTypeFilter_ReturnsFilteredBackups(t *testing.T) {
-	router := createTestRouter()
-	owner := users_testing.CreateTestUser(users_enums.UserRoleMember)
-	workspace := workspaces_testing.CreateTestWorkspace("Test Workspace", owner, router)
-
-	database := createTestDatabase("Test Database", workspace.ID, owner.Token, router)
-	storage := createTestStorage(workspace.ID)
-
-	defer func() {
-		databases.RemoveTestDatabase(database)
-		time.Sleep(50 * time.Millisecond)
-		storages.RemoveTestStorage(storage.ID)
-		workspaces_testing.RemoveTestWorkspace(workspace, router)
-	}()
-
-	now := time.Now().UTC()
-	fullBackupType := backups_core.PgWalBackupTypeFullBackup
-	walSegmentType := backups_core.PgWalBackupTypeWalSegment
-
-	fullBackup := CreateTestBackupWithOptions(database.ID, storage.ID, TestBackupOptions{
-		Status:          backups_core.BackupStatusCompleted,
-		CreatedAt:       now.Add(-2 * time.Hour),
-		PgWalBackupType: &fullBackupType,
-	})
-	CreateTestBackupWithOptions(database.ID, storage.ID, TestBackupOptions{
-		Status:          backups_core.BackupStatusCompleted,
-		CreatedAt:       now.Add(-1 * time.Hour),
-		PgWalBackupType: &walSegmentType,
-	})
-
-	var response backups_dto.GetBackupsResponse
-	test_utils.MakeGetRequestAndUnmarshal(
-		t,
-		router,
-		fmt.Sprintf(
-			"/api/v1/backups?database_id=%s&pgWalBackupType=PG_FULL_BACKUP",
-			database.ID.String(),
-		),
-		"Bearer "+owner.Token,
-		http.StatusOK,
-		&response,
-	)
-
-	assert.Equal(t, int64(1), response.Total)
-	assert.Len(t, response.Backups, 1)
-	assert.Equal(t, fullBackup.ID, response.Backups[0].ID)
-}
-
 func Test_GetBackups_WithCombinedFilters_ReturnsFilteredBackups(t *testing.T) {
 	router := createTestRouter()
 	owner := users_testing.CreateTestUser(users_enums.UserRoleMember)

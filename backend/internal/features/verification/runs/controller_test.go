@@ -56,10 +56,6 @@ func createTestRouter() *gin.Engine {
 	return router
 }
 
-func walDatabaseForWorkspace(workspaceID uuid.UUID, notifier *notifiers.Notifier) *databases.Database {
-	return databases.CreateTestPostgresWalDatabase(workspaceID, notifier)
-}
-
 func Test_EnqueueManualVerification_AsOwner_CreatesPendingRow(t *testing.T) {
 	router := createTestRouter()
 	owner := users_testing.CreateTestUser(users_enums.UserRoleMember)
@@ -92,60 +88,6 @@ func Test_EnqueueManualVerification_AsOwner_CreatesPendingRow(t *testing.T) {
 	assert.Equal(t, database.ID, verification.DatabaseID)
 	assert.Equal(t, 1, verification.AttemptCount)
 	assert.Nil(t, verification.AgentID)
-}
-
-func Test_EnqueueManualVerification_WhenBackupIsWalSegment_Returns400(t *testing.T) {
-	router := createTestRouter()
-	owner := users_testing.CreateTestUser(users_enums.UserRoleMember)
-	workspace := workspaces_testing.CreateTestWorkspace("ws "+uuid.New().String(), owner, router)
-	defer workspaces_testing.RemoveTestWorkspace(workspace, router)
-
-	testStorage := storages.CreateTestStorage(workspace.ID)
-	defer storages.RemoveTestStorage(testStorage.ID)
-
-	notifier := notifiers.CreateTestNotifier(workspace.ID)
-	defer notifiers.RemoveTestNotifier(notifier)
-
-	database := databases.CreateTestDatabase(workspace.ID, testStorage, notifier)
-	defer databases.RemoveTestDatabase(database)
-
-	walSegment := backuping.SeedTestWalSegmentBackup(t, database.ID, testStorage.ID)
-
-	resp := test_utils.MakePostRequest(
-		t, router,
-		"/api/v1/verifications/enqueue",
-		"Bearer "+owner.Token,
-		EnqueueManualRequest{BackupID: walSegment.ID},
-		http.StatusBadRequest,
-	)
-	assert.Contains(t, string(resp.Body), "WAL")
-}
-
-func Test_EnqueueManualVerification_WhenDatabaseUsesWalBackups_Returns400(t *testing.T) {
-	router := createTestRouter()
-	owner := users_testing.CreateTestUser(users_enums.UserRoleMember)
-	workspace := workspaces_testing.CreateTestWorkspace("ws "+uuid.New().String(), owner, router)
-	defer workspaces_testing.RemoveTestWorkspace(workspace, router)
-
-	testStorage := storages.CreateTestStorage(workspace.ID)
-	defer storages.RemoveTestStorage(testStorage.ID)
-
-	notifier := notifiers.CreateTestNotifier(workspace.ID)
-	defer notifiers.RemoveTestNotifier(notifier)
-
-	walDatabase := walDatabaseForWorkspace(workspace.ID, notifier)
-	defer databases.RemoveTestDatabase(walDatabase)
-
-	backup := backuping.SeedTestBackup(t, walDatabase.ID, testStorage.ID, 100)
-
-	resp := test_utils.MakePostRequest(
-		t, router,
-		"/api/v1/verifications/enqueue",
-		"Bearer "+owner.Token,
-		EnqueueManualRequest{BackupID: backup.ID},
-		http.StatusBadRequest,
-	)
-	assert.Contains(t, string(resp.Body), "WAL")
 }
 
 func Test_EnqueueManualVerification_WhenManualPendingExists_Returns400(t *testing.T) {

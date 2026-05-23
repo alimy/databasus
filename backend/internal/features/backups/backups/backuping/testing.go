@@ -54,25 +54,6 @@ func SeedTestBackup(
 	})
 }
 
-func SeedTestWalSegmentBackup(
-	t *testing.T,
-	databaseID, storageID uuid.UUID,
-) *backups_core.Backup {
-	t.Helper()
-
-	walType := backups_core.PgWalBackupTypeWalSegment
-
-	return seedBackup(t, "wal segment", &backups_core.Backup{
-		ID:              uuid.New(),
-		FileName:        "test-wal-segment-" + uuid.New().String(),
-		DatabaseID:      databaseID,
-		StorageID:       storageID,
-		Status:          backups_core.BackupStatusCompleted,
-		PgWalBackupType: &walType,
-		CreatedAt:       time.Now().UTC(),
-	})
-}
-
 // SeedInProgressTestBackup inserts an IN_PROGRESS backup row so MakeBackup can
 // pick it up and drive it through to completion (mirrors backuper_test.go's
 // manual setup, but reusable across packages).

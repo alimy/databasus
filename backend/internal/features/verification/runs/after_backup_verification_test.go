@@ -237,31 +237,6 @@ func Test_OnBackupCompleted_WhenDisabled_DoesNothing(t *testing.T) {
 	assert.Empty(t, rows, "disabled config must not enqueue after-backup verifications")
 }
 
-func Test_OnBackupCompleted_WhenNoVerifiableBackup_DoesNothing(t *testing.T) {
-	router := createTestRouter()
-	owner := users_testing.CreateTestUser(users_enums.UserRoleAdmin)
-	workspace := workspaces_testing.CreateTestWorkspace("ws "+uuid.New().String(), owner, router)
-	defer workspaces_testing.RemoveTestWorkspace(workspace, router)
-
-	testStorage := storages.CreateTestStorage(workspace.ID)
-	defer storages.RemoveTestStorage(testStorage.ID)
-
-	notifier := notifiers.CreateTestNotifier(workspace.ID)
-	defer notifiers.RemoveTestNotifier(notifier)
-
-	database := databases.CreateTestDatabase(workspace.ID, testStorage, notifier)
-	defer databases.RemoveTestDatabase(database)
-
-	walBackup := backuping.SeedTestWalSegmentBackup(t, database.ID, testStorage.ID)
-
-	enableAfterBackupVerificationViaAPI(t, router, owner.Token, database.ID)
-
-	GetVerificationService().OnBackupCompleted(walBackup.ID)
-
-	rows := ListVerificationsByDatabaseViaAPI(t, router, owner.Token, database.ID)
-	assert.Empty(t, rows, "a WAL-only database has no verifiable backup to enqueue")
-}
-
 func Test_MakeBackup_WhenAfterBackupConfigured_SchedulesAndReplacesPendingVerification(
 	t *testing.T,
 ) {

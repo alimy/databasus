@@ -372,10 +372,6 @@ func (s *BackupsScheduler) runPendingBackups() error {
 				continue
 			}
 
-			if database.IsAgentManagedBackup() {
-				continue
-			}
-
 			if config.GetEnv().IsCloud {
 				subscription, subErr := s.billingService.GetSubscription(s.logger, backupConfig.DatabaseID)
 				if subErr != nil {

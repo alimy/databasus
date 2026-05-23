@@ -10,13 +10,6 @@ import (
 	files_utils "databasus-backend/internal/util/files"
 )
 
-type PgWalBackupType string
-
-const (
-	PgWalBackupTypeFullBackup PgWalBackupType = "PG_FULL_BACKUP"
-	PgWalBackupTypeWalSegment PgWalBackupType = "PG_WAL_SEGMENT"
-)
-
 type Backup struct {
 	ID       uuid.UUID `json:"id"       gorm:"column:id;type:uuid;primaryKey"`
 	FileName string    `json:"fileName" gorm:"column:file_name;type:text;not null"`
@@ -39,15 +32,7 @@ type Backup struct {
 	EncryptionIV   *string                         `json:"-"          gorm:"column:encryption_iv"`
 	Encryption     backups_config.BackupEncryption `json:"encryption" gorm:"column:encryption;type:text;not null;default:'NONE'"`
 
-	// Postgres WAL backup specific fields
-	PgWalBackupType                 *PgWalBackupType `json:"pgWalBackupType"                 gorm:"column:pg_wal_backup_type;type:text"`
-	PgFullBackupWalStartSegmentName *string          `json:"pgFullBackupWalStartSegmentName" gorm:"column:pg_wal_start_segment;type:text"`
-	PgFullBackupWalStopSegmentName  *string          `json:"pgFullBackupWalStopSegmentName"  gorm:"column:pg_wal_stop_segment;type:text"`
-	PgVersion                       *string          `json:"pgVersion"                       gorm:"column:pg_version;type:text"`
-	PgWalSegmentName                *string          `json:"pgWalSegmentName"                gorm:"column:pg_wal_segment_name;type:text"`
-
-	UploadCompletedAt *time.Time `json:"uploadCompletedAt" gorm:"column:upload_completed_at"`
-	CreatedAt         time.Time  `json:"createdAt"         gorm:"column:created_at"`
+	CreatedAt time.Time `json:"createdAt" gorm:"column:created_at"`
 }
 
 func (b *Backup) GenerateFilename(dbName string) {

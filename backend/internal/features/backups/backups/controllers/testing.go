@@ -97,12 +97,10 @@ func CreateTestBackup(databaseID, storageID uuid.UUID) *backups_core.Backup {
 }
 
 type TestBackupOptions struct {
-	Status          backups_core.BackupStatus
-	CreatedAt       time.Time
-	PgWalBackupType *backups_core.PgWalBackupType
+	Status    backups_core.BackupStatus
+	CreatedAt time.Time
 }
 
-// CreateTestBackupWithOptions creates a test backup with custom status, time, and WAL type
 func CreateTestBackupWithOptions(
 	databaseID, storageID uuid.UUID,
 	opts TestBackupOptions,
@@ -114,7 +112,6 @@ func CreateTestBackupWithOptions(
 		Status:           opts.Status,
 		BackupSizeMb:     10.5,
 		BackupDurationMs: 1000,
-		PgWalBackupType:  opts.PgWalBackupType,
 		CreatedAt:        opts.CreatedAt,
 	}
 

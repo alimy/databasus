@@ -23,13 +23,12 @@ import {
   type BackupConfig,
   BackupEncryption,
   BackupStatus,
-  PgWalBackupType,
   RestoreVerificationStatus,
   backupConfigApi,
   backupsApi,
 } from '../../../entity/backups';
 import type { BackupsFilters } from '../../../entity/backups/api/backupsApi';
-import { type Database, DatabaseType, PostgresBackupType } from '../../../entity/databases';
+import { type Database, DatabaseType } from '../../../entity/databases';
 import { verificationRunsApi } from '../../../entity/verification/runs';
 import { getUserTimeFormat } from '../../../shared/time';
 import { ConfirmationComponent } from '../../../shared/ui';
@@ -38,7 +37,6 @@ import {
   RESTORE_VERIFICATION_STATUS_BADGE_STYLES,
   RESTORE_VERIFICATION_STATUS_LABELS,
 } from '../model/restoreVerificationStatus';
-import { AgentRestoreComponent } from './AgentRestoreComponent';
 import { BackupsBillingBannerComponent } from './BackupsBillingBannerComponent';
 import { BackupsFiltersPanelComponent } from './BackupsFiltersPanelComponent';
 
@@ -404,26 +402,24 @@ export const BackupsComponent = ({
   const renderActions = (record: Backup) => {
     return (
       <div className="flex gap-2 text-lg">
-        {record.status === BackupStatus.IN_PROGRESS &&
-          isCanManageDBs &&
-          database.postgresql?.backupType !== PostgresBackupType.WAL_V1 && (
-            <div className="flex gap-2">
-              {cancellingBackupId === record.id ? (
-                <SyncOutlined spin />
-              ) : (
-                <Tooltip title="Cancel backup">
-                  <CloseCircleOutlined
-                    className="cursor-pointer"
-                    onClick={() => {
-                      if (cancellingBackupId) return;
-                      cancelBackup(record.id);
-                    }}
-                    style={{ color: '#ff0000', opacity: cancellingBackupId ? 0.2 : 1 }}
-                  />
-                </Tooltip>
-              )}
-            </div>
-          )}
+        {record.status === BackupStatus.IN_PROGRESS && isCanManageDBs && (
+          <div className="flex gap-2">
+            {cancellingBackupId === record.id ? (
+              <SyncOutlined spin />
+            ) : (
+              <Tooltip title="Cancel backup">
+                <CloseCircleOutlined
+                  className="cursor-pointer"
+                  onClick={() => {
+                    if (cancellingBackupId) return;
+                    cancelBackup(record.id);
+                  }}
+                  style={{ color: '#ff0000', opacity: cancellingBackupId ? 0.2 : 1 }}
+                />
+              </Tooltip>
+            )}
+          </div>
+        )}
 
         {record.status === BackupStatus.COMPLETED && (
           <div className="flex gap-2">
@@ -445,7 +441,6 @@ export const BackupsComponent = ({
                 )}
 
                 {isCanManageDBs &&
-                  database.postgresql?.backupType !== PostgresBackupType.WAL_V1 &&
                   database.type === DatabaseType.POSTGRES &&
                   (verifyingBackupId === record.id ? (
                     <SyncOutlined spin style={{ color: '#155dfc' }} />
@@ -573,19 +568,7 @@ export const BackupsComponent = ({
       width: 150,
       render: (sizeMb: number, record: Backup) => (
         <div>
-          <div className="flex items-center gap-2">
-            {formatSize(sizeMb)}
-            {record.pgWalBackupType === PgWalBackupType.PG_FULL_BACKUP && (
-              <span className="rounded bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900 dark:text-blue-300">
-                FULL
-              </span>
-            )}
-            {record.pgWalBackupType === PgWalBackupType.PG_WAL_SEGMENT && (
-              <span className="rounded bg-purple-100 px-1.5 py-0.5 text-xs font-medium text-purple-700 dark:bg-purple-900 dark:text-purple-300">
-                WAL
-              </span>
-            )}
-          </div>
+          <div>{formatSize(sizeMb)}</div>
           {record.backupRawDbSizeMb > 0 && (
             <div className="text-xs text-gray-500 dark:text-gray-500">
               {formatSize(record.backupRawDbSizeMb)} (DB size)
@@ -610,9 +593,7 @@ export const BackupsComponent = ({
   ];
 
   const isAnyFilterApplied =
-    (filters.statuses && filters.statuses.length > 0) ||
-    filters.beforeDate !== undefined ||
-    filters.pgWalBackupType !== undefined;
+    (filters.statuses && filters.statuses.length > 0) || filters.beforeDate !== undefined;
 
   if (isBackupConfigLoading) {
     return (
@@ -648,11 +629,7 @@ export const BackupsComponent = ({
 
       {isFilterPanelVisible && (
         <div className="mt-3">
-          <BackupsFiltersPanelComponent
-            filters={filters}
-            onFiltersChange={setFilters}
-            isWalDatabase={database.postgresql?.backupType === PostgresBackupType.WAL_V1}
-          />
+          <BackupsFiltersPanelComponent filters={filters} onFiltersChange={setFilters} />
         </div>
       )}
 
@@ -672,20 +649,18 @@ export const BackupsComponent = ({
 
       <div className="mt-5" />
 
-      {database.postgresql?.backupType !== PostgresBackupType.WAL_V1 && (
-        <div className="flex items-center">
-          <Button
-            onClick={makeBackup}
-            className="mr-1"
-            type="primary"
-            disabled={isMakeBackupRequestLoading}
-            loading={isMakeBackupRequestLoading}
-          >
-            <span className="md:hidden">Backup now</span>
-            <span className="hidden md:inline">Make backup right now</span>
-          </Button>
-        </div>
-      )}
+      <div className="flex items-center">
+        <Button
+          onClick={makeBackup}
+          className="mr-1"
+          type="primary"
+          disabled={isMakeBackupRequestLoading}
+          loading={isMakeBackupRequestLoading}
+        >
+          <span className="md:hidden">Backup now</span>
+          <span className="hidden md:inline">Make backup right now</span>
+        </Button>
+      </div>
 
       <div className="mt-5 w-full md:max-w-[850px]">
         {/* Mobile card view */}
@@ -718,19 +693,7 @@ export const BackupsComponent = ({
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <div className="text-xs text-gray-500 dark:text-gray-400">Size</div>
-                        <div className="flex items-center gap-2 text-sm font-medium">
-                          {formatSize(backup.backupSizeMb)}
-                          {backup.pgWalBackupType === PgWalBackupType.PG_FULL_BACKUP && (
-                            <span className="rounded bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900 dark:text-blue-300">
-                              FULL
-                            </span>
-                          )}
-                          {backup.pgWalBackupType === PgWalBackupType.PG_WAL_SEGMENT && (
-                            <span className="rounded bg-purple-100 px-1.5 py-0.5 text-xs font-medium text-purple-700 dark:bg-purple-900 dark:text-purple-300">
-                              WAL
-                            </span>
-                          )}
-                        </div>
+                        <div className="text-sm font-medium">{formatSize(backup.backupSizeMb)}</div>
                         {backup.backupRawDbSizeMb > 0 && (
                           <div className="text-xs text-gray-500 dark:text-gray-500">
                             {formatSize(backup.backupRawDbSizeMb)} (DB size)
@@ -803,36 +766,21 @@ export const BackupsComponent = ({
         />
       )}
 
-      {showingRestoresBackupId &&
-        (database.postgresql?.backupType === PostgresBackupType.WAL_V1 ? (
-          <Modal
-            width={600}
-            open={!!showingRestoresBackupId}
-            onCancel={() => setShowingRestoresBackupId(undefined)}
-            title="Restore from backup"
-            footer={null}
-            maskClosable={false}
-          >
-            <AgentRestoreComponent
-              database={database}
-              backup={backups.find((b) => b.id === showingRestoresBackupId) as Backup}
-            />
-          </Modal>
-        ) : (
-          <Modal
-            width={400}
-            open={!!showingRestoresBackupId}
-            onCancel={() => setShowingRestoresBackupId(undefined)}
-            title="Restore from backup"
-            footer={null}
-            maskClosable={false}
-          >
-            <RestoresComponent
-              database={database}
-              backup={backups.find((b) => b.id === showingRestoresBackupId) as Backup}
-            />
-          </Modal>
-        ))}
+      {showingRestoresBackupId && (
+        <Modal
+          width={400}
+          open={!!showingRestoresBackupId}
+          onCancel={() => setShowingRestoresBackupId(undefined)}
+          title="Restore from backup"
+          footer={null}
+          maskClosable={false}
+        >
+          <RestoresComponent
+            database={database}
+            backup={backups.find((b) => b.id === showingRestoresBackupId) as Backup}
+          />
+        </Modal>
+      )}
 
       {showingBackupError && (
         <Modal
