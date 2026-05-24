@@ -29,8 +29,7 @@ type PhysicalBackupConfig struct {
 	ChainsRetention      ChainsRetention      `json:"chainsRetention"      gorm:"embedded;embeddedPrefix:chains_retention_"`
 	FullBackupsRetention FullBackupsRetention `json:"fullBackupsRetention" gorm:"embedded;embeddedPrefix:full_backups_retention_"`
 
-	WalFallbackStrategy  WalFallbackStrategy `json:"walFallbackStrategy"  gorm:"column:wal_fallback_strategy;type:text;not null;default:'INCREMENTAL_WITH_LOSS'"`
-	WalLagThresholdBytes int64               `json:"walLagThresholdBytes" gorm:"column:wal_lag_threshold_bytes;type:bigint;not null;default:0"`
+	WalLagThresholdBytes int64 `json:"walLagThresholdBytes" gorm:"column:wal_lag_threshold_bytes;type:bigint;not null;default:0"`
 
 	Storage   *storages.Storage `json:"storage"   gorm:"foreignKey:StorageID"`
 	StorageID *uuid.UUID        `json:"storageId" gorm:"column:storage_id;type:uuid"`
@@ -130,7 +129,6 @@ func (b *PhysicalBackupConfig) Copy(newDatabaseID uuid.UUID) *PhysicalBackupConf
 		Retention:                 b.Retention,
 		ChainsRetention:           b.ChainsRetention,
 		FullBackupsRetention:      b.FullBackupsRetention,
-		WalFallbackStrategy:       b.WalFallbackStrategy,
 		WalLagThresholdBytes:      b.WalLagThresholdBytes,
 		StorageID:                 b.StorageID,
 		Encryption:                b.Encryption,
@@ -181,10 +179,6 @@ func (b *PhysicalBackupConfig) validateFullOnly() error {
 		return errors.New("incremental cadence cannot be set for FULL-only backups")
 	}
 
-	if b.WalFallbackStrategy != "" {
-		return errors.New("wal fallback strategy cannot be set when WAL streaming is disabled")
-	}
-
 	if b.WalLagThresholdBytes != 0 {
 		return errors.New("wal lag threshold cannot be set when WAL streaming is disabled")
 	}
@@ -203,10 +197,6 @@ func (b *PhysicalBackupConfig) validateFullAndIncremental() error {
 		)
 	}
 
-	if b.WalFallbackStrategy != "" {
-		return errors.New("wal fallback strategy cannot be set when WAL streaming is disabled")
-	}
-
 	if b.WalLagThresholdBytes != 0 {
 		return errors.New("wal lag threshold cannot be set when WAL streaming is disabled")
 	}
@@ -223,14 +213,6 @@ func (b *PhysicalBackupConfig) validateFullIncrementalAndWalStream() error {
 		return errors.New(
 			"incremental cadence must be strictly more frequent than full cadence",
 		)
-	}
-
-	switch b.WalFallbackStrategy {
-	case WalFallbackStrategyIncrementalWithLoss, WalFallbackStrategyForceFull:
-	case "":
-		return errors.New("wal fallback strategy is required for WAL streaming")
-	default:
-		return fmt.Errorf("invalid wal fallback strategy: %q", b.WalFallbackStrategy)
 	}
 
 	if b.WalLagThresholdBytes <= 0 {

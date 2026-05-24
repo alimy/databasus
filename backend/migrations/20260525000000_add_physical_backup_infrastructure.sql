@@ -70,7 +70,6 @@ CREATE TABLE physical_backup_configs (
     full_backups_retention_gfs_months      INT  NOT NULL DEFAULT 0,
     full_backups_retention_gfs_years       INT  NOT NULL DEFAULT 0,
 
-    wal_fallback_strategy          TEXT   NOT NULL DEFAULT 'INCREMENTAL_WITH_LOSS',
     wal_lag_threshold_bytes        BIGINT NOT NULL DEFAULT 0,
 
     storage_id                     UUID,

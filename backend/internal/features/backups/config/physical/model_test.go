@@ -67,7 +67,6 @@ func validFullIncrementalWalStreamConfig() *PhysicalBackupConfig {
 		IncrementalBackupInterval: dailyAt("02:00"),
 		Retention:                 RetentionChains,
 		ChainsRetention:           ChainsRetention{Count: 3},
-		WalFallbackStrategy:       WalFallbackStrategyIncrementalWithLoss,
 		WalLagThresholdBytes:      16 * 1024 * 1024,
 		Encryption:                backups_config_logical.BackupEncryptionNone,
 		PostgresqlPhysical: &postgresql_physical.PostgresqlPhysicalDatabase{
@@ -164,13 +163,6 @@ func Test_Validate_FullOnly_RejectsChainsAndFullBackupsRetention(t *testing.T) {
 	assert.Contains(t, err.Error(), "FULL_ONLY")
 }
 
-func Test_Validate_FullOnly_RejectsWalFallbackStrategySet(t *testing.T) {
-	c := validFullOnlyConfig()
-	c.WalFallbackStrategy = WalFallbackStrategyForceFull
-
-	assert.Error(t, c.Validate())
-}
-
 func Test_Validate_FullOnly_RejectsWalLagThresholdSet(t *testing.T) {
 	c := validFullOnlyConfig()
 	c.WalLagThresholdBytes = 1024
@@ -238,13 +230,6 @@ func Test_Validate_FullIncremental_RejectsFullBackupsOnlyRetention(t *testing.T)
 	err := c.Validate()
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "CHAINS")
-}
-
-func Test_Validate_FullIncremental_RejectsWalFallbackStrategySet(t *testing.T) {
-	c := validFullIncrementalConfig()
-	c.WalFallbackStrategy = WalFallbackStrategyForceFull
-
-	assert.Error(t, c.Validate())
 }
 
 func Test_Validate_FullIncremental_RejectsWalLagThresholdSet(t *testing.T) {
@@ -353,22 +338,6 @@ func Test_Validate_RejectsUnknownFullBackupsPolicy(t *testing.T) {
 	assert.Error(t, c.Validate())
 }
 
-func Test_Validate_FullIncrementalWalStream_RejectsBlankWalFallbackStrategy(t *testing.T) {
-	c := validFullIncrementalWalStreamConfig()
-	c.WalFallbackStrategy = ""
-
-	err := c.Validate()
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "wal fallback strategy is required")
-}
-
-func Test_Validate_FullIncrementalWalStream_RejectsUnknownWalFallbackStrategy(t *testing.T) {
-	c := validFullIncrementalWalStreamConfig()
-	c.WalFallbackStrategy = "GIBBERISH"
-
-	assert.Error(t, c.Validate())
-}
-
 func Test_Validate_FullIncrementalWalStream_RejectsZeroWalLagThreshold(t *testing.T) {
 	c := validFullIncrementalWalStreamConfig()
 	c.WalLagThresholdBytes = 0
@@ -378,18 +347,8 @@ func Test_Validate_FullIncrementalWalStream_RejectsZeroWalLagThreshold(t *testin
 	assert.Contains(t, err.Error(), "wal lag threshold")
 }
 
-func Test_Validate_FullIncrementalWalStream_AcceptsValidConfigWithIncrementalWithLoss(t *testing.T) {
-	c := validFullIncrementalWalStreamConfig()
-	c.WalFallbackStrategy = WalFallbackStrategyIncrementalWithLoss
-
-	assert.NoError(t, c.Validate())
-}
-
-func Test_Validate_FullIncrementalWalStream_AcceptsValidConfigWithForceFull(t *testing.T) {
-	c := validFullIncrementalWalStreamConfig()
-	c.WalFallbackStrategy = WalFallbackStrategyForceFull
-
-	assert.NoError(t, c.Validate())
+func Test_Validate_FullIncrementalWalStream_AcceptsValidConfig(t *testing.T) {
+	assert.NoError(t, validFullIncrementalWalStreamConfig().Validate())
 }
 
 func Test_Validate_RejectsUnknownBackupType(t *testing.T) {
