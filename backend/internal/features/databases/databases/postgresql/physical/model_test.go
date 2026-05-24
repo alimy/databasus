@@ -259,7 +259,7 @@ func Test_BackupType_RequiresWalSummary(t *testing.T) {
 		assert.Equal(
 			t,
 			expectsWalSummary,
-			backupType.RequiresWalSummary(),
+			backupType.IsRequireWalSummary(),
 			"backup type %s",
 			backupType,
 		)

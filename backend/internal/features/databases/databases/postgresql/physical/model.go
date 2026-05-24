@@ -283,17 +283,8 @@ func (p *PostgresqlPhysicalDatabase) TestReplicationConnection(
 		)
 	}
 
-	if p.BackupType.RequiresWalSummary() && settings.summarizeWal != "on" {
-		return errors.New(
-			fixMessage(
-				platform,
-				"summarize_wal must be on for incremental backups",
-				"ALTER SYSTEM SET summarize_wal = on; SELECT pg_reload_conf();",
-				"parameter group (no reboot needed for this parameter; reload via the AWS console)",
-				"Server parameters → summarize_wal",
-				"--database-flags=summarize_wal=on",
-			),
-		)
+	if err := p.verifyWalSummaryRequirement(ctx, conn); err != nil {
+		return err
 	}
 
 	if p.SystemIdentifier != nil {
@@ -760,6 +751,38 @@ func (p *PostgresqlPhysicalDatabase) probeSlotPermissions(
 	}
 
 	return nil
+}
+
+// verifyWalSummaryRequirement refuses BackupType FULL_INCREMENTAL and
+// FULL_INCREMENTAL_WAL_STREAM whenever the upstream cluster has
+// summarize_wal=off. Called from both TestReplicationConnection (so the UI
+// gate refuses) and PopulateDbData (so a direct API caller bypassing the
+// /test-connection endpoint also refuses to save).
+func (p *PostgresqlPhysicalDatabase) verifyWalSummaryRequirement(
+	ctx context.Context,
+	conn *pgx.Conn,
+) error {
+	if !p.BackupType.IsRequireWalSummary() {
+		return nil
+	}
+
+	settings, err := readReplicationSettings(ctx, conn)
+	if err != nil {
+		return err
+	}
+
+	if settings.summarizeWal == "on" {
+		return nil
+	}
+
+	return errors.New(fixMessage(
+		detectPlatform(ctx, conn),
+		"summarize_wal must be on for incremental backups",
+		"ALTER SYSTEM SET summarize_wal = on; SELECT pg_reload_conf();",
+		"parameter group (no reboot needed for this parameter; reload via the AWS console)",
+		"Server parameters → summarize_wal",
+		"--database-flags=summarize_wal=on",
+	))
 }
 
 func detectPlatform(ctx context.Context, conn *pgx.Conn) platform {

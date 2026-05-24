@@ -8,7 +8,7 @@ const (
 	BackupTypeFullIncrementalAndWalStream BackupType = "FULL_INCREMENTAL_WAL_STREAM"
 )
 
-func (t BackupType) RequiresWalSummary() bool {
+func (t BackupType) IsRequireWalSummary() bool {
 	return t == BackupTypeFullAndIncremental || t == BackupTypeFullIncrementalAndWalStream
 }
 

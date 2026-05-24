@@ -88,6 +88,10 @@ func (s *DatabaseService) CreateDatabase(
 		return nil, fmt.Errorf("failed to auto-detect database data: %w", err)
 	}
 
+	if err := database.TestConnection(s.logger, s.fieldEncryptor); err != nil {
+		return nil, err
+	}
+
 	if err := s.verifyReadOnlyUserIfNeeded(database); err != nil {
 		return nil, err
 	}
@@ -157,6 +161,10 @@ func (s *DatabaseService) UpdateDatabase(
 
 	if err := existingDatabase.PopulateDbData(s.logger, s.fieldEncryptor); err != nil {
 		return fmt.Errorf("failed to auto-detect database data: %w", err)
+	}
+
+	if err := existingDatabase.TestConnection(s.logger, s.fieldEncryptor); err != nil {
+		return err
 	}
 
 	if err := s.verifyReadOnlyUserIfNeeded(existingDatabase); err != nil {

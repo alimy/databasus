@@ -17,6 +17,7 @@ import (
 	"databasus-backend/internal/features/databases/databases/mariadb"
 	"databasus-backend/internal/features/databases/databases/mongodb"
 	"databasus-backend/internal/features/databases/databases/postgresql/logical"
+	"databasus-backend/internal/features/databases/databases/postgresql/physical"
 	users_enums "databasus-backend/internal/features/users/enums"
 	users_middleware "databasus-backend/internal/features/users/middleware"
 	users_services "databasus-backend/internal/features/users/services"
@@ -1368,5 +1369,127 @@ func getTestMongodbConfig() *mongodb.MongodbDatabase {
 		IsHttps:      false,
 		IsSrv:        false,
 		CpuCount:     1,
+	}
+}
+
+func physicalNoSummaryVersionTags() []string {
+	env := config.GetEnv()
+
+	var tags []string
+	if env.TestPhysicalPostgres17NoSummaryPort != "" {
+		tags = append(tags, "17")
+	}
+	if env.TestPhysicalPostgres18NoSummaryPort != "" {
+		tags = append(tags, "18")
+	}
+
+	return tags
+}
+
+func Test_CreateDatabase_FailsForPhysicalIncrementalWhenSummarizeWalOff(t *testing.T) {
+	versionTags := physicalNoSummaryVersionTags()
+	if len(versionTags) == 0 {
+		t.Skip("no physical no-summary postgres ports configured")
+	}
+
+	incrementalBackupTypes := []postgresql_physical.BackupType{
+		postgresql_physical.BackupTypeFullAndIncremental,
+		postgresql_physical.BackupTypeFullIncrementalAndWalStream,
+	}
+
+	for _, versionTag := range versionTags {
+		for _, backupType := range incrementalBackupTypes {
+			t.Run(fmt.Sprintf("pg%s_%s", versionTag, backupType), func(t *testing.T) {
+				router := createTestRouter()
+				owner := users_testing.CreateTestUser(users_enums.UserRoleMember)
+				workspace := workspaces_testing.CreateTestWorkspace("Test Workspace", owner, router)
+				defer workspaces_testing.RemoveTestWorkspace(workspace, router)
+
+				physicalConfig := GetTestPhysicalPostgresConfigNoSummary(versionTag)
+				physicalConfig.BackupType = backupType
+
+				request := Database{
+					Name:               "Physical Incremental NoSummary",
+					WorkspaceID:        &workspace.ID,
+					Type:               DatabaseTypePostgresPhysical,
+					PostgresqlPhysical: physicalConfig,
+				}
+
+				resp := test_utils.MakePostRequest(
+					t,
+					router,
+					"/api/v1/databases/create",
+					"Bearer "+owner.Token,
+					request,
+					http.StatusBadRequest,
+				)
+
+				assert.Contains(t, string(resp.Body), "summarize_wal")
+			})
+		}
+	}
+}
+
+func Test_UpdateDatabase_FailsForSwitchToPhysicalIncrementalWhenSummarizeWalOff(t *testing.T) {
+	versionTags := physicalNoSummaryVersionTags()
+	if len(versionTags) == 0 {
+		t.Skip("no physical no-summary postgres ports configured")
+	}
+
+	for _, versionTag := range versionTags {
+		t.Run("pg"+versionTag, func(t *testing.T) {
+			router := createTestRouter()
+			owner := users_testing.CreateTestUser(users_enums.UserRoleMember)
+			workspace := workspaces_testing.CreateTestWorkspace("Test Workspace", owner, router)
+			defer workspaces_testing.RemoveTestWorkspace(workspace, router)
+
+			createRequest := Database{
+				Name:               "Physical Full Only NoSummary",
+				WorkspaceID:        &workspace.ID,
+				Type:               DatabaseTypePostgresPhysical,
+				PostgresqlPhysical: GetTestPhysicalPostgresConfigNoSummary(versionTag),
+			}
+
+			var createdDatabase Database
+			test_utils.MakePostRequestAndUnmarshal(
+				t,
+				router,
+				"/api/v1/databases/create",
+				"Bearer "+owner.Token,
+				createRequest,
+				http.StatusCreated,
+				&createdDatabase,
+			)
+			defer RemoveTestDatabase(&createdDatabase)
+
+			createdDatabase.PostgresqlPhysical.BackupType = postgresql_physical.BackupTypeFullAndIncremental
+
+			updateResponse := test_utils.MakePostRequest(
+				t,
+				router,
+				"/api/v1/databases/update",
+				"Bearer "+owner.Token,
+				createdDatabase,
+				http.StatusBadRequest,
+			)
+
+			assert.Contains(t, string(updateResponse.Body), "summarize_wal")
+
+			var refetchedDatabase Database
+			test_utils.MakeGetRequestAndUnmarshal(
+				t,
+				router,
+				"/api/v1/databases/"+createdDatabase.ID.String(),
+				"Bearer "+owner.Token,
+				http.StatusOK,
+				&refetchedDatabase,
+			)
+
+			assert.Equal(
+				t,
+				postgresql_physical.BackupTypeFullOnly,
+				refetchedDatabase.PostgresqlPhysical.BackupType,
+			)
+		})
 	}
 }
