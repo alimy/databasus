@@ -18,3 +18,4 @@ node_modules/
 .vscode/settings.json
 .claude
 backend/cleanup_test_db.exe
+plans/
