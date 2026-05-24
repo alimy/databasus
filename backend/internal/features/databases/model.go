@@ -110,6 +110,8 @@ func (d *Database) TestConnection(
 	switch d.Type {
 	case DatabaseTypePostgresLogical:
 		return d.PostgresqlLogical.TestConnection(logger, encryptor)
+	case DatabaseTypePostgresPhysical:
+		return d.PostgresqlPhysical.TestReplicationConnection(logger, encryptor)
 	case DatabaseTypeMysql:
 		return d.Mysql.TestConnection(logger, encryptor)
 	case DatabaseTypeMariadb:
@@ -117,7 +119,7 @@ func (d *Database) TestConnection(
 	case DatabaseTypeMongodb:
 		return d.Mongodb.TestConnection(logger, encryptor)
 	default:
-		return errors.New("logical backup not supported for database type: " + string(d.Type))
+		return errors.New("connection test not supported for database type: " + string(d.Type))
 	}
 }
 
@@ -148,6 +150,8 @@ func (d *Database) IsUserReadOnly(
 	switch d.Type {
 	case DatabaseTypePostgresLogical:
 		return d.PostgresqlLogical.IsUserReadOnly(ctx, logger, encryptor)
+	case DatabaseTypePostgresPhysical:
+		return d.PostgresqlPhysical.IsUserReplicationOnly(ctx, logger, encryptor)
 	case DatabaseTypeMysql:
 		return d.Mysql.IsUserReadOnly(ctx, logger, encryptor)
 	case DatabaseTypeMariadb:

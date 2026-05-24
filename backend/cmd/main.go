@@ -27,6 +27,7 @@ import (
 	backups_download "databasus-backend/internal/features/backups/backups/download"
 	backups_services "databasus-backend/internal/features/backups/backups/services"
 	backups_config_logical "databasus-backend/internal/features/backups/config/logical"
+	backups_config_physical "databasus-backend/internal/features/backups/config/physical"
 	"databasus-backend/internal/features/billing"
 	billing_paddle "databasus-backend/internal/features/billing/paddle"
 	"databasus-backend/internal/features/databases"
@@ -256,6 +257,7 @@ func setUpRoutes(r *gin.Engine) {
 	healthcheck_config.GetHealthcheckConfigController().RegisterRoutes(protected)
 	healthcheck_attempt.GetHealthcheckAttemptController().RegisterRoutes(protected)
 	backups_config_logical.GetBackupConfigController().RegisterRoutes(protected)
+	backups_config_physical.GetBackupConfigController().RegisterRoutes(protected)
 	audit_logs.GetAuditLogController().RegisterRoutes(protected)
 	users_controllers.GetManagementController().RegisterRoutes(protected)
 	users_controllers.GetSettingsController().RegisterRoutes(protected)
@@ -274,6 +276,7 @@ func setUpDependencies() {
 	notifiers.SetupDependencies()
 	storages.SetupDependencies()
 	backups_config_logical.SetupDependencies()
+	backups_config_physical.SetupDependencies()
 	verification_config.SetupDependencies()
 	verification_runs.SetupDependencies()
 	task_cancellation.SetupDependencies()

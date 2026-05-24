@@ -15,6 +15,7 @@ import (
 	"databasus-backend/internal/features/databases/databases/mongodb"
 	"databasus-backend/internal/features/databases/databases/mysql"
 	"databasus-backend/internal/features/databases/databases/postgresql/logical"
+	"databasus-backend/internal/features/databases/databases/postgresql/physical"
 	"databasus-backend/internal/features/notifiers"
 	users_models "databasus-backend/internal/features/users/models"
 	workspaces_services "databasus-backend/internal/features/workspaces/services"
@@ -469,6 +470,23 @@ func (s *DatabaseService) CopyDatabase(
 				CpuCount:       existingDatabase.PostgresqlLogical.CpuCount,
 			}
 		}
+	case DatabaseTypePostgresPhysical:
+		if existingDatabase.PostgresqlPhysical != nil {
+			newDatabase.PostgresqlPhysical = &postgresql_physical.PostgresqlPhysicalDatabase{
+				ID:            uuid.Nil,
+				DatabaseID:    nil,
+				Version:       existingDatabase.PostgresqlPhysical.Version,
+				BackupType:    existingDatabase.PostgresqlPhysical.BackupType,
+				Host:          existingDatabase.PostgresqlPhysical.Host,
+				Port:          existingDatabase.PostgresqlPhysical.Port,
+				Username:      existingDatabase.PostgresqlPhysical.Username,
+				Password:      existingDatabase.PostgresqlPhysical.Password,
+				SslMode:       existingDatabase.PostgresqlPhysical.SslMode,
+				SslClientCert: existingDatabase.PostgresqlPhysical.SslClientCert,
+				SslClientKey:  existingDatabase.PostgresqlPhysical.SslClientKey,
+				SslRootCert:   existingDatabase.PostgresqlPhysical.SslRootCert,
+			}
+		}
 	case DatabaseTypeMysql:
 		if existingDatabase.Mysql != nil {
 			newDatabase.Mysql = &mysql.MysqlDatabase{
@@ -772,6 +790,90 @@ func (s *DatabaseService) CreateReadOnlyUser(
 		s.auditLogService.WriteAuditLog(
 			fmt.Sprintf(
 				"Read-only user created for database: %s (username: %s)",
+				usingDatabase.Name,
+				username,
+			),
+			&user.ID,
+			usingDatabase.WorkspaceID,
+		)
+	}
+
+	return username, password, nil
+}
+
+func (s *DatabaseService) CreateReplicationOnlyUser(
+	user *users_models.User,
+	database *Database,
+) (string, string, error) {
+	var usingDatabase *Database
+
+	if database.ID != uuid.Nil {
+		existingDatabase, err := s.dbRepository.FindByID(database.ID)
+		if err != nil {
+			return "", "", err
+		}
+
+		if existingDatabase.WorkspaceID == nil {
+			return "", "", errors.New("cannot create user for database without workspace")
+		}
+
+		canManage, err := s.workspaceService.CanUserManageDBs(*existingDatabase.WorkspaceID, user)
+		if err != nil {
+			return "", "", err
+		}
+		if !canManage {
+			return "", "", errors.New("insufficient permissions to manage this database")
+		}
+
+		if database.WorkspaceID != nil && *existingDatabase.WorkspaceID != *database.WorkspaceID {
+			return "", "", errors.New("database does not belong to this workspace")
+		}
+
+		existingDatabase.Update(database)
+
+		if err := existingDatabase.Validate(); err != nil {
+			return "", "", err
+		}
+
+		usingDatabase = existingDatabase
+	} else {
+		if database.WorkspaceID != nil {
+			canManage, err := s.workspaceService.CanUserManageDBs(*database.WorkspaceID, user)
+			if err != nil {
+				return "", "", err
+			}
+			if !canManage {
+				return "", "", errors.New("insufficient permissions to manage this workspace")
+			}
+		}
+
+		usingDatabase = database
+	}
+
+	if usingDatabase.Type != DatabaseTypePostgresPhysical {
+		return "", "", errors.New(
+			"replication-only user creation is only supported for POSTGRES_PHYSICAL databases",
+		)
+	}
+
+	if usingDatabase.PostgresqlPhysical == nil {
+		return "", "", errors.New("physical database details are missing")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	username, password, err := usingDatabase.PostgresqlPhysical.CreateReplicationOnlyUser(
+		ctx, s.logger, s.fieldEncryptor,
+	)
+	if err != nil {
+		return "", "", err
+	}
+
+	if usingDatabase.WorkspaceID != nil {
+		s.auditLogService.WriteAuditLog(
+			fmt.Sprintf(
+				"Replication-only user created for database: %s (username: %s)",
 				usingDatabase.Name,
 				username,
 			),

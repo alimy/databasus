@@ -10,6 +10,7 @@ import (
 	"databasus-backend/internal/features/databases/databases/mariadb"
 	"databasus-backend/internal/features/databases/databases/mongodb"
 	"databasus-backend/internal/features/databases/databases/postgresql/logical"
+	"databasus-backend/internal/features/databases/databases/postgresql/physical"
 	"databasus-backend/internal/features/notifiers"
 	"databasus-backend/internal/features/storages"
 	"databasus-backend/internal/storage"
@@ -32,6 +33,38 @@ func GetTestPostgresConfig() *postgresql_logical.PostgresqlLogicalDatabase {
 		Password: "testpassword",
 		Database: &testDbName,
 		CpuCount: 1,
+	}
+}
+
+func GetTestPhysicalPostgresConfig(versionTag string) *postgresql_physical.PostgresqlPhysicalDatabase {
+	env := config.GetEnv()
+
+	var portStr string
+	var version tools.PostgresqlVersion
+
+	switch versionTag {
+	case "17":
+		portStr = env.TestPhysicalPostgres17Port
+		version = tools.PostgresqlVersion17
+	case "18":
+		portStr = env.TestPhysicalPostgres18Port
+		version = tools.PostgresqlVersion18
+	default:
+		panic(fmt.Sprintf("unsupported physical postgres version tag: %s (use \"17\" or \"18\")", versionTag))
+	}
+
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to parse physical postgres %s port: %v", versionTag, err))
+	}
+
+	return &postgresql_physical.PostgresqlPhysicalDatabase{
+		Version:    version,
+		Host:       env.TestLocalhost,
+		Port:       port,
+		Username:   "testuser",
+		Password:   "testpassword",
+		BackupType: postgresql_physical.BackupTypeFullOnly,
 	}
 }
 
@@ -105,6 +138,29 @@ func CreateTestDatabase(
 	return database
 }
 
+func CreateTestPhysicalPostgresDatabase(
+	workspaceID uuid.UUID,
+	notifier *notifiers.Notifier,
+	versionTag string,
+) *Database {
+	database := &Database{
+		WorkspaceID:        &workspaceID,
+		Name:               "test-physical-pg " + uuid.New().String(),
+		Type:               DatabaseTypePostgresPhysical,
+		PostgresqlPhysical: GetTestPhysicalPostgresConfig(versionTag),
+		Notifiers: []notifiers.Notifier{
+			*notifier,
+		},
+	}
+
+	database, err := databaseRepository.Save(database)
+	if err != nil {
+		panic(err)
+	}
+
+	return database
+}
+
 func CreateTestMariadbDatabase(
 	workspaceID uuid.UUID,
 	notifier *notifiers.Notifier,
@@ -161,6 +217,10 @@ func RemoveTestDatabase(database *Database) {
 
 	if err := db.Exec("DELETE FROM logical_backup_configs WHERE database_id = ?", database.ID).Error; err != nil {
 		panic(fmt.Sprintf("failed to delete backup config: %v", err))
+	}
+
+	if err := db.Exec("DELETE FROM physical_backup_configs WHERE database_id = ?", database.ID).Error; err != nil {
+		panic(fmt.Sprintf("failed to delete physical backup config: %v", err))
 	}
 
 	err := databaseRepository.Delete(database.ID)

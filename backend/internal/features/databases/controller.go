@@ -30,6 +30,7 @@ func (c *DatabaseController) RegisterRoutes(router *gin.RouterGroup) {
 	router.GET("/databases/notifier/:id/databases-count", c.CountDatabasesByNotifier)
 	router.POST("/databases/is-readonly", c.IsUserReadOnly)
 	router.POST("/databases/create-readonly-user", c.CreateReadOnlyUser)
+	router.POST("/databases/create-replication-only-user", c.CreateReplicationOnlyUser)
 }
 
 func (c *DatabaseController) RegisterPublicRoutes(_ *gin.RouterGroup) {
@@ -432,6 +433,44 @@ func (c *DatabaseController) CreateReadOnlyUser(ctx *gin.Context) {
 	}
 
 	username, password, err := c.databaseService.CreateReadOnlyUser(user, &request)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, CreateReadOnlyUserResponse{
+		Username: username,
+		Password: password,
+	})
+}
+
+// CreateReplicationOnlyUser
+// @Summary Create replication-only database user (PostgreSQL physical only)
+// @Description Provision a fresh PostgreSQL role with LOGIN + REPLICATION (or its cloud equivalent on RDS / Azure / GCP) and nothing more. Refuses for database types other than POSTGRES_PHYSICAL.
+// @Tags databases
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body Database true "Database configuration (must be POSTGRES_PHYSICAL)"
+// @Success 200 {object} CreateReadOnlyUserResponse
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 403 {object} map[string]string
+// @Router /databases/create-replication-only-user [post]
+func (c *DatabaseController) CreateReplicationOnlyUser(ctx *gin.Context) {
+	user, ok := users_middleware.GetUserFromContext(ctx)
+	if !ok {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	var request Database
+	if err := ctx.ShouldBindJSON(&request); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	username, password, err := c.databaseService.CreateReplicationOnlyUser(user, &request)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

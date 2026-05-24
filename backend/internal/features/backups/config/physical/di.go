@@ -1,4 +1,4 @@
-package backups_config_logical
+package backups_config_physical
 
 import (
 	"sync"

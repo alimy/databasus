@@ -1,4 +1,4 @@
-package backups_config_logical
+package backups_config_physical
 
 import (
 	"errors"
@@ -11,7 +11,6 @@ import (
 	"databasus-backend/internal/features/storages"
 	users_models "databasus-backend/internal/features/users/models"
 	workspaces_services "databasus-backend/internal/features/workspaces/services"
-	"databasus-backend/internal/util/period"
 )
 
 type BackupConfigService struct {
@@ -43,12 +42,8 @@ func (s *BackupConfigService) GetStorageAttachedDatabasesIDs(
 
 func (s *BackupConfigService) SaveBackupConfigWithAuth(
 	user *users_models.User,
-	backupConfig *LogicalBackupConfig,
-) (*LogicalBackupConfig, error) {
-	if err := backupConfig.Validate(); err != nil {
-		return nil, err
-	}
-
+	backupConfig *PhysicalBackupConfig,
+) (*PhysicalBackupConfig, error) {
 	database, err := s.databaseService.GetDatabase(user, backupConfig.DatabaseID)
 	if err != nil {
 		return nil, err
@@ -66,6 +61,18 @@ func (s *BackupConfigService) SaveBackupConfigWithAuth(
 		return nil, errors.New("insufficient permissions to modify backup configuration")
 	}
 
+	if database.PostgresqlPhysical == nil {
+		return nil, errors.New(
+			"physical backup config requires the owning database to be of type POSTGRES_PHYSICAL",
+		)
+	}
+
+	backupConfig.PostgresqlPhysical = database.PostgresqlPhysical
+
+	if err := backupConfig.Validate(); err != nil {
+		return nil, err
+	}
+
 	if backupConfig.Storage != nil && backupConfig.Storage.ID != uuid.Nil {
 		storage, err := s.storageService.GetStorageByID(backupConfig.Storage.ID)
 		if err != nil {
@@ -80,20 +87,33 @@ func (s *BackupConfigService) SaveBackupConfigWithAuth(
 }
 
 func (s *BackupConfigService) SaveBackupConfig(
-	backupConfig *LogicalBackupConfig,
-) (*LogicalBackupConfig, error) {
+	backupConfig *PhysicalBackupConfig,
+) (*PhysicalBackupConfig, error) {
+	if backupConfig.PostgresqlPhysical == nil {
+		database, err := s.databaseService.GetDatabaseByID(backupConfig.DatabaseID)
+		if err != nil {
+			return nil, err
+		}
+
+		if database.PostgresqlPhysical == nil {
+			return nil, errors.New(
+				"physical backup config requires the owning database to be of type POSTGRES_PHYSICAL",
+			)
+		}
+
+		backupConfig.PostgresqlPhysical = database.PostgresqlPhysical
+	}
+
 	if err := backupConfig.Validate(); err != nil {
 		return nil, err
 	}
 
-	// Check if there's an existing backup config for this database
 	existingConfig, err := s.GetBackupConfigByDbId(backupConfig.DatabaseID)
 	if err != nil {
 		return nil, err
 	}
 
 	if existingConfig != nil {
-		// If storage is changing, notify the listener
 		if s.dbStorageChangeListener != nil &&
 			backupConfig.Storage != nil &&
 			!storageIDsEqual(existingConfig.StorageID, &backupConfig.Storage.ID) {
@@ -111,7 +131,7 @@ func (s *BackupConfigService) SaveBackupConfig(
 func (s *BackupConfigService) GetBackupConfigByDbIdWithAuth(
 	user *users_models.User,
 	databaseID uuid.UUID,
-) (*LogicalBackupConfig, error) {
+) (*PhysicalBackupConfig, error) {
 	_, err := s.databaseService.GetDatabase(user, databaseID)
 	if err != nil {
 		return nil, err
@@ -122,15 +142,14 @@ func (s *BackupConfigService) GetBackupConfigByDbIdWithAuth(
 
 func (s *BackupConfigService) GetBackupConfigByDbId(
 	databaseID uuid.UUID,
-) (*LogicalBackupConfig, error) {
+) (*PhysicalBackupConfig, error) {
 	config, err := s.backupConfigRepository.FindByDatabaseID(databaseID)
 	if err != nil {
 		return nil, err
 	}
 
 	if config == nil {
-		err = s.initializeDefaultConfig(databaseID)
-		if err != nil {
+		if err := s.initializeDefaultConfig(databaseID); err != nil {
 			return nil, err
 		}
 
@@ -164,22 +183,22 @@ func (s *BackupConfigService) CountDatabasesForStorage(
 	return s.storageService.CountDatabasesForStorage(storageID)
 }
 
-func (s *BackupConfigService) GetBackupConfigsWithEnabledBackups() ([]*LogicalBackupConfig, error) {
+func (s *BackupConfigService) GetBackupConfigsWithEnabledBackups() (
+	[]*PhysicalBackupConfig,
+	error,
+) {
 	return s.backupConfigRepository.GetWithEnabledBackups()
 }
 
 func (s *BackupConfigService) OnDatabaseCopied(originalDatabaseID, newDatabaseID uuid.UUID) {
-	originalConfig, err := s.GetBackupConfigByDbId(originalDatabaseID)
-	if err != nil {
+	originalConfig, err := s.backupConfigRepository.FindByDatabaseID(originalDatabaseID)
+	if err != nil || originalConfig == nil {
 		return
 	}
 
 	newConfig := originalConfig.Copy(newDatabaseID)
 
-	_, err = s.SaveBackupConfig(newConfig)
-	if err != nil {
-		return
-	}
+	_, _ = s.SaveBackupConfig(newConfig)
 }
 
 func (s *BackupConfigService) CreateDisabledBackupConfig(databaseID uuid.UUID) error {
@@ -284,8 +303,7 @@ func (s *BackupConfigService) TransferDatabaseToWorkspace(
 	}
 
 	if len(request.TargetNotifierIDs) > 0 {
-		err = s.assignTargetNotifiers(databaseID, request.TargetNotifierIDs)
-		if err != nil {
+		if err := s.assignTargetNotifiers(databaseID, request.TargetNotifierIDs); err != nil {
 			return err
 		}
 	}
@@ -293,27 +311,27 @@ func (s *BackupConfigService) TransferDatabaseToWorkspace(
 	return nil
 }
 
-func (s *BackupConfigService) initializeDefaultConfig(
-	databaseID uuid.UUID,
-) error {
+func (s *BackupConfigService) initializeDefaultConfig(databaseID uuid.UUID) error {
 	timeOfDay := "04:00"
 
-	_, err := s.backupConfigRepository.Save(&LogicalBackupConfig{
-		DatabaseID:          databaseID,
-		IsBackupsEnabled:    false,
-		RetentionPolicyType: RetentionPolicyTypeTimePeriod,
-		RetentionTimePeriod: period.Period3Month,
-		BackupInterval: intervals.Interval{
+	_, err := s.backupConfigRepository.Save(&PhysicalBackupConfig{
+		DatabaseID:       databaseID,
+		IsBackupsEnabled: false,
+		FullBackupInterval: intervals.Interval{
 			Type:      intervals.IntervalDaily,
 			TimeOfDay: &timeOfDay,
+		},
+		Retention: RetentionFullBackups,
+		FullBackupsRetention: FullBackupsRetention{
+			Policy: FullBackupsRetentionPolicyLastN,
+			Count:  7,
 		},
 		SendNotificationsOn: []BackupNotificationType{
 			NotificationBackupFailed,
 			NotificationBackupSuccess,
+			NotificationChainBroken,
 		},
-		IsRetryIfFailed:     true,
-		MaxFailedTriesCount: 3,
-		Encryption:          BackupEncryptionNone,
+		Encryption: "NONE",
 	})
 
 	return err
@@ -345,6 +363,7 @@ func (s *BackupConfigService) validateTargetNotifiers(request *TransferDatabaseR
 			return ErrTargetNotifierNotInTargetWorkspace
 		}
 	}
+
 	return nil
 }
 
@@ -373,5 +392,6 @@ func storageIDsEqual(id1, id2 *uuid.UUID) bool {
 	if id1 == nil || id2 == nil {
 		return false
 	}
+
 	return *id1 == *id2
 }
