@@ -118,7 +118,7 @@ export const EditDatabaseSpecificDataComponent = ({
   };
 
   switch (editingDatabase.type) {
-    case DatabaseType.POSTGRES:
+    case DatabaseType.POSTGRES_LOGICAL:
       return <EditPostgreSqlSpecificDataComponent {...commonProps} isRestoreMode={isRestoreMode} />;
     case DatabaseType.MYSQL:
       return <EditMySqlSpecificDataComponent {...commonProps} />;

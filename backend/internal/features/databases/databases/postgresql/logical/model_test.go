@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"databasus-backend/internal/config"
+	postgresql_shared "databasus-backend/internal/features/databases/databases/postgresql/shared"
 	"databasus-backend/internal/util/tools"
 )
 
@@ -72,7 +73,7 @@ func Test_TestConnection_PasswordContainingSpaces_TestedSuccessfully(t *testing.
 		Username: usernameWithSpaces,
 		Password: passwordWithSpaces,
 		Database: &container.Database,
-		SslMode:  PostgresSslModeDisable,
+		SslMode:  postgresql_shared.PostgresSslModeDisable,
 		CpuCount: 1,
 	}
 
@@ -142,7 +143,7 @@ func Test_TestConnection_InsufficientPermissions_ReturnsError(t *testing.T) {
 				Username: limitedUsername,
 				Password: limitedPassword,
 				Database: &container.Database,
-				SslMode:  PostgresSslModeDisable,
+				SslMode:  postgresql_shared.PostgresSslModeDisable,
 				CpuCount: 1,
 			}
 
@@ -229,7 +230,7 @@ func Test_TestConnection_SufficientPermissions_Success(t *testing.T) {
 				Username: backupUsername,
 				Password: backupPassword,
 				Database: &container.Database,
-				SslMode:  PostgresSslModeDisable,
+				SslMode:  postgresql_shared.PostgresSslModeDisable,
 				CpuCount: 1,
 			}
 
@@ -304,7 +305,7 @@ func Test_IsUserReadOnly_ReadOnlyUser_ReturnsTrue(t *testing.T) {
 		Username: username,
 		Password: password,
 		Database: pgModel.Database,
-		SslMode:  PostgresSslModeDisable,
+		SslMode:  postgresql_shared.PostgresSslModeDisable,
 		CpuCount: 1,
 	}
 
@@ -372,7 +373,7 @@ func Test_CreateReadOnlyUser_UserCanReadButNotWrite(t *testing.T) {
 				Username: username,
 				Password: password,
 				Database: pgModel.Database,
-				SslMode:  PostgresSslModeDisable,
+				SslMode:  postgresql_shared.PostgresSslModeDisable,
 			}
 
 			isReadOnly, privileges, err := readOnlyModel.IsUserReadOnly(
@@ -559,7 +560,7 @@ func Test_CreateReadOnlyUser_DatabaseNameWithDash_Success(t *testing.T) {
 		Username: container.Username,
 		Password: container.Password,
 		Database: &dashDbName,
-		SslMode:  PostgresSslModeDisable,
+		SslMode:  postgresql_shared.PostgresSslModeDisable,
 	}
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
@@ -644,7 +645,7 @@ func Test_CreateReadOnlyUser_WithPublicSchema_Success(t *testing.T) {
 				Username: username,
 				Password: password,
 				Database: pgModel.Database,
-				SslMode:  PostgresSslModeDisable,
+				SslMode:  postgresql_shared.PostgresSslModeDisable,
 			}
 
 			isReadOnly, privileges, err := readOnlyModel.IsUserReadOnly(
@@ -751,7 +752,7 @@ func Test_CreateReadOnlyUser_WithoutPublicSchema_Success(t *testing.T) {
 				Username: username,
 				Password: password,
 				Database: pgModel.Database,
-				SslMode:  PostgresSslModeDisable,
+				SslMode:  postgresql_shared.PostgresSslModeDisable,
 			}
 
 			isReadOnly, privileges, err := readOnlyModel.IsUserReadOnly(
@@ -898,7 +899,7 @@ func Test_CreateReadOnlyUser_PublicSchemaExistsButNoPermissions_ReturnsError(t *
 				Username: limitedAdminUsername,
 				Password: limitedAdminPassword,
 				Database: &container.Database,
-				SslMode:  PostgresSslModeDisable,
+				SslMode:  postgresql_shared.PostgresSslModeDisable,
 			}
 
 			logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
@@ -1583,7 +1584,7 @@ func Test_HideSensitiveData_WhenCalled_ClearsPasswordAndPreservesOtherFields(t *
 		Username:       "appuser",
 		Password:       "supersecret",
 		Database:       &databaseName,
-		SslMode:        PostgresSslModeRequire,
+		SslMode:        postgresql_shared.PostgresSslModeRequire,
 		IncludeSchemas: []string{"public"},
 		ExcludeTables:  []string{"audit_logs"},
 		CpuCount:       4,
@@ -1596,7 +1597,7 @@ func Test_HideSensitiveData_WhenCalled_ClearsPasswordAndPreservesOtherFields(t *
 	assert.Equal(t, 5432, pgModel.Port)
 	assert.Equal(t, "appuser", pgModel.Username)
 	assert.Equal(t, &databaseName, pgModel.Database)
-	assert.Equal(t, PostgresSslModeRequire, pgModel.SslMode)
+	assert.Equal(t, postgresql_shared.PostgresSslModeRequire, pgModel.SslMode)
 	assert.Equal(t, []string{"public"}, pgModel.IncludeSchemas)
 	assert.Equal(t, []string{"audit_logs"}, pgModel.ExcludeTables)
 	assert.Equal(t, 4, pgModel.CpuCount)
@@ -1632,7 +1633,7 @@ func Test_HideSensitiveData_WhenCertsSet_ClearsOnlyClientKey(t *testing.T) {
 		Username:      "appuser",
 		Password:      "supersecret",
 		Database:      &databaseName,
-		SslMode:       PostgresSslModeVerifyFull,
+		SslMode:       postgresql_shared.PostgresSslModeVerifyFull,
 		SslClientCert: "client-cert-pem",
 		SslClientKey:  "client-key-pem",
 		SslRootCert:   "root-cert-pem",
@@ -1645,13 +1646,13 @@ func Test_HideSensitiveData_WhenCertsSet_ClearsOnlyClientKey(t *testing.T) {
 	assert.Empty(t, pgModel.SslClientKey)
 	assert.Equal(t, "client-cert-pem", pgModel.SslClientCert)
 	assert.Equal(t, "root-cert-pem", pgModel.SslRootCert)
-	assert.Equal(t, PostgresSslModeVerifyFull, pgModel.SslMode)
+	assert.Equal(t, postgresql_shared.PostgresSslModeVerifyFull, pgModel.SslMode)
 }
 
 func Test_EncryptSensitiveFields_WhenCertsSet_EncryptsEverySecret(t *testing.T) {
 	pgModel := &PostgresqlLogicalDatabase{
 		Password:      "supersecret",
-		SslMode:       PostgresSslModeVerifyFull,
+		SslMode:       postgresql_shared.PostgresSslModeVerifyFull,
 		SslClientCert: "client-cert-pem",
 		SslClientKey:  "client-key-pem",
 		SslRootCert:   "root-cert-pem",
@@ -1689,7 +1690,7 @@ func Test_Update_WhenIncomingClientKeyEmpty_PreservesExistingKey(t *testing.T) {
 		Username:      "olduser",
 		Password:      "enc:oldpass",
 		Database:      &databaseName,
-		SslMode:       PostgresSslModeVerifyCA,
+		SslMode:       postgresql_shared.PostgresSslModeVerifyCA,
 		SslClientCert: "enc:old-cert",
 		SslClientKey:  "enc:old-key",
 		SslRootCert:   "enc:old-root",
@@ -1701,7 +1702,7 @@ func Test_Update_WhenIncomingClientKeyEmpty_PreservesExistingKey(t *testing.T) {
 		Port:          5433,
 		Username:      "newuser",
 		Database:      &databaseName,
-		SslMode:       PostgresSslModeRequire,
+		SslMode:       postgresql_shared.PostgresSslModeRequire,
 		SslClientCert: "new-cert",
 		SslClientKey:  "",
 		SslRootCert:   "new-root",
@@ -1710,7 +1711,7 @@ func Test_Update_WhenIncomingClientKeyEmpty_PreservesExistingKey(t *testing.T) {
 
 	existing.Update(incoming)
 
-	assert.Equal(t, PostgresSslModeRequire, existing.SslMode)
+	assert.Equal(t, postgresql_shared.PostgresSslModeRequire, existing.SslMode)
 	assert.Equal(t, "new-cert", existing.SslClientCert)
 	assert.Equal(t, "enc:old-key", existing.SslClientKey)
 	assert.Equal(t, "new-root", existing.SslRootCert)
@@ -1737,7 +1738,7 @@ func Test_Validate_SslConfig_EnforcesCertRules(t *testing.T) {
 		{
 			name: "client cert without key",
 			mutate: func(p *PostgresqlLogicalDatabase) {
-				p.SslMode = PostgresSslModeRequire
+				p.SslMode = postgresql_shared.PostgresSslModeRequire
 				p.SslClientCert = "cert"
 			},
 			expectedError: "client certificate and client key must be provided together",
@@ -1745,7 +1746,7 @@ func Test_Validate_SslConfig_EnforcesCertRules(t *testing.T) {
 		{
 			name: "client key without cert",
 			mutate: func(p *PostgresqlLogicalDatabase) {
-				p.SslMode = PostgresSslModeRequire
+				p.SslMode = postgresql_shared.PostgresSslModeRequire
 				p.SslClientKey = "key"
 			},
 			expectedError: "client certificate and client key must be provided together",
@@ -1753,7 +1754,7 @@ func Test_Validate_SslConfig_EnforcesCertRules(t *testing.T) {
 		{
 			name: "certificates with SSL disabled",
 			mutate: func(p *PostgresqlLogicalDatabase) {
-				p.SslMode = PostgresSslModeDisable
+				p.SslMode = postgresql_shared.PostgresSslModeDisable
 				p.SslClientCert = "cert"
 				p.SslClientKey = "key"
 			},
@@ -1769,7 +1770,7 @@ func Test_Validate_SslConfig_EnforcesCertRules(t *testing.T) {
 		{
 			name: "client certificate pair with verify-full",
 			mutate: func(p *PostgresqlLogicalDatabase) {
-				p.SslMode = PostgresSslModeVerifyFull
+				p.SslMode = postgresql_shared.PostgresSslModeVerifyFull
 				p.SslClientCert = "cert"
 				p.SslClientKey = "key"
 				p.SslRootCert = "root"
@@ -1809,7 +1810,7 @@ func Test_Validate_WhenSslModeEmpty_DefaultsToDisable(t *testing.T) {
 	err := model.Validate()
 
 	assert.NoError(t, err)
-	assert.Equal(t, PostgresSslModeDisable, model.SslMode)
+	assert.Equal(t, postgresql_shared.PostgresSslModeDisable, model.SslMode)
 }
 
 func connectToPostgresContainer(t *testing.T, port string) *PostgresContainer {
@@ -1857,7 +1858,7 @@ func createPostgresModel(container *PostgresContainer) *PostgresqlLogicalDatabas
 		Username: container.Username,
 		Password: container.Password,
 		Database: &container.Database,
-		SslMode:  PostgresSslModeDisable,
+		SslMode:  postgresql_shared.PostgresSslModeDisable,
 		CpuCount: 1,
 	}
 }

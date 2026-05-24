@@ -832,17 +832,17 @@ func Test_StartRestore_CredentialsRemovedAfterRestoreStarts(t *testing.T) {
 
 	// Verify mock received valid credentials
 	assert.NotNil(t, capturedDB, "Captured database should not be nil")
-	assert.NotNil(t, capturedDB.Postgresql, "PostgreSQL credentials should be provided to usecase")
-	assert.Equal(t, config.GetEnv().TestLocalhost, capturedDB.Postgresql.Host)
-	assert.Equal(t, 5432, capturedDB.Postgresql.Port)
-	assert.Equal(t, "testuser", capturedDB.Postgresql.Username)
-	assert.NotEmpty(t, capturedDB.Postgresql.Password, "Password should be provided to usecase")
+	assert.NotNil(t, capturedDB.PostgresqlLogical, "PostgreSQL credentials should be provided to usecase")
+	assert.Equal(t, config.GetEnv().TestLocalhost, capturedDB.PostgresqlLogical.Host)
+	assert.Equal(t, 5432, capturedDB.PostgresqlLogical.Port)
+	assert.Equal(t, "testuser", capturedDB.PostgresqlLogical.Username)
+	assert.NotEmpty(t, capturedDB.PostgresqlLogical.Password, "Password should be provided to usecase")
 
 	// Note: Password at this point may still be encrypted because PopulateDbData
 	// is called after the mock captures it. The important thing is that credentials
 	// were provided to the usecase despite cache being deleted.
 	t.Logf("Encrypted password in cache: %s", encryptedPassword)
-	t.Logf("Password received by usecase: %s", capturedDB.Postgresql.Password)
+	t.Logf("Password received by usecase: %s", capturedDB.PostgresqlLogical.Password)
 
 	// Wait for restore to complete
 	WaitForRestoreCompletion(t, restore.ID, 10*time.Second)

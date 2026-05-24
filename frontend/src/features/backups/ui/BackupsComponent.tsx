@@ -441,7 +441,7 @@ export const BackupsComponent = ({
                 )}
 
                 {isCanManageDBs &&
-                  database.type === DatabaseType.POSTGRES &&
+                  database.type === DatabaseType.POSTGRES_LOGICAL &&
                   (verifyingBackupId === record.id ? (
                     <SyncOutlined spin style={{ color: '#155dfc' }} />
                   ) : (
@@ -474,7 +474,7 @@ export const BackupsComponent = ({
 
                 <Tooltip
                   title={
-                    database.type === DatabaseType.POSTGRES
+                    database.type === DatabaseType.POSTGRES_LOGICAL
                       ? 'Download backup file. It can be restored manually via pg_restore (from custom format)'
                       : database.type === DatabaseType.MYSQL
                         ? 'Download backup file. It can be restored manually via mysql client (from SQL dump)'

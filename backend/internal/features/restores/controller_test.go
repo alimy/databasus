@@ -279,13 +279,13 @@ func Test_RestoreBackup_DiskSpaceValidation(t *testing.T) {
 	}{
 		{
 			name:                "PostgreSQL_CPU4_SpaceValidated",
-			dbType:              databases.DatabaseTypePostgres,
+			dbType:              databases.DatabaseTypePostgresLogical,
 			cpuCount:            4,
 			expectDiskValidated: true,
 		},
 		{
 			name:                "PostgreSQL_CPU1_SpaceNotValidated",
-			dbType:              databases.DatabaseTypePostgres,
+			dbType:              databases.DatabaseTypePostgresLogical,
 			cpuCount:            1,
 			expectDiskValidated: false,
 		},
@@ -316,7 +316,7 @@ func Test_RestoreBackup_DiskSpaceValidation(t *testing.T) {
 			var storage *storages.Storage
 			var request restores_core.RestoreBackupRequest
 
-			if tc.dbType == databases.DatabaseTypePostgres {
+			if tc.dbType == databases.DatabaseTypePostgresLogical {
 				database, backup = createTestDatabaseWithBackupForRestore(workspace, owner, router)
 				defer cleanupDatabaseWithBackup(database, backup)
 				request = restores_core.RestoreBackupRequest{
@@ -621,10 +621,10 @@ func createTestDatabase(
 	router *gin.Engine,
 ) *databases.Database {
 	request := databases.Database{
-		WorkspaceID: &workspaceID,
-		Name:        name,
-		Type:        databases.DatabaseTypePostgres,
-		Postgresql:  databases.GetTestPostgresConfig(),
+		WorkspaceID:       &workspaceID,
+		Name:              name,
+		Type:              databases.DatabaseTypePostgresLogical,
+		PostgresqlLogical: databases.GetTestPostgresConfig(),
 	}
 
 	w := workspaces_testing.MakeAPIRequest(

@@ -22,6 +22,7 @@ import (
 	backups_config_logical "databasus-backend/internal/features/backups/config/logical"
 	"databasus-backend/internal/features/databases"
 	pgtypes "databasus-backend/internal/features/databases/databases/postgresql/logical"
+	postgresql_shared "databasus-backend/internal/features/databases/databases/postgresql/shared"
 	encryption_secrets "databasus-backend/internal/features/encryption/secrets"
 	"databasus-backend/internal/features/storages"
 	"databasus-backend/internal/util/encryption"
@@ -70,7 +71,7 @@ func (uc *CreatePostgresqlBackupUsecase) Execute(
 		storage.ID,
 	)
 
-	pg := db.Postgresql
+	pg := db.PostgresqlLogical
 
 	if pg == nil {
 		return nil, fmt.Errorf("postgresql database configuration is required for pg_dump backups")
@@ -126,7 +127,7 @@ func (uc *CreatePostgresqlBackupUsecase) streamToStorage(
 	ctx, cancel := uc.createBackupContext(parentCtx)
 	defer cancel()
 
-	credentials, err := pgtypes.WriteCredentialFiles(db.Postgresql, password, uc.fieldEncryptor)
+	credentials, err := pgtypes.WriteCredentialFiles(db.PostgresqlLogical, password, uc.fieldEncryptor)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create credential files: %w", err)
 	}
@@ -138,9 +139,9 @@ func (uc *CreatePostgresqlBackupUsecase) streamToStorage(
 	if err := uc.setupPgEnvironment(
 		cmd,
 		credentials,
-		db.Postgresql.SslMode,
+		db.PostgresqlLogical.SslMode,
 		password,
-		db.Postgresql.CpuCount,
+		db.PostgresqlLogical.CpuCount,
 		pgBin,
 	); err != nil {
 		return nil, err
@@ -422,7 +423,7 @@ func (uc *CreatePostgresqlBackupUsecase) createBackupContext(
 func (uc *CreatePostgresqlBackupUsecase) setupPgEnvironment(
 	cmd *exec.Cmd,
 	credentials *pgtypes.CredentialFiles,
-	sslMode pgtypes.PostgresSslMode,
+	sslMode postgresql_shared.PostgresSslMode,
 	password string,
 	cpuCount int,
 	pgBin string,
@@ -446,7 +447,7 @@ func (uc *CreatePostgresqlBackupUsecase) setupPgEnvironment(
 
 	resolvedSslMode := sslMode
 	if resolvedSslMode == "" {
-		resolvedSslMode = pgtypes.PostgresSslModeDisable
+		resolvedSslMode = postgresql_shared.PostgresSslModeDisable
 	}
 
 	cmd.Env = append(cmd.Env,

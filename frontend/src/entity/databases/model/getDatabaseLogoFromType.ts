@@ -2,7 +2,7 @@ import { DatabaseType } from './DatabaseType';
 
 export const getDatabaseLogoFromType = (type: DatabaseType) => {
   switch (type) {
-    case DatabaseType.POSTGRES:
+    case DatabaseType.POSTGRES_LOGICAL:
       return '/icons/databases/postgresql.svg';
     case DatabaseType.MYSQL:
       return '/icons/databases/mysql.svg';

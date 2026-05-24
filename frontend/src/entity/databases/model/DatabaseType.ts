@@ -1,5 +1,5 @@
 export enum DatabaseType {
-  POSTGRES = 'POSTGRES',
+  POSTGRES_LOGICAL = 'POSTGRES_LOGICAL',
   MYSQL = 'MYSQL',
   MARIADB = 'MARIADB',
   MONGODB = 'MONGODB',

@@ -194,11 +194,11 @@ func (n *RestorerNode) MakeRestore(restoreID uuid.UUID) {
 
 	// Create restoring database from cached credentials
 	restoringToDB := &databases.Database{
-		Type:       database.Type,
-		Postgresql: dbCache.PostgresqlLogicalDatabase,
-		Mysql:      dbCache.MysqlDatabase,
-		Mariadb:    dbCache.MariadbDatabase,
-		Mongodb:    dbCache.MongodbDatabase,
+		Type:              database.Type,
+		PostgresqlLogical: dbCache.PostgresqlLogicalDatabase,
+		Mysql:             dbCache.MysqlDatabase,
+		Mariadb:           dbCache.MariadbDatabase,
+		Mongodb:           dbCache.MongodbDatabase,
 	}
 
 	if err := restoringToDB.PopulateDbData(n.logger, n.fieldEncryptor); err != nil {

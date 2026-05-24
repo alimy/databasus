@@ -35,8 +35,8 @@ func Test_ClaimVerification_AssignmentDatabase_StripsSensitiveData(t *testing.T)
 	database := databases.CreateTestDatabase(workspace.ID, testStorage, notifier)
 	defer databases.RemoveTestDatabase(database)
 
-	require.NotNil(t, database.Postgresql)
-	require.NotEmpty(t, database.Postgresql.Password,
+	require.NotNil(t, database.PostgresqlLogical)
+	require.NotEmpty(t, database.PostgresqlLogical.Password,
 		"fixture must persist a password so we can prove HideSensitiveData stripped it")
 
 	backup := backuping_logical.SeedTestBackup(t, database.ID, testStorage.ID, 100)
@@ -60,8 +60,8 @@ func Test_ClaimVerification_AssignmentDatabase_StripsSensitiveData(t *testing.T)
 		{
 			name: "postgres password is stripped",
 			check: func(t *testing.T, db *databases.Database) {
-				require.NotNil(t, db.Postgresql)
-				assert.Empty(t, db.Postgresql.Password)
+				require.NotNil(t, db.PostgresqlLogical)
+				assert.Empty(t, db.PostgresqlLogical.Password)
 			},
 		},
 		{
@@ -74,9 +74,9 @@ func Test_ClaimVerification_AssignmentDatabase_StripsSensitiveData(t *testing.T)
 			name: "non-sensitive identifying fields are preserved",
 			check: func(t *testing.T, db *databases.Database) {
 				assert.Equal(t, database.ID, db.ID)
-				assert.Equal(t, databases.DatabaseTypePostgres, db.Type)
-				require.NotNil(t, db.Postgresql)
-				assert.Equal(t, "16", string(db.Postgresql.Version))
+				assert.Equal(t, databases.DatabaseTypePostgresLogical, db.Type)
+				require.NotNil(t, db.PostgresqlLogical)
+				assert.Equal(t, "16", string(db.PostgresqlLogical.Version))
 			},
 		},
 	}

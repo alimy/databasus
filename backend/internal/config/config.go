@@ -75,6 +75,11 @@ type EnvVariables struct {
 	TestLogicalPostgres17Port string `env:"TEST_LOGICAL_POSTGRES_17_PORT"`
 	TestLogicalPostgres18Port string `env:"TEST_LOGICAL_POSTGRES_18_PORT"`
 
+	TestPhysicalPostgres17Port          string `env:"TEST_PHYSICAL_POSTGRES_17_PORT"`
+	TestPhysicalPostgres18Port          string `env:"TEST_PHYSICAL_POSTGRES_18_PORT"`
+	TestPhysicalPostgres17NoSummaryPort string `env:"TEST_PHYSICAL_POSTGRES_17_NO_SUMMARY_PORT"`
+	TestPhysicalPostgres18NoSummaryPort string `env:"TEST_PHYSICAL_POSTGRES_18_NO_SUMMARY_PORT"`
+
 	TestMinioPort        string `env:"TEST_MINIO_PORT"`
 	TestMinioConsolePort string `env:"TEST_MINIO_CONSOLE_PORT"`
 
@@ -321,6 +326,22 @@ func loadEnvVariables() {
 		}
 		if env.TestLogicalPostgres18Port == "" {
 			log.Error("TEST_LOGICAL_POSTGRES_18_PORT is empty")
+			os.Exit(1)
+		}
+		if env.TestPhysicalPostgres17Port == "" {
+			log.Error("TEST_PHYSICAL_POSTGRES_17_PORT is empty")
+			os.Exit(1)
+		}
+		if env.TestPhysicalPostgres18Port == "" {
+			log.Error("TEST_PHYSICAL_POSTGRES_18_PORT is empty")
+			os.Exit(1)
+		}
+		if env.TestPhysicalPostgres17NoSummaryPort == "" {
+			log.Error("TEST_PHYSICAL_POSTGRES_17_NO_SUMMARY_PORT is empty")
+			os.Exit(1)
+		}
+		if env.TestPhysicalPostgres18NoSummaryPort == "" {
+			log.Error("TEST_PHYSICAL_POSTGRES_18_NO_SUMMARY_PORT is empty")
 			os.Exit(1)
 		}
 

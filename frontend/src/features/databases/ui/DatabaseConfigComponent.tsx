@@ -182,7 +182,7 @@ export const DatabaseConfigComponent = ({
       });
   };
 
-  const isPostgresDatabase = database.type === DatabaseType.POSTGRES;
+  const isPostgresDatabase = database.type === DatabaseType.POSTGRES_LOGICAL;
 
   return (
     <div className="relative w-full rounded-tr-md rounded-br-md rounded-bl-md bg-white p-3 shadow sm:p-5 dark:bg-gray-800">

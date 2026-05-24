@@ -88,10 +88,10 @@ func CreateTestDatabase(
 	notifier *notifiers.Notifier,
 ) *Database {
 	database := &Database{
-		WorkspaceID: &workspaceID,
-		Name:        "test " + uuid.New().String(),
-		Type:        DatabaseTypePostgres,
-		Postgresql:  GetTestPostgresConfig(),
+		WorkspaceID:       &workspaceID,
+		Name:              "test " + uuid.New().String(),
+		Type:              DatabaseTypePostgresLogical,
+		PostgresqlLogical: GetTestPostgresConfig(),
 		Notifiers: []notifiers.Notifier{
 			*notifier,
 		},

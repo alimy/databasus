@@ -159,9 +159,9 @@ func postgresDatabase(name string, status *databases.HealthStatus) *databases.Da
 	return &databases.Database{
 		ID:           uuid.New(),
 		Name:         name,
-		Type:         databases.DatabaseTypePostgres,
+		Type:         databases.DatabaseTypePostgresLogical,
 		HealthStatus: status,
-		Postgresql: &postgresql_logical.PostgresqlLogicalDatabase{
+		PostgresqlLogical: &postgresql_logical.PostgresqlLogicalDatabase{
 			Version: tools.PostgresqlVersion("16"),
 		},
 	}
@@ -223,7 +223,7 @@ func Test_BuildAndSend_ProducesExpectedRequest(t *testing.T) {
 		types = append(types, d.Type)
 	}
 	assert.ElementsMatch(t,
-		[]string{"POSTGRES", "MYSQL", "MARIADB", "MONGODB"},
+		[]string{"POSTGRES_LOGICAL", "MYSQL", "MARIADB", "MONGODB"},
 		types,
 	)
 
@@ -370,7 +370,7 @@ func Test_BuildAndSend_WhenHealthcheckOffAndRecentBackup_DbIncluded(t *testing.T
 	require.NoError(t, service.BuildAndSend(context.Background()))
 	require.Len(t, sender.calls, 1)
 	require.Len(t, sender.calls[0].Databases, 1)
-	assert.Equal(t, "POSTGRES", sender.calls[0].Databases[0].Type)
+	assert.Equal(t, "POSTGRES_LOGICAL", sender.calls[0].Databases[0].Type)
 }
 
 func Test_BuildAndSend_WhenHealthcheckOffAndNoRecentBackup_DbExcluded(t *testing.T) {

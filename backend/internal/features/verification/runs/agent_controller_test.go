@@ -63,9 +63,9 @@ func Test_ClaimVerification_WhenPendingFitsBudget_ReturnsJobAssignment(t *testin
 	assert.InDelta(t, 100, assignment.BackupSizeMb, 0.001)
 	assert.InDelta(t, float64(EstimateRequiredForRestoreDiskMb(backup)), assignment.MaxContainerDiskMb, 0.001)
 	require.NotNil(t, assignment.Database)
-	assert.Equal(t, databases.DatabaseTypePostgres, assignment.Database.Type)
-	require.NotNil(t, assignment.Database.Postgresql)
-	assert.Equal(t, "16", string(assignment.Database.Postgresql.Version))
+	assert.Equal(t, databases.DatabaseTypePostgresLogical, assignment.Database.Type)
+	require.NotNil(t, assignment.Database.PostgresqlLogical)
+	assert.Equal(t, "16", string(assignment.Database.PostgresqlLogical.Version))
 
 	updated := GetVerificationByIDViaAPI(t, router, owner.Token, enqueued.ID)
 	assert.Equal(t, VerificationStatusRunning, updated.Status)

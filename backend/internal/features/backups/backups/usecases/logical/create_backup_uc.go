@@ -31,7 +31,7 @@ func (uc *CreateBackupUsecase) Execute(
 	backupProgressListener func(completedMBs float64),
 ) (*usecases_logical_dto.BackupMetadata, error) {
 	switch database.Type {
-	case databases.DatabaseTypePostgres:
+	case databases.DatabaseTypePostgresLogical:
 		return uc.CreatePostgresqlBackupUsecase.Execute(
 			ctx,
 			backup,

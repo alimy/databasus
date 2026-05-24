@@ -29,6 +29,7 @@ import (
 	mongodbtypes "databasus-backend/internal/features/databases/databases/mongodb"
 	mysqltypes "databasus-backend/internal/features/databases/databases/mysql"
 	pgtypes "databasus-backend/internal/features/databases/databases/postgresql/logical"
+	postgresql_shared "databasus-backend/internal/features/databases/databases/postgresql/shared"
 	restores_core "databasus-backend/internal/features/restores/core"
 	"databasus-backend/internal/features/storages"
 	users_enums "databasus-backend/internal/features/users/enums"
@@ -384,14 +385,14 @@ func createPostgresqlSSLDatabaseViaAPI(
 	request := databases.Database{
 		Name:        name,
 		WorkspaceID: &workspaceID,
-		Type:        databases.DatabaseTypePostgres,
-		Postgresql: &pgtypes.PostgresqlLogicalDatabase{
+		Type:        databases.DatabaseTypePostgresLogical,
+		PostgresqlLogical: &pgtypes.PostgresqlLogicalDatabase{
 			Host:     host,
 			Port:     port,
 			Username: username,
 			Password: password,
 			Database: &database,
-			SslMode:  pgtypes.PostgresSslModeRequire,
+			SslMode:  postgresql_shared.PostgresSslModeRequire,
 			CpuCount: 1,
 		},
 	}
@@ -414,7 +415,7 @@ func createPostgresqlSSLRestoreViaAPI(
 			Username: username,
 			Password: password,
 			Database: &database,
-			SslMode:  pgtypes.PostgresSslModeRequire,
+			SslMode:  postgresql_shared.PostgresSslModeRequire,
 			CpuCount: 1,
 		},
 	}

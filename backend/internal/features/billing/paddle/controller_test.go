@@ -704,8 +704,8 @@ func createTestDatabaseForPaddle(token string, workspaceID uuid.UUID, router *gi
 	request := databases.Database{
 		Name:        "paddle-test-" + uuid.New().String()[:8],
 		WorkspaceID: &workspaceID,
-		Type:        databases.DatabaseTypePostgres,
-		Postgresql: &postgresql_logical.PostgresqlLogicalDatabase{
+		Type:        databases.DatabaseTypePostgresLogical,
+		PostgresqlLogical: &postgresql_logical.PostgresqlLogicalDatabase{
 			Version:  tools.PostgresqlVersion16,
 			Host:     env.TestLocalhost,
 			Port:     port,

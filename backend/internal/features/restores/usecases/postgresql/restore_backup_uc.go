@@ -22,6 +22,7 @@ import (
 	backups_config_logical "databasus-backend/internal/features/backups/config/logical"
 	"databasus-backend/internal/features/databases"
 	pgtypes "databasus-backend/internal/features/databases/databases/postgresql/logical"
+	postgresql_shared "databasus-backend/internal/features/databases/databases/postgresql/shared"
 	encryption_secrets "databasus-backend/internal/features/encryption/secrets"
 	restores_core "databasus-backend/internal/features/restores/core"
 	"databasus-backend/internal/features/storages"
@@ -44,7 +45,7 @@ func (uc *RestorePostgresqlBackupUsecase) Execute(
 	storage *storages.Storage,
 	isExcludeExtensions bool,
 ) error {
-	if originalDB.Type != databases.DatabaseTypePostgres {
+	if originalDB.Type != databases.DatabaseTypePostgresLogical {
 		return errors.New("database type not supported")
 	}
 
@@ -56,7 +57,7 @@ func (uc *RestorePostgresqlBackupUsecase) Execute(
 		backup.ID,
 	)
 
-	pg := restoringToDB.Postgresql
+	pg := restoringToDB.PostgresqlLogical
 	if pg == nil {
 		return fmt.Errorf("postgresql configuration is required for restore")
 	}
@@ -699,7 +700,7 @@ func (uc *RestorePostgresqlBackupUsecase) setupPgRestoreEnvironment(
 
 	sslMode := pgConfig.SslMode
 	if sslMode == "" {
-		sslMode = pgtypes.PostgresSslModeDisable
+		sslMode = postgresql_shared.PostgresSslModeDisable
 	}
 
 	cmd.Env = append(cmd.Env,
@@ -792,8 +793,8 @@ func (uc *RestorePostgresqlBackupUsecase) handlePgRestoreError(
 				)
 			case containsIgnoreCase(stderrStr, "database") && containsIgnoreCase(stderrStr, "does not exist"):
 				backupDbName := "unknown"
-				if database.Postgresql != nil && database.Postgresql.Database != nil {
-					backupDbName = *database.Postgresql.Database
+				if database.PostgresqlLogical != nil && database.PostgresqlLogical.Database != nil {
+					backupDbName = *database.PostgresqlLogical.Database
 				}
 
 				targetDbName := "unknown"

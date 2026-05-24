@@ -83,14 +83,14 @@ export const EditPostgreSqlSpecificDataComponent = ({
   const [isConnectionFailed, setIsConnectionFailed] = useState(false);
 
   const hasAdvancedValues =
-    !!database.postgresql?.sslClientCert ||
-    !!database.postgresql?.sslRootCert ||
+    !!database.postgresqlLogical?.sslClientCert ||
+    !!database.postgresqlLogical?.sslRootCert ||
     (isRestoreMode
-      ? !!database.postgresql?.isExcludeExtensions ||
-        !!database.postgresql?.isRestoreOwnership ||
-        !!database.postgresql?.isRestorePrivileges
-      : !!database.postgresql?.includeSchemas?.length ||
-        !!database.postgresql?.excludeTables?.length);
+      ? !!database.postgresqlLogical?.isExcludeExtensions ||
+        !!database.postgresqlLogical?.isRestoreOwnership ||
+        !!database.postgresqlLogical?.isRestorePrivileges
+      : !!database.postgresqlLogical?.includeSchemas?.length ||
+        !!database.postgresqlLogical?.excludeTables?.length);
   const [isShowAdvanced, setShowAdvanced] = useState(hasAdvancedValues);
 
   const [hasAutoAddedPublicSchema, setHasAutoAddedPublicSchema] = useState(false);
@@ -114,12 +114,12 @@ export const EditPostgreSqlSpecificDataComponent = ({
       return;
     }
 
-    if (!editingDatabase?.postgresql) return;
+    if (!editingDatabase?.postgresqlLogical) return;
 
     const updatedDatabase: Database = {
       ...editingDatabase,
-      postgresql: {
-        ...editingDatabase.postgresql,
+      postgresqlLogical: {
+        ...editingDatabase.postgresqlLogical,
         host: result.host,
         port: result.port,
         username: result.username,
@@ -153,19 +153,19 @@ export const EditPostgreSqlSpecificDataComponent = ({
   const autoAddPublicSchemaForSupabase = (updatedDatabase: Database): Database => {
     if (hasAutoAddedPublicSchema) return updatedDatabase;
 
-    const host = updatedDatabase.postgresql?.host || '';
-    const username = updatedDatabase.postgresql?.username || '';
+    const host = updatedDatabase.postgresqlLogical?.host || '';
+    const username = updatedDatabase.postgresqlLogical?.username || '';
     const isSupabase = host.includes('supabase') || username.includes('supabase');
 
-    if (isSupabase && updatedDatabase.postgresql) {
+    if (isSupabase && updatedDatabase.postgresqlLogical) {
       setHasAutoAddedPublicSchema(true);
 
-      const currentSchemas = updatedDatabase.postgresql.includeSchemas || [];
+      const currentSchemas = updatedDatabase.postgresqlLogical.includeSchemas || [];
       if (!currentSchemas.includes('public')) {
         return {
           ...updatedDatabase,
-          postgresql: {
-            ...updatedDatabase.postgresql,
+          postgresqlLogical: {
+            ...updatedDatabase.postgresqlLogical,
             includeSchemas: ['public', ...currentSchemas],
           },
         };
@@ -176,15 +176,15 @@ export const EditPostgreSqlSpecificDataComponent = ({
   };
 
   const testConnection = async () => {
-    if (!editingDatabase?.postgresql) return;
+    if (!editingDatabase?.postgresqlLogical) return;
     setIsTestingConnection(true);
     setIsConnectionFailed(false);
 
     const trimmedDatabase = {
       ...editingDatabase,
       postgresql: {
-        ...editingDatabase.postgresql,
-        password: editingDatabase.postgresql.password?.trim(),
+        ...editingDatabase.postgresqlLogical,
+        password: editingDatabase.postgresqlLogical.password?.trim(),
       },
     };
 
@@ -204,13 +204,13 @@ export const EditPostgreSqlSpecificDataComponent = ({
   };
 
   const saveDatabase = async () => {
-    if (!editingDatabase?.postgresql) return;
+    if (!editingDatabase?.postgresqlLogical) return;
 
     const trimmedDatabase = {
       ...editingDatabase,
       postgresql: {
-        ...editingDatabase.postgresql,
-        password: editingDatabase.postgresql.password?.trim(),
+        ...editingDatabase.postgresqlLogical,
+        password: editingDatabase.postgresqlLogical.password?.trim(),
       },
     };
 
@@ -233,23 +233,23 @@ export const EditPostgreSqlSpecificDataComponent = ({
     field: 'sslClientCert' | 'sslClientKey' | 'sslRootCert',
     value: string,
   ) => {
-    if (!editingDatabase?.postgresql) return;
+    if (!editingDatabase?.postgresqlLogical) return;
 
     setEditingDatabase({
       ...editingDatabase,
-      postgresql: { ...editingDatabase.postgresql, [field]: value },
+      postgresqlLogical: { ...editingDatabase.postgresqlLogical, [field]: value },
     });
     setIsConnectionTested(false);
   };
 
   const startReplacingCerts = () => {
-    if (!editingDatabase?.postgresql) return;
+    if (!editingDatabase?.postgresqlLogical) return;
 
     setIsReplacingCerts(true);
     setEditingDatabase({
       ...editingDatabase,
-      postgresql: {
-        ...editingDatabase.postgresql,
+      postgresqlLogical: {
+        ...editingDatabase.postgresqlLogical,
         sslClientCert: '',
         sslClientKey: '',
         sslRootCert: '',
@@ -290,10 +290,10 @@ export const EditPostgreSqlSpecificDataComponent = ({
   );
 
   const renderSslCertSection = () => {
-    const sslMode = editingDatabase.postgresql?.sslMode ?? PostgresSslMode.Disable;
+    const sslMode = editingDatabase.postgresqlLogical?.sslMode ?? PostgresSslMode.Disable;
     if (sslMode === PostgresSslMode.Disable) return null;
 
-    const hadSslCert = !!database.postgresql?.sslClientCert;
+    const hadSslCert = !!database.postgresqlLogical?.sslClientCert;
     if (hadSslCert && !isReplacingCerts) {
       return (
         <div className="mb-1 flex w-full items-center">
@@ -313,7 +313,7 @@ export const EditPostgreSqlSpecificDataComponent = ({
         <div className="mb-1 flex w-full items-start">
           <div className="min-w-[150px]">Client certificate</div>
           <Input.TextArea
-            value={editingDatabase.postgresql?.sslClientCert || ''}
+            value={editingDatabase.postgresqlLogical?.sslClientCert || ''}
             onChange={(e) => updatePostgresqlCert('sslClientCert', e.target.value)}
             size="small"
             className="max-w-[300px] grow"
@@ -325,7 +325,7 @@ export const EditPostgreSqlSpecificDataComponent = ({
         <div className="mb-1 flex w-full items-start">
           <div className="min-w-[150px]">Client key</div>
           <Input.TextArea
-            value={editingDatabase.postgresql?.sslClientKey || ''}
+            value={editingDatabase.postgresqlLogical?.sslClientKey || ''}
             onChange={(e) => updatePostgresqlCert('sslClientKey', e.target.value)}
             size="small"
             className="max-w-[300px] grow"
@@ -345,7 +345,7 @@ export const EditPostgreSqlSpecificDataComponent = ({
             </Tooltip>
           </div>
           <Input.TextArea
-            value={editingDatabase.postgresql?.sslRootCert || ''}
+            value={editingDatabase.postgresqlLogical?.sslRootCert || ''}
             onChange={(e) => updatePostgresqlCert('sslRootCert', e.target.value)}
             size="small"
             className="max-w-[300px] grow"
@@ -359,19 +359,20 @@ export const EditPostgreSqlSpecificDataComponent = ({
 
   const renderPgDumpForm = () => {
     let isAllFieldsFilled = true;
-    if (!editingDatabase.postgresql?.host) isAllFieldsFilled = false;
-    if (!editingDatabase.postgresql?.port) isAllFieldsFilled = false;
-    if (!editingDatabase.postgresql?.username) isAllFieldsFilled = false;
-    if (!editingDatabase.id && !editingDatabase.postgresql?.password) isAllFieldsFilled = false;
-    if (!editingDatabase.postgresql?.database) isAllFieldsFilled = false;
+    if (!editingDatabase.postgresqlLogical?.host) isAllFieldsFilled = false;
+    if (!editingDatabase.postgresqlLogical?.port) isAllFieldsFilled = false;
+    if (!editingDatabase.postgresqlLogical?.username) isAllFieldsFilled = false;
+    if (!editingDatabase.id && !editingDatabase.postgresqlLogical?.password)
+      isAllFieldsFilled = false;
+    if (!editingDatabase.postgresqlLogical?.database) isAllFieldsFilled = false;
 
     const isLocalhostDb =
-      editingDatabase.postgresql?.host?.includes('localhost') ||
-      editingDatabase.postgresql?.host?.includes('127.0.0.1');
+      editingDatabase.postgresqlLogical?.host?.includes('localhost') ||
+      editingDatabase.postgresqlLogical?.host?.includes('127.0.0.1');
 
     const isSupabaseDb =
-      editingDatabase.postgresql?.host?.includes('supabase') ||
-      editingDatabase.postgresql?.username?.includes('supabase');
+      editingDatabase.postgresqlLogical?.host?.includes('supabase') ||
+      editingDatabase.postgresqlLogical?.username?.includes('supabase');
 
     return (
       <>
@@ -389,13 +390,13 @@ export const EditPostgreSqlSpecificDataComponent = ({
         <div className="mb-1 flex w-full items-center">
           <div className="min-w-[150px]">Host</div>
           <Input
-            value={editingDatabase.postgresql?.host}
+            value={editingDatabase.postgresqlLogical?.host}
             onChange={(e) => {
-              if (!editingDatabase.postgresql) return;
+              if (!editingDatabase.postgresqlLogical) return;
 
               const rawHost = e.target.value;
               const basePostgresql = {
-                ...editingDatabase.postgresql,
+                ...editingDatabase.postgresqlLogical,
                 host: rawHost.trim().replace('https://', '').replace('http://', ''),
               };
               const isHttpsHost = rawHost.trim().toLowerCase().startsWith('https://');
@@ -466,13 +467,13 @@ export const EditPostgreSqlSpecificDataComponent = ({
           <div className="min-w-[150px]">Port</div>
           <InputNumber
             type="number"
-            value={editingDatabase.postgresql?.port}
+            value={editingDatabase.postgresqlLogical?.port}
             onChange={(e) => {
-              if (!editingDatabase.postgresql || e === null) return;
+              if (!editingDatabase.postgresqlLogical || e === null) return;
 
               setEditingDatabase({
                 ...editingDatabase,
-                postgresql: { ...editingDatabase.postgresql, port: e },
+                postgresqlLogical: { ...editingDatabase.postgresqlLogical, port: e },
               });
               setIsConnectionTested(false);
             }}
@@ -485,13 +486,16 @@ export const EditPostgreSqlSpecificDataComponent = ({
         <div className="mb-1 flex w-full items-center">
           <div className="min-w-[150px]">Username</div>
           <Input
-            value={editingDatabase.postgresql?.username}
+            value={editingDatabase.postgresqlLogical?.username}
             onChange={(e) => {
-              if (!editingDatabase.postgresql) return;
+              if (!editingDatabase.postgresqlLogical) return;
 
               const updatedDatabase = {
                 ...editingDatabase,
-                postgresql: { ...editingDatabase.postgresql, username: e.target.value.trim() },
+                postgresql: {
+                  ...editingDatabase.postgresqlLogical,
+                  username: e.target.value.trim(),
+                },
               };
               setEditingDatabase(autoAddPublicSchemaForSupabase(updatedDatabase));
               setIsConnectionTested(false);
@@ -505,13 +509,16 @@ export const EditPostgreSqlSpecificDataComponent = ({
         <div className="mb-1 flex w-full items-center">
           <div className="min-w-[150px]">Password</div>
           <Input.Password
-            value={editingDatabase.postgresql?.password}
+            value={editingDatabase.postgresqlLogical?.password}
             onChange={(e) => {
-              if (!editingDatabase.postgresql) return;
+              if (!editingDatabase.postgresqlLogical) return;
 
               setEditingDatabase({
                 ...editingDatabase,
-                postgresql: { ...editingDatabase.postgresql, password: e.target.value },
+                postgresqlLogical: {
+                  ...editingDatabase.postgresqlLogical,
+                  password: e.target.value,
+                },
               });
               setIsConnectionTested(false);
             }}
@@ -529,13 +536,16 @@ export const EditPostgreSqlSpecificDataComponent = ({
           <div className="mb-1 flex w-full items-center">
             <div className="min-w-[150px]">DB name</div>
             <Input
-              value={editingDatabase.postgresql?.database}
+              value={editingDatabase.postgresqlLogical?.database}
               onChange={(e) => {
-                if (!editingDatabase.postgresql) return;
+                if (!editingDatabase.postgresqlLogical) return;
 
                 setEditingDatabase({
                   ...editingDatabase,
-                  postgresql: { ...editingDatabase.postgresql, database: e.target.value.trim() },
+                  postgresqlLogical: {
+                    ...editingDatabase.postgresqlLogical,
+                    database: e.target.value.trim(),
+                  },
                 });
                 setIsConnectionTested(false);
               }}
@@ -549,14 +559,14 @@ export const EditPostgreSqlSpecificDataComponent = ({
         <div className="mb-1 flex w-full items-center">
           <div className="min-w-[150px]">SSL mode</div>
           <Select
-            value={editingDatabase.postgresql?.sslMode ?? PostgresSslMode.Disable}
+            value={editingDatabase.postgresqlLogical?.sslMode ?? PostgresSslMode.Disable}
             onChange={(value: PostgresSslMode) => {
-              if (!editingDatabase.postgresql) return;
+              if (!editingDatabase.postgresqlLogical) return;
 
               setHasUserChosenSslMode(true);
               setEditingDatabase({
                 ...editingDatabase,
-                postgresql: applySslMode(editingDatabase.postgresql, value),
+                postgresqlLogical: applySslMode(editingDatabase.postgresqlLogical, value),
               });
               setIsConnectionTested(false);
             }}
@@ -578,13 +588,16 @@ export const EditPostgreSqlSpecificDataComponent = ({
               <InputNumber
                 min={1}
                 max={128}
-                value={editingDatabase.postgresql?.cpuCount}
+                value={editingDatabase.postgresqlLogical?.cpuCount}
                 onChange={(value) => {
-                  if (!editingDatabase.postgresql) return;
+                  if (!editingDatabase.postgresqlLogical) return;
 
                   setEditingDatabase({
                     ...editingDatabase,
-                    postgresql: { ...editingDatabase.postgresql, cpuCount: value || 1 },
+                    postgresqlLogical: {
+                      ...editingDatabase.postgresqlLogical,
+                      cpuCount: value || 1,
+                    },
                   });
                   setIsConnectionTested(false);
                 }}
@@ -624,13 +637,16 @@ export const EditPostgreSqlSpecificDataComponent = ({
                 <div className="min-w-[150px]">Include schemas</div>
                 <Select
                   mode="tags"
-                  value={editingDatabase.postgresql?.includeSchemas || []}
+                  value={editingDatabase.postgresqlLogical?.includeSchemas || []}
                   onChange={(values) => {
-                    if (!editingDatabase.postgresql) return;
+                    if (!editingDatabase.postgresqlLogical) return;
 
                     setEditingDatabase({
                       ...editingDatabase,
-                      postgresql: { ...editingDatabase.postgresql, includeSchemas: values },
+                      postgresqlLogical: {
+                        ...editingDatabase.postgresqlLogical,
+                        includeSchemas: values,
+                      },
                     });
                   }}
                   size="small"
@@ -646,13 +662,16 @@ export const EditPostgreSqlSpecificDataComponent = ({
                 <div className="min-w-[150px]">Exclude tables</div>
                 <Select
                   mode="tags"
-                  value={editingDatabase.postgresql?.excludeTables || []}
+                  value={editingDatabase.postgresqlLogical?.excludeTables || []}
                   onChange={(values) => {
-                    if (!editingDatabase.postgresql) return;
+                    if (!editingDatabase.postgresqlLogical) return;
 
                     setEditingDatabase({
                       ...editingDatabase,
-                      postgresql: { ...editingDatabase.postgresql, excludeTables: values },
+                      postgresqlLogical: {
+                        ...editingDatabase.postgresqlLogical,
+                        excludeTables: values,
+                      },
                     });
                   }}
                   size="small"
@@ -682,14 +701,14 @@ export const EditPostgreSqlSpecificDataComponent = ({
                   </Tooltip>
                 </div>
                 <Checkbox
-                  checked={editingDatabase.postgresql?.isExcludeExtensions || false}
+                  checked={editingDatabase.postgresqlLogical?.isExcludeExtensions || false}
                   onChange={(e) => {
-                    if (!editingDatabase.postgresql) return;
+                    if (!editingDatabase.postgresqlLogical) return;
 
                     setEditingDatabase({
                       ...editingDatabase,
-                      postgresql: {
-                        ...editingDatabase.postgresql,
+                      postgresqlLogical: {
+                        ...editingDatabase.postgresqlLogical,
                         isExcludeExtensions: e.target.checked,
                       },
                     });
@@ -710,14 +729,14 @@ export const EditPostgreSqlSpecificDataComponent = ({
                   </Tooltip>
                 </div>
                 <Checkbox
-                  checked={editingDatabase.postgresql?.isRestoreOwnership || false}
+                  checked={editingDatabase.postgresqlLogical?.isRestoreOwnership || false}
                   onChange={(e) => {
-                    if (!editingDatabase.postgresql) return;
+                    if (!editingDatabase.postgresqlLogical) return;
 
                     setEditingDatabase({
                       ...editingDatabase,
-                      postgresql: {
-                        ...editingDatabase.postgresql,
+                      postgresqlLogical: {
+                        ...editingDatabase.postgresqlLogical,
                         isRestoreOwnership: e.target.checked,
                       },
                     });
@@ -738,14 +757,14 @@ export const EditPostgreSqlSpecificDataComponent = ({
                   </Tooltip>
                 </div>
                 <Checkbox
-                  checked={editingDatabase.postgresql?.isRestorePrivileges || false}
+                  checked={editingDatabase.postgresqlLogical?.isRestorePrivileges || false}
                   onChange={(e) => {
-                    if (!editingDatabase.postgresql) return;
+                    if (!editingDatabase.postgresqlLogical) return;
 
                     setEditingDatabase({
                       ...editingDatabase,
-                      postgresql: {
-                        ...editingDatabase.postgresql,
+                      postgresqlLogical: {
+                        ...editingDatabase.postgresqlLogical,
                         isRestorePrivileges: e.target.checked,
                       },
                     });

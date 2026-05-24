@@ -450,23 +450,23 @@ func (s *DatabaseService) CopyDatabase(
 	}
 
 	switch existingDatabase.Type {
-	case DatabaseTypePostgres:
-		if existingDatabase.Postgresql != nil {
-			newDatabase.Postgresql = &postgresql_logical.PostgresqlLogicalDatabase{
+	case DatabaseTypePostgresLogical:
+		if existingDatabase.PostgresqlLogical != nil {
+			newDatabase.PostgresqlLogical = &postgresql_logical.PostgresqlLogicalDatabase{
 				ID:             uuid.Nil,
 				DatabaseID:     nil,
-				Version:        existingDatabase.Postgresql.Version,
-				Host:           existingDatabase.Postgresql.Host,
-				Port:           existingDatabase.Postgresql.Port,
-				Username:       existingDatabase.Postgresql.Username,
-				Password:       existingDatabase.Postgresql.Password,
-				Database:       existingDatabase.Postgresql.Database,
-				SslMode:        existingDatabase.Postgresql.SslMode,
-				SslClientCert:  existingDatabase.Postgresql.SslClientCert,
-				SslClientKey:   existingDatabase.Postgresql.SslClientKey,
-				SslRootCert:    existingDatabase.Postgresql.SslRootCert,
-				IncludeSchemas: existingDatabase.Postgresql.IncludeSchemas,
-				CpuCount:       existingDatabase.Postgresql.CpuCount,
+				Version:        existingDatabase.PostgresqlLogical.Version,
+				Host:           existingDatabase.PostgresqlLogical.Host,
+				Port:           existingDatabase.PostgresqlLogical.Port,
+				Username:       existingDatabase.PostgresqlLogical.Username,
+				Password:       existingDatabase.PostgresqlLogical.Password,
+				Database:       existingDatabase.PostgresqlLogical.Database,
+				SslMode:        existingDatabase.PostgresqlLogical.SslMode,
+				SslClientCert:  existingDatabase.PostgresqlLogical.SslClientCert,
+				SslClientKey:   existingDatabase.PostgresqlLogical.SslClientKey,
+				SslRootCert:    existingDatabase.PostgresqlLogical.SslRootCert,
+				IncludeSchemas: existingDatabase.PostgresqlLogical.IncludeSchemas,
+				CpuCount:       existingDatabase.PostgresqlLogical.CpuCount,
 			}
 		}
 	case DatabaseTypeMysql:
@@ -744,8 +744,8 @@ func (s *DatabaseService) CreateReadOnlyUser(
 	var err error
 
 	switch usingDatabase.Type {
-	case DatabaseTypePostgres:
-		username, password, err = usingDatabase.Postgresql.CreateReadOnlyUser(
+	case DatabaseTypePostgresLogical:
+		username, password, err = usingDatabase.PostgresqlLogical.CreateReadOnlyUser(
 			ctx, s.logger, s.fieldEncryptor,
 		)
 	case DatabaseTypeMysql:

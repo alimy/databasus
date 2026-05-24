@@ -42,7 +42,7 @@ export const DatabaseComponent = ({
     setIsHealthcheckVisible(isVisible);
   };
 
-  const isPostgresDatabase = database?.type === DatabaseType.POSTGRES;
+  const isPostgresDatabase = database?.type === DatabaseType.POSTGRES_LOGICAL;
 
   const loadSettings = () => {
     setDatabase(undefined);

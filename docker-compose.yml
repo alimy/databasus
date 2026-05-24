@@ -174,6 +174,78 @@ services:
     container_name: test-logical-postgres-18
     shm_size: 1gb
 
+  test-physical-postgres-17:
+    image: postgres:17
+    ports:
+      - "${TEST_PHYSICAL_POSTGRES_17_PORT}:5432"
+    environment:
+      - POSTGRES_DB=testdb
+      - POSTGRES_USER=testuser
+      - POSTGRES_PASSWORD=testpassword
+    command:
+      - postgres
+      - -c
+      - wal_level=replica
+      - -c
+      - summarize_wal=on
+      - -c
+      - max_wal_senders=10
+      - -c
+      - max_replication_slots=10
+      - -c
+      - wal_keep_size=512MB
+    container_name: test-physical-postgres-17
+    shm_size: 1gb
+
+  test-physical-postgres-18:
+    image: postgres:18
+    ports:
+      - "${TEST_PHYSICAL_POSTGRES_18_PORT}:5432"
+    environment:
+      - POSTGRES_DB=testdb
+      - POSTGRES_USER=testuser
+      - POSTGRES_PASSWORD=testpassword
+    command:
+      - postgres
+      - -c
+      - wal_level=replica
+      - -c
+      - summarize_wal=on
+      - -c
+      - max_wal_senders=10
+      - -c
+      - max_replication_slots=10
+      - -c
+      - wal_keep_size=512MB
+    container_name: test-physical-postgres-18
+    shm_size: 1gb
+
+  # Fail-case containers — explicit default summarize_wal=off so we can test
+  # the "BackupType.RequiresWalSummary() ⇒ summarize_wal check fails" path
+  # of TestReplicationConnection. One per supported physical PG version
+  # because every integration test runs against both 17 and 18.
+  test-physical-postgres-17-no-summary:
+    image: postgres:17
+    ports:
+      - "${TEST_PHYSICAL_POSTGRES_17_NO_SUMMARY_PORT}:5432"
+    environment:
+      - POSTGRES_DB=testdb
+      - POSTGRES_USER=testuser
+      - POSTGRES_PASSWORD=testpassword
+    container_name: test-physical-postgres-17-no-summary
+    shm_size: 1gb
+
+  test-physical-postgres-18-no-summary:
+    image: postgres:18
+    ports:
+      - "${TEST_PHYSICAL_POSTGRES_18_NO_SUMMARY_PORT}:5432"
+    environment:
+      - POSTGRES_DB=testdb
+      - POSTGRES_USER=testuser
+      - POSTGRES_PASSWORD=testpassword
+    container_name: test-physical-postgres-18-no-summary
+    shm_size: 1gb
+
   # Test Azurite container
   test-azurite:
     image: mcr.microsoft.com/azure-storage/azurite

@@ -27,23 +27,25 @@ export const ShowPostgreSqlSpecificDataComponent = ({ database }: Props) => {
       <div className="mb-1 flex w-full items-center">
         <div className="min-w-[150px]">PG version</div>
         <div>
-          {database.postgresql?.version ? postgresqlVersionLabels[database.postgresql.version] : ''}
+          {database.postgresqlLogical?.version
+            ? postgresqlVersionLabels[database.postgresqlLogical.version]
+            : ''}
         </div>
       </div>
 
       <div className="mb-1 flex w-full items-center">
         <div className="min-w-[150px] break-all">Host</div>
-        <div>{database.postgresql?.host || ''}</div>
+        <div>{database.postgresqlLogical?.host || ''}</div>
       </div>
 
       <div className="mb-1 flex w-full items-center">
         <div className="min-w-[150px]">Port</div>
-        <div>{database.postgresql?.port || ''}</div>
+        <div>{database.postgresqlLogical?.port || ''}</div>
       </div>
 
       <div className="mb-1 flex w-full items-center">
         <div className="min-w-[150px]">Username</div>
-        <div>{database.postgresql?.username || ''}</div>
+        <div>{database.postgresqlLogical?.username || ''}</div>
       </div>
 
       <div className="mb-1 flex w-full items-center">
@@ -53,33 +55,33 @@ export const ShowPostgreSqlSpecificDataComponent = ({ database }: Props) => {
 
       <div className="mb-1 flex w-full items-center">
         <div className="min-w-[150px]">DB name</div>
-        <div>{database.postgresql?.database || ''}</div>
+        <div>{database.postgresqlLogical?.database || ''}</div>
       </div>
 
       <div className="mb-1 flex w-full items-center">
         <div className="min-w-[150px]">SSL mode</div>
-        <div>{sslModeLabels[database.postgresql?.sslMode ?? PostgresSslMode.Disable]}</div>
+        <div>{sslModeLabels[database.postgresqlLogical?.sslMode ?? PostgresSslMode.Disable]}</div>
       </div>
 
-      {!!database.postgresql?.sslClientCert &&
-        database.postgresql?.sslMode !== PostgresSslMode.Disable && (
+      {!!database.postgresqlLogical?.sslClientCert &&
+        database.postgresqlLogical?.sslMode !== PostgresSslMode.Disable && (
           <div className="mb-1 flex w-full items-center">
             <div className="min-w-[150px]">Client certificate</div>
             <div>*************</div>
           </div>
         )}
 
-      {!!database.postgresql?.includeSchemas?.length && (
+      {!!database.postgresqlLogical?.includeSchemas?.length && (
         <div className="mb-1 flex w-full items-center">
           <div className="min-w-[150px]">Include schemas</div>
-          <div>{database.postgresql.includeSchemas.join(', ')}</div>
+          <div>{database.postgresqlLogical.includeSchemas.join(', ')}</div>
         </div>
       )}
 
-      {!!database.postgresql?.excludeTables?.length && (
+      {!!database.postgresqlLogical?.excludeTables?.length && (
         <div className="mb-1 flex w-full items-center">
           <div className="min-w-[150px]">Exclude tables</div>
-          <div>{database.postgresql.excludeTables.join(', ')}</div>
+          <div>{database.postgresqlLogical.excludeTables.join(', ')}</div>
         </div>
       )}
     </div>

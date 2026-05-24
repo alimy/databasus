@@ -28,7 +28,7 @@ export const CreateReadOnlyComponent = ({
   const [privileges, setPrivileges] = useState<string[]>([]);
   const [isPrivilegesExpanded, setIsPrivilegesExpanded] = useState(false);
 
-  const isPostgres = database.type === DatabaseType.POSTGRES;
+  const isPostgres = database.type === DatabaseType.POSTGRES_LOGICAL;
   const isMysql = database.type === DatabaseType.MYSQL;
   const isMariadb = database.type === DatabaseType.MARIADB;
   const isMongodb = database.type === DatabaseType.MONGODB;
@@ -75,9 +75,9 @@ export const CreateReadOnlyComponent = ({
     try {
       const response = await databaseApi.createReadOnlyUser(database);
 
-      if (isPostgres && database.postgresql) {
-        database.postgresql.username = response.username;
-        database.postgresql.password = response.password;
+      if (isPostgres && database.postgresqlLogical) {
+        database.postgresqlLogical.username = response.username;
+        database.postgresqlLogical.password = response.password;
       } else if (isMysql && database.mysql) {
         database.mysql.username = response.username;
         database.mysql.password = response.password;

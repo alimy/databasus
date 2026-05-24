@@ -1243,8 +1243,8 @@ func createTestDatabaseForBilling(token string, workspaceID uuid.UUID, router *g
 	request := databases.Database{
 		Name:        "billing-test-" + uuid.New().String()[:8],
 		WorkspaceID: &workspaceID,
-		Type:        databases.DatabaseTypePostgres,
-		Postgresql: &postgresql_logical.PostgresqlLogicalDatabase{
+		Type:        databases.DatabaseTypePostgresLogical,
+		PostgresqlLogical: &postgresql_logical.PostgresqlLogicalDatabase{
 			Version:  tools.PostgresqlVersion16,
 			Host:     env.TestLocalhost,
 			Port:     port,

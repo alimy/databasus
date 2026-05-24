@@ -1376,7 +1376,7 @@ func testBackupRestoreWithExcludeTablesForVersion(t *testing.T, pgVersion, port 
 		user.Token,
 	)
 
-	database.Postgresql.ExcludeTables = []string{dropTable}
+	database.PostgresqlLogical.ExcludeTables = []string{dropTable}
 	updateDatabaseViaAPI(t, router, database, user.Token)
 
 	enableBackupsViaAPI(
@@ -1504,8 +1504,8 @@ func testSchemasWithExcludeTablesForVersion(t *testing.T, pgVersion, port string
 		user.Token,
 	)
 
-	database.Postgresql.IncludeSchemas = []string{"public", "schema_a"}
-	database.Postgresql.ExcludeTables = []string{"schema_a.skip_me"}
+	database.PostgresqlLogical.IncludeSchemas = []string{"public", "schema_a"}
+	database.PostgresqlLogical.ExcludeTables = []string{"schema_a.skip_me"}
 	updateDatabaseViaAPI(t, router, database, user.Token)
 
 	enableBackupsViaAPI(
@@ -1839,8 +1839,8 @@ func createDatabaseWithCpuCountViaAPI(
 	request := databases.Database{
 		Name:        name,
 		WorkspaceID: &workspaceID,
-		Type:        databases.DatabaseTypePostgres,
-		Postgresql: &pgtypes.PostgresqlLogicalDatabase{
+		Type:        databases.DatabaseTypePostgresLogical,
+		PostgresqlLogical: &pgtypes.PostgresqlLogicalDatabase{
 			Host:     host,
 			Port:     port,
 			Username: username,
@@ -2064,8 +2064,8 @@ func createDatabaseWithSchemasViaAPI(
 	request := databases.Database{
 		Name:        name,
 		WorkspaceID: &workspaceID,
-		Type:        databases.DatabaseTypePostgres,
-		Postgresql: &pgtypes.PostgresqlLogicalDatabase{
+		Type:        databases.DatabaseTypePostgresLogical,
+		PostgresqlLogical: &pgtypes.PostgresqlLogicalDatabase{
 			Host:           host,
 			Port:           port,
 			Username:       username,
@@ -2185,8 +2185,8 @@ func updateDatabaseCredentialsViaAPI(
 	password string,
 	token string,
 ) *databases.Database {
-	database.Postgresql.Username = username
-	database.Postgresql.Password = password
+	database.PostgresqlLogical.Username = username
+	database.PostgresqlLogical.Password = password
 
 	w := workspaces_testing.MakeAPIRequest(
 		router,

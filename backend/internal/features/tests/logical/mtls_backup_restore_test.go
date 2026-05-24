@@ -19,6 +19,7 @@ import (
 	backups_config_logical "databasus-backend/internal/features/backups/config/logical"
 	"databasus-backend/internal/features/databases"
 	pgtypes "databasus-backend/internal/features/databases/databases/postgresql/logical"
+	postgresql_shared "databasus-backend/internal/features/databases/databases/postgresql/shared"
 	restores_core "databasus-backend/internal/features/restores/core"
 	"databasus-backend/internal/features/storages"
 	users_enums "databasus-backend/internal/features/users/enums"
@@ -124,14 +125,14 @@ func Test_CreatePostgresqlMtls_WhenClientCertMissing_IsRejected(t *testing.T) {
 	request := databases.Database{
 		Name:        "Postgres mTLS no client cert",
 		WorkspaceID: &workspace.ID,
-		Type:        databases.DatabaseTypePostgres,
-		Postgresql: &pgtypes.PostgresqlLogicalDatabase{
+		Type:        databases.DatabaseTypePostgresLogical,
+		PostgresqlLogical: &pgtypes.PostgresqlLogicalDatabase{
 			Host:     host,
 			Port:     portInt,
 			Username: "testuser",
 			Password: "testpassword",
 			Database: &dbName,
-			SslMode:  pgtypes.PostgresSslModeRequire,
+			SslMode:  postgresql_shared.PostgresSslModeRequire,
 			CpuCount: 1,
 		},
 	}
@@ -203,14 +204,14 @@ func createPostgresqlMtlsDatabaseViaAPI(
 	request := databases.Database{
 		Name:        name,
 		WorkspaceID: &workspaceID,
-		Type:        databases.DatabaseTypePostgres,
-		Postgresql: &pgtypes.PostgresqlLogicalDatabase{
+		Type:        databases.DatabaseTypePostgresLogical,
+		PostgresqlLogical: &pgtypes.PostgresqlLogicalDatabase{
 			Host:          host,
 			Port:          port,
 			Username:      username,
 			Password:      password,
 			Database:      &database,
-			SslMode:       pgtypes.PostgresSslModeVerifyCA,
+			SslMode:       postgresql_shared.PostgresSslModeVerifyCA,
 			SslClientCert: clientCert,
 			SslClientKey:  clientKey,
 			SslRootCert:   rootCert,
@@ -237,7 +238,7 @@ func createPostgresqlMtlsRestoreViaAPI(
 			Username:      username,
 			Password:      password,
 			Database:      &database,
-			SslMode:       pgtypes.PostgresSslModeVerifyCA,
+			SslMode:       postgresql_shared.PostgresSslModeVerifyCA,
 			SslClientCert: clientCert,
 			SslClientKey:  clientKey,
 			SslRootCert:   rootCert,

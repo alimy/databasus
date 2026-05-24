@@ -546,7 +546,7 @@ func (s *BackupService) getBackupExtension(dbType databases.DatabaseType) string
 	switch dbType {
 	case databases.DatabaseTypeMysql, databases.DatabaseTypeMariadb:
 		return ".sql.zst"
-	case databases.DatabaseTypePostgres:
+	case databases.DatabaseTypePostgresLogical:
 		return ".dump"
 	case databases.DatabaseTypeMongodb:
 		return ".archive"

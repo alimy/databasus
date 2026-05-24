@@ -709,8 +709,8 @@ func (s *VerificationService) guardBackupIsVerifiable(
 // no-op job to an agent.
 func validateDatabaseIsVerifiable(database *databases.Database) error {
 	switch database.Type {
-	case databases.DatabaseTypePostgres:
-		if database.Postgresql == nil || database.Postgresql.Version == "" {
+	case databases.DatabaseTypePostgresLogical:
+		if database.PostgresqlLogical == nil || database.PostgresqlLogical.Version == "" {
 			return errors.New("postgresql sub-row missing or version empty")
 		}
 

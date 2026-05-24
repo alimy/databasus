@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	postgresql_shared "databasus-backend/internal/features/databases/databases/postgresql/shared"
 	"databasus-backend/internal/util/encryption"
 	"databasus-backend/internal/util/tools"
 )
@@ -54,7 +55,7 @@ func WriteCredentialFiles(
 		return nil, err
 	}
 
-	if p.SslMode != PostgresSslModeDisable && p.SslMode != "" {
+	if p.SslMode != postgresql_shared.PostgresSslModeDisable && p.SslMode != "" {
 		if err := files.writeCertFiles(p, encryptor); err != nil {
 			_ = os.RemoveAll(dir)
 			return nil, err
@@ -163,7 +164,7 @@ func buildConnectionStringForDB(
 ) string {
 	sslMode := p.SslMode
 	if sslMode == "" {
-		sslMode = PostgresSslModeDisable
+		sslMode = postgresql_shared.PostgresSslModeDisable
 	}
 
 	connStr := fmt.Sprintf(

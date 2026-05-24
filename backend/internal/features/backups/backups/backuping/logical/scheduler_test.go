@@ -1089,7 +1089,7 @@ func Test_StartBackup_WhenBackupFails_DecrementsActiveTaskCount(t *testing.T) {
 
 	// Set wrong password to cause backup failure
 	// We need to bypass service layer validation which would fail on connection test
-	database.Postgresql.Password = "intentionally_wrong_password"
+	database.PostgresqlLogical.Password = "intentionally_wrong_password"
 	dbRepo := &databases.DatabaseRepository{}
 	_, err := dbRepo.Save(database)
 	assert.NoError(t, err)

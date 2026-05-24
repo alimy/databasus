@@ -26,7 +26,7 @@ interface Props {
 }
 
 const databaseTypeOptions = [
-  { value: DatabaseType.POSTGRES, label: 'PostgreSQL' },
+  { value: DatabaseType.POSTGRES_LOGICAL, label: 'PostgreSQL' },
   { value: DatabaseType.MYSQL, label: 'MySQL' },
   { value: DatabaseType.MARIADB, label: 'MariaDB' },
   { value: DatabaseType.MONGODB, label: 'MongoDB' },
@@ -57,16 +57,16 @@ export const EditDatabaseBaseInfoComponent = ({
     const updatedDatabase: Database = {
       ...editingDatabase,
       type: newType,
-      postgresql: undefined,
+      postgresqlLogical: undefined,
       mysql: undefined,
       mariadb: undefined,
       mongodb: undefined,
     };
 
     switch (newType) {
-      case DatabaseType.POSTGRES:
-        updatedDatabase.postgresql =
-          editingDatabase.postgresql ?? ({ cpuCount: 1 } as PostgresqlDatabase);
+      case DatabaseType.POSTGRES_LOGICAL:
+        updatedDatabase.postgresqlLogical =
+          editingDatabase.postgresqlLogical ?? ({ cpuCount: 1 } as PostgresqlDatabase);
         break;
       case DatabaseType.MYSQL:
         updatedDatabase.mysql = editingDatabase.mysql ?? ({} as MysqlDatabase);

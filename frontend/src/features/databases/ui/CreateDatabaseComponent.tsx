@@ -32,7 +32,7 @@ const createInitialDatabase = (workspaceId: string): Database =>
     workspaceId,
     storePeriod: Period.MONTH,
 
-    type: DatabaseType.POSTGRES,
+    type: DatabaseType.POSTGRES_LOGICAL,
 
     storage: {} as unknown as Storage,
 
@@ -50,11 +50,11 @@ const initializeDatabaseTypeData = (db: Database): Database => {
   };
 
   switch (db.type) {
-    case DatabaseType.POSTGRES:
+    case DatabaseType.POSTGRES_LOGICAL:
       return {
         ...base,
-        postgresql:
-          db.postgresql ??
+        postgresqlLogical:
+          db.postgresqlLogical ??
           ({
             cpuCount: 1,
           } as PostgresqlDatabase),

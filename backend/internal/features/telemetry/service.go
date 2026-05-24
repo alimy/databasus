@@ -271,11 +271,11 @@ func (s *TelemetryService) isDatabaseActive(
 
 func buildDatabaseEntry(db *databases.Database) (DatabaseEntry, bool) {
 	switch db.Type {
-	case databases.DatabaseTypePostgres:
-		if db.Postgresql == nil {
+	case databases.DatabaseTypePostgresLogical:
+		if db.PostgresqlLogical == nil {
 			return DatabaseEntry{}, false
 		}
-		return DatabaseEntry{Type: string(db.Type), Version: string(db.Postgresql.Version)}, true
+		return DatabaseEntry{Type: string(db.Type), Version: string(db.PostgresqlLogical.Version)}, true
 	case databases.DatabaseTypeMysql:
 		if db.Mysql == nil {
 			return DatabaseEntry{}, false

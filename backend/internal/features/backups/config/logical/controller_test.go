@@ -1710,8 +1710,8 @@ func createTestDatabaseViaAPI(
 	request := databases.Database{
 		WorkspaceID: &workspaceID,
 		Name:        name,
-		Type:        databases.DatabaseTypePostgres,
-		Postgresql: &postgresql_logical.PostgresqlLogicalDatabase{
+		Type:        databases.DatabaseTypePostgresLogical,
+		PostgresqlLogical: &postgresql_logical.PostgresqlLogicalDatabase{
 			Version:  tools.PostgresqlVersion16,
 			Host:     config.GetEnv().TestLocalhost,
 			Port:     port,

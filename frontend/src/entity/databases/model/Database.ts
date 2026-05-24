@@ -12,7 +12,7 @@ export interface Database {
   workspaceId: string;
   type: DatabaseType;
 
-  postgresql?: PostgresqlDatabase;
+  postgresqlLogical?: PostgresqlDatabase;
   mysql?: MysqlDatabase;
   mariadb?: MariadbDatabase;
   mongodb?: MongodbDatabase;

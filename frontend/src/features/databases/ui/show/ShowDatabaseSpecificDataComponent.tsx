@@ -10,7 +10,7 @@ interface Props {
 
 export const ShowDatabaseSpecificDataComponent = ({ database }: Props) => {
   switch (database.type) {
-    case DatabaseType.POSTGRES:
+    case DatabaseType.POSTGRES_LOGICAL:
       return <ShowPostgreSqlSpecificDataComponent database={database} />;
     case DatabaseType.MYSQL:
       return <ShowMySqlSpecificDataComponent database={database} />;

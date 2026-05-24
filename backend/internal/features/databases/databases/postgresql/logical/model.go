@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
 
+	postgresql_shared "databasus-backend/internal/features/databases/databases/postgresql/shared"
 	"databasus-backend/internal/util/encryption"
 	"databasus-backend/internal/util/tools"
 )
@@ -32,10 +33,10 @@ type PostgresqlLogicalDatabase struct {
 	Database *string `json:"database" gorm:"type:text"`
 
 	// SSL / TLS connection settings
-	SslMode       PostgresSslMode `json:"sslMode"       gorm:"column:ssl_mode;type:text;not null;default:'disable'"`
-	SslClientCert string          `json:"sslClientCert" gorm:"column:ssl_client_cert;type:text;not null;default:''"`
-	SslClientKey  string          `json:"sslClientKey"  gorm:"column:ssl_client_key;type:text;not null;default:''"`
-	SslRootCert   string          `json:"sslRootCert"   gorm:"column:ssl_root_cert;type:text;not null;default:''"`
+	SslMode       postgresql_shared.PostgresSslMode `json:"sslMode"       gorm:"column:ssl_mode;type:text;not null;default:'disable'"`
+	SslClientCert string                            `json:"sslClientCert" gorm:"column:ssl_client_cert;type:text;not null;default:''"`
+	SslClientKey  string                            `json:"sslClientKey"  gorm:"column:ssl_client_key;type:text;not null;default:''"`
+	SslRootCert   string                            `json:"sslRootCert"   gorm:"column:ssl_root_cert;type:text;not null;default:''"`
 
 	// backup settings
 	IncludeSchemas       []string `json:"includeSchemas" gorm:"-"`
@@ -88,7 +89,7 @@ func (p *PostgresqlLogicalDatabase) AfterFind(_ *gorm.DB) error {
 
 func (p *PostgresqlLogicalDatabase) Validate() error {
 	if p.SslMode == "" {
-		p.SslMode = PostgresSslModeDisable
+		p.SslMode = postgresql_shared.PostgresSslModeDisable
 	}
 
 	if p.Host == "" {
@@ -901,27 +902,12 @@ func (p *PostgresqlLogicalDatabase) CreateReadOnlyUser(
 }
 
 func (p *PostgresqlLogicalDatabase) validateSslConfig() error {
-	switch p.SslMode {
-	case PostgresSslModeDisable, PostgresSslModeRequire, PostgresSslModeVerifyCA, PostgresSslModeVerifyFull:
-	default:
-		return fmt.Errorf("invalid SSL mode: %s", p.SslMode)
-	}
-
-	hasClientCert := p.SslClientCert != ""
-	hasClientKey := p.SslClientKey != ""
-
-	if hasClientCert != hasClientKey {
-		return errors.New("client certificate and client key must be provided together")
-	}
-
-	if p.SslMode == PostgresSslModeDisable &&
-		(hasClientCert || hasClientKey || p.SslRootCert != "") {
-		return errors.New(
-			"SSL certificates require SSL to be enabled (set SSL mode to require, verify-ca or verify-full)",
-		)
-	}
-
-	return nil
+	return postgresql_shared.ValidateSslConfig(
+		p.SslMode,
+		p.SslClientCert,
+		p.SslClientKey,
+		p.SslRootCert,
+	)
 }
 
 // testSingleDatabaseConnection tests connection to a specific database for pg_dump

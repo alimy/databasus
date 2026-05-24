@@ -293,12 +293,12 @@ func (s *RestoreService) validateVersionCompatibility(
 	}
 
 	switch backupDatabase.Type {
-	case databases.DatabaseTypePostgres:
+	case databases.DatabaseTypePostgresLogical:
 		if requestDTO.PostgresqlLogicalDatabase == nil {
 			return errors.New("postgresql database configuration is required for restore")
 		}
 		if tools.IsBackupDbVersionHigherThanRestoreDbVersion(
-			backupDatabase.Postgresql.Version,
+			backupDatabase.PostgresqlLogical.Version,
 			requestDTO.PostgresqlLogicalDatabase.Version,
 		) {
 			return errors.New(`backup database version is higher than restore database version. ` +

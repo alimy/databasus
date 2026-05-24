@@ -33,7 +33,7 @@ func (uc *RestoreBackupUsecase) Execute(
 	isExcludeExtensions bool,
 ) error {
 	switch originalDB.Type {
-	case databases.DatabaseTypePostgres:
+	case databases.DatabaseTypePostgresLogical:
 		return uc.restorePostgresqlBackupUsecase.Execute(
 			ctx,
 			originalDB,

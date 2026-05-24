@@ -92,10 +92,10 @@ func Test_CreateDatabase_PermissionsEnforced(t *testing.T) {
 			}
 
 			request := Database{
-				Name:        "Test Database",
-				WorkspaceID: &workspace.ID,
-				Type:        DatabaseTypePostgres,
-				Postgresql:  getTestPostgresConfig(),
+				Name:              "Test Database",
+				WorkspaceID:       &workspace.ID,
+				Type:              DatabaseTypePostgresLogical,
+				PostgresqlLogical: getTestPostgresConfig(),
 			}
 
 			var response Database
@@ -129,10 +129,10 @@ func Test_CreateDatabase_WhenUserIsNotWorkspaceMember_ReturnsForbidden(t *testin
 	nonMember := users_testing.CreateTestUser(users_enums.UserRoleMember)
 
 	request := Database{
-		Name:        "Test Database",
-		WorkspaceID: &workspace.ID,
-		Type:        DatabaseTypePostgres,
-		Postgresql:  getTestPostgresConfig(),
+		Name:              "Test Database",
+		WorkspaceID:       &workspace.ID,
+		Type:              DatabaseTypePostgresLogical,
+		PostgresqlLogical: getTestPostgresConfig(),
 	}
 
 	testResp := test_utils.MakePostRequest(
@@ -156,8 +156,8 @@ func Test_CreateDatabase_WithoutConnectionFields_ValidationFails(t *testing.T) {
 	request := Database{
 		Name:        "Test Database",
 		WorkspaceID: &workspace.ID,
-		Type:        DatabaseTypePostgres,
-		Postgresql: &postgresql_logical.PostgresqlLogicalDatabase{
+		Type:        DatabaseTypePostgresLogical,
+		PostgresqlLogical: &postgresql_logical.PostgresqlLogicalDatabase{
 			CpuCount: 1,
 		},
 	}
@@ -751,10 +751,10 @@ func Test_CreateDatabase_PasswordIsEncryptedInDB(t *testing.T) {
 	plainPassword := "testpassword"
 	pgConfig.Password = plainPassword
 	request := Database{
-		Name:        "Test Database",
-		WorkspaceID: &workspace.ID,
-		Type:        DatabaseTypePostgres,
-		Postgresql:  pgConfig,
+		Name:              "Test Database",
+		WorkspaceID:       &workspace.ID,
+		Type:              DatabaseTypePostgresLogical,
+		PostgresqlLogical: pgConfig,
 	}
 
 	var createdDatabase Database
@@ -772,17 +772,17 @@ func Test_CreateDatabase_PasswordIsEncryptedInDB(t *testing.T) {
 	databaseFromDB, err := repository.FindByID(createdDatabase.ID)
 	assert.NoError(t, err)
 	assert.NotNil(t, databaseFromDB)
-	assert.NotNil(t, databaseFromDB.Postgresql)
+	assert.NotNil(t, databaseFromDB.PostgresqlLogical)
 
 	assert.True(
 		t,
-		strings.HasPrefix(databaseFromDB.Postgresql.Password, "enc:"),
+		strings.HasPrefix(databaseFromDB.PostgresqlLogical.Password, "enc:"),
 		"Password should be encrypted in database with 'enc:' prefix, got: %s",
-		databaseFromDB.Postgresql.Password,
+		databaseFromDB.PostgresqlLogical.Password,
 	)
 
 	encryptor := encryption.GetFieldEncryptor()
-	decryptedPassword, err := encryptor.Decrypt(databaseFromDB.Postgresql.Password)
+	decryptedPassword, err := encryptor.Decrypt(databaseFromDB.PostgresqlLogical.Password)
 	assert.NoError(t, err)
 	assert.Equal(t, plainPassword, decryptedPassword,
 		"Decrypted password should match original plaintext password")
@@ -809,38 +809,38 @@ func Test_DatabaseSensitiveDataLifecycle_AllTypes(t *testing.T) {
 	}{
 		{
 			name:         "PostgreSQL Database",
-			databaseType: DatabaseTypePostgres,
+			databaseType: DatabaseTypePostgresLogical,
 			createDatabase: func(workspaceID uuid.UUID) *Database {
 				pgConfig := getTestPostgresConfig()
 				return &Database{
-					WorkspaceID: &workspaceID,
-					Name:        "Test PostgreSQL Database",
-					Type:        DatabaseTypePostgres,
-					Postgresql:  pgConfig,
+					WorkspaceID:       &workspaceID,
+					Name:              "Test PostgreSQL Database",
+					Type:              DatabaseTypePostgresLogical,
+					PostgresqlLogical: pgConfig,
 				}
 			},
 			updateDatabase: func(workspaceID, databaseID uuid.UUID) *Database {
 				pgConfig := getTestPostgresConfig()
 				pgConfig.Password = ""
 				return &Database{
-					ID:          databaseID,
-					WorkspaceID: &workspaceID,
-					Name:        "Updated PostgreSQL Database",
-					Type:        DatabaseTypePostgres,
-					Postgresql:  pgConfig,
+					ID:                databaseID,
+					WorkspaceID:       &workspaceID,
+					Name:              "Updated PostgreSQL Database",
+					Type:              DatabaseTypePostgresLogical,
+					PostgresqlLogical: pgConfig,
 				}
 			},
 			verifySensitiveData: func(t *testing.T, database *Database) {
-				assert.True(t, strings.HasPrefix(database.Postgresql.Password, "enc:"),
+				assert.True(t, strings.HasPrefix(database.PostgresqlLogical.Password, "enc:"),
 					"Password should be encrypted in database")
 
 				encryptor := encryption.GetFieldEncryptor()
-				decrypted, err := encryptor.Decrypt(database.Postgresql.Password)
+				decrypted, err := encryptor.Decrypt(database.PostgresqlLogical.Password)
 				assert.NoError(t, err)
 				assert.Equal(t, "testpassword", decrypted)
 			},
 			verifyHiddenData: func(t *testing.T, database *Database) {
-				assert.Equal(t, "", database.Postgresql.Password)
+				assert.Equal(t, "", database.PostgresqlLogical.Password)
 			},
 		},
 		{
@@ -1116,8 +1116,8 @@ func createTestDatabaseViaAPI(
 	request := Database{
 		Name:        name,
 		WorkspaceID: &workspaceID,
-		Type:        DatabaseTypePostgres,
-		Postgresql: &postgresql_logical.PostgresqlLogicalDatabase{
+		Type:        DatabaseTypePostgresLogical,
+		PostgresqlLogical: &postgresql_logical.PostgresqlLogicalDatabase{
 			Version:  tools.PostgresqlVersion16,
 			Host:     config.GetEnv().TestLocalhost,
 			Port:     port,
@@ -1196,10 +1196,10 @@ func Test_CreateDatabase_WhenCloudAndUserIsNotReadOnly_ReturnsBadRequest(t *test
 	defer workspaces_testing.RemoveTestWorkspace(workspace, router)
 
 	request := Database{
-		Name:        "Cloud Non-ReadOnly DB",
-		WorkspaceID: &workspace.ID,
-		Type:        DatabaseTypePostgres,
-		Postgresql:  getTestPostgresConfig(),
+		Name:              "Cloud Non-ReadOnly DB",
+		WorkspaceID:       &workspace.ID,
+		Type:              DatabaseTypePostgresLogical,
+		PostgresqlLogical: getTestPostgresConfig(),
 	}
 
 	resp := test_utils.MakePostRequest(
@@ -1235,10 +1235,10 @@ func Test_CreateDatabase_WhenCloudAndUserIsReadOnly_DatabaseCreated(t *testing.T
 	pgConfig.Password = readOnlyUser.Password
 
 	request := Database{
-		Name:        "Cloud ReadOnly DB",
-		WorkspaceID: &workspace.ID,
-		Type:        DatabaseTypePostgres,
-		Postgresql:  pgConfig,
+		Name:              "Cloud ReadOnly DB",
+		WorkspaceID:       &workspace.ID,
+		Type:              DatabaseTypePostgresLogical,
+		PostgresqlLogical: pgConfig,
 	}
 
 	var response Database
@@ -1264,10 +1264,10 @@ func Test_CreateDatabase_WhenNotCloudAndUserIsNotReadOnly_DatabaseCreated(t *tes
 	defer workspaces_testing.RemoveTestWorkspace(workspace, router)
 
 	request := Database{
-		Name:        "Non-Cloud DB",
-		WorkspaceID: &workspace.ID,
-		Type:        DatabaseTypePostgres,
-		Postgresql:  getTestPostgresConfig(),
+		Name:              "Non-Cloud DB",
+		WorkspaceID:       &workspace.ID,
+		Type:              DatabaseTypePostgresLogical,
+		PostgresqlLogical: getTestPostgresConfig(),
 	}
 
 	var response Database
