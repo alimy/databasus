@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	cleanerTickerInterval   = 1 * time.Minute
+	cleanerTickerInterval   = 3 * time.Second
 	recentBackupGracePeriod = 60 * time.Minute
 )
 

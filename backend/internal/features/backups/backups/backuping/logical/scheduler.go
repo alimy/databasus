@@ -21,7 +21,7 @@ import (
 
 const (
 	schedulerStartupDelay         = 1 * time.Minute
-	schedulerTickerInterval       = 1 * time.Minute
+	schedulerTickerInterval       = 15 * time.Second
 	schedulerHealthcheckThreshold = 5 * time.Minute
 )
 
