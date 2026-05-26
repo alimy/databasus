@@ -212,6 +212,8 @@ func (p *PostgresqlPhysicalDatabase) PopulateDbData(
 // modes) `summarize_wal=on`. Cloud-aware: error messages are tailored to the
 // detected platform — managed PG cannot ALTER SYSTEM and the fix is to use
 // the parameter group / portal / gcloud command instead.
+// Rationale for the summarize_wal=on gate: see
+// adr/0008-why-pg17-native-backups-with-mandatory-wal-summary.md.
 func (p *PostgresqlPhysicalDatabase) TestReplicationConnection(
 	logger *slog.Logger,
 	encryptor encryption.FieldEncryptor,
@@ -758,6 +760,8 @@ func (p *PostgresqlPhysicalDatabase) probeSlotPermissions(
 // summarize_wal=off. Called from both TestReplicationConnection (so the UI
 // gate refuses) and PopulateDbData (so a direct API caller bypassing the
 // /test-connection endpoint also refuses to save).
+// Rationale for refusing instead of falling back to FULL+WAL replay: see
+// adr/0008-why-pg17-native-backups-with-mandatory-wal-summary.md.
 func (p *PostgresqlPhysicalDatabase) verifyWalSummaryRequirement(
 	ctx context.Context,
 	conn *pgx.Conn,
