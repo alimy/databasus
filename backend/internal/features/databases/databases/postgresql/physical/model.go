@@ -208,12 +208,15 @@ func (p *PostgresqlPhysicalDatabase) PopulateDbData(
 
 // TestReplicationConnection validates that the cluster is ready for the
 // physical backup strategy currently configured: replication privilege, the
-// right `wal_level` / sender / slot counts, and (for incremental / WAL-stream
-// modes) `summarize_wal=on`. Cloud-aware: error messages are tailored to the
-// detected platform — managed PG cannot ALTER SYSTEM and the fix is to use
-// the parameter group / portal / gcloud command instead.
+// right `wal_level` / sender / slot counts, absence of custom tablespaces,
+// and (for incremental / WAL-stream modes) `summarize_wal=on`. Cloud-aware:
+// error messages are tailored to the detected platform — managed PG cannot
+// ALTER SYSTEM and the fix is to use the parameter group / portal / gcloud
+// command instead.
 // Rationale for the summarize_wal=on gate: see
 // adr/0008-why-pg17-native-backups-with-mandatory-wal-summary.md.
+// Rationale for the custom-tablespace refusal: see
+// adr/0010-no-support-for-customer-tablespaces.md.
 func (p *PostgresqlPhysicalDatabase) TestReplicationConnection(
 	logger *slog.Logger,
 	encryptor encryption.FieldEncryptor,
@@ -237,6 +240,10 @@ func (p *PostgresqlPhysicalDatabase) TestReplicationConnection(
 	defer closeConnQuietly(ctx, conn, logger)
 
 	platform := detectPlatform(ctx, conn)
+
+	if err := p.checkNoCustomTablespaces(ctx, conn); err != nil {
+		return err
+	}
 
 	settings, err := readReplicationSettings(ctx, conn)
 	if err != nil {
@@ -717,6 +724,48 @@ func (p *PostgresqlPhysicalDatabase) CreateReplicationOnlyUser(
 	}
 
 	return "", "", errors.New("failed to generate unique username after 3 attempts")
+}
+
+// checkNoCustomTablespaces enforces ADR-0010: physical backups refuse any
+// cluster that has tablespaces outside pg_default / pg_global, because
+// pg_basebackup --pgdata=- -F tar cannot multiplex multi-tablespace output
+// into a single stdout stream.
+func (p *PostgresqlPhysicalDatabase) checkNoCustomTablespaces(
+	ctx context.Context,
+	conn *pgx.Conn,
+) error {
+	rows, err := conn.Query(ctx, `
+		SELECT spcname
+		FROM pg_tablespace
+		WHERE spcname NOT IN ('pg_default', 'pg_global')
+		ORDER BY spcname
+	`)
+	if err != nil {
+		return fmt.Errorf("query pg_tablespace: %w", err)
+	}
+	defer rows.Close()
+
+	var spcnames []string
+
+	for rows.Next() {
+		var name string
+
+		if err := rows.Scan(&name); err != nil {
+			return fmt.Errorf("scan pg_tablespace row: %w", err)
+		}
+
+		spcnames = append(spcnames, name)
+	}
+
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterate pg_tablespace: %w", err)
+	}
+
+	if len(spcnames) > 0 {
+		return &UnsupportedTablespacesError{Spcnames: spcnames}
+	}
+
+	return nil
 }
 
 // probeSlotPermissions creates and drops a throwaway physical replication

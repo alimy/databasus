@@ -21,25 +21,28 @@ import (
 )
 
 type pgFixture struct {
-	name          string
-	version       tools.PostgresqlVersion
-	port          func() string
-	noSummaryPort func() string
+	name           string
+	version        tools.PostgresqlVersion
+	port           func() string
+	noSummaryPort  func() string
+	tablespacePort func() string
 }
 
 func physicalFixtures() []pgFixture {
 	return []pgFixture{
 		{
-			name:          "pg17",
-			version:       tools.PostgresqlVersion17,
-			port:          func() string { return config.GetEnv().TestPhysicalPostgres17Port },
-			noSummaryPort: func() string { return config.GetEnv().TestPhysicalPostgres17NoSummaryPort },
+			name:           "pg17",
+			version:        tools.PostgresqlVersion17,
+			port:           func() string { return config.GetEnv().TestPhysicalPostgres17Port },
+			noSummaryPort:  func() string { return config.GetEnv().TestPhysicalPostgres17NoSummaryPort },
+			tablespacePort: func() string { return config.GetEnv().TestPhysicalPostgres17TablespacePort },
 		},
 		{
-			name:          "pg18",
-			version:       tools.PostgresqlVersion18,
-			port:          func() string { return config.GetEnv().TestPhysicalPostgres18Port },
-			noSummaryPort: func() string { return config.GetEnv().TestPhysicalPostgres18NoSummaryPort },
+			name:           "pg18",
+			version:        tools.PostgresqlVersion18,
+			port:           func() string { return config.GetEnv().TestPhysicalPostgres18Port },
+			noSummaryPort:  func() string { return config.GetEnv().TestPhysicalPostgres18NoSummaryPort },
+			tablespacePort: func() string { return config.GetEnv().TestPhysicalPostgres18TablespacePort },
 		},
 	}
 }
@@ -565,6 +568,26 @@ func Test_TestReplicationConnection_FailsForNonReplicationUser(t *testing.T) {
 			err := m.TestReplicationConnection(testLogger(), nil)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), "REPLICATION")
+		})
+	}
+}
+
+func Test_TestReplicationConnection_FailsWhenCustomTablespacesPresent(t *testing.T) {
+	for _, fx := range physicalFixtures() {
+		t.Run(fx.name, func(t *testing.T) {
+			port := fx.tablespacePort()
+			if port == "" {
+				t.Skipf("%s tablespace port not configured", fx.name)
+			}
+
+			m := newTestModel(t, port)
+
+			err := m.TestReplicationConnection(testLogger(), nil)
+			require.Error(t, err)
+
+			var tsErr *UnsupportedTablespacesError
+			require.ErrorAs(t, err, &tsErr)
+			assert.Contains(t, tsErr.Spcnames, "custom_ts")
 		})
 	}
 }

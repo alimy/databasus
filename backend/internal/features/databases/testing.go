@@ -100,6 +100,38 @@ func GetTestPhysicalPostgresConfigNoSummary(versionTag string) *postgresql_physi
 	}
 }
 
+func GetTestPhysicalPostgresConfigWithTablespace(versionTag string) *postgresql_physical.PostgresqlPhysicalDatabase {
+	env := config.GetEnv()
+
+	var portStr string
+	var version tools.PostgresqlVersion
+
+	switch versionTag {
+	case "17":
+		portStr = env.TestPhysicalPostgres17TablespacePort
+		version = tools.PostgresqlVersion17
+	case "18":
+		portStr = env.TestPhysicalPostgres18TablespacePort
+		version = tools.PostgresqlVersion18
+	default:
+		panic(fmt.Sprintf("unsupported physical postgres version tag: %s (use \"17\" or \"18\")", versionTag))
+	}
+
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to parse physical postgres %s tablespace port: %v", versionTag, err))
+	}
+
+	return &postgresql_physical.PostgresqlPhysicalDatabase{
+		Version:    version,
+		Host:       env.TestLocalhost,
+		Port:       port,
+		Username:   "testuser",
+		Password:   "testpassword",
+		BackupType: postgresql_physical.BackupTypeFullOnly,
+	}
+}
+
 func GetTestMariadbConfig() *mariadb.MariadbDatabase {
 	env := config.GetEnv()
 	portStr := env.TestLogicalMariadb1011Port

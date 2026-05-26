@@ -246,6 +246,75 @@ services:
     container_name: test-physical-postgres-18-no-summary
     shm_size: 1gb
 
+  # Pre-created custom tablespace so the TestReplicationConnection pre-flight
+  # rejects the cluster per ADR-0010 (physical backups do not support custom
+  # tablespaces). Init script runs once at first container boot.
+  test-physical-postgres-17-tablespace:
+    build:
+      dockerfile_inline: |
+        FROM postgres:17
+        COPY --chmod=0755 <<"EOF" /docker-entrypoint-initdb.d/01_create_tablespace.sh
+        #!/bin/bash
+        set -e
+        mkdir -p /var/lib/postgresql/custom_tablespace_dir
+        psql -v ON_ERROR_STOP=1 --username "$$POSTGRES_USER" --dbname "$$POSTGRES_DB" <<-SQL
+          CREATE TABLESPACE custom_ts LOCATION '/var/lib/postgresql/custom_tablespace_dir';
+        SQL
+        EOF
+    ports:
+      - "${TEST_PHYSICAL_POSTGRES_17_TABLESPACE_PORT}:5432"
+    environment:
+      - POSTGRES_DB=testdb
+      - POSTGRES_USER=testuser
+      - POSTGRES_PASSWORD=testpassword
+    command:
+      - postgres
+      - -c
+      - wal_level=replica
+      - -c
+      - summarize_wal=on
+      - -c
+      - max_wal_senders=10
+      - -c
+      - max_replication_slots=10
+      - -c
+      - wal_keep_size=512MB
+    container_name: test-physical-postgres-17-tablespace
+    shm_size: 1gb
+
+  test-physical-postgres-18-tablespace:
+    build:
+      dockerfile_inline: |
+        FROM postgres:18
+        COPY --chmod=0755 <<"EOF" /docker-entrypoint-initdb.d/01_create_tablespace.sh
+        #!/bin/bash
+        set -e
+        mkdir -p /var/lib/postgresql/custom_tablespace_dir
+        psql -v ON_ERROR_STOP=1 --username "$$POSTGRES_USER" --dbname "$$POSTGRES_DB" <<-SQL
+          CREATE TABLESPACE custom_ts LOCATION '/var/lib/postgresql/custom_tablespace_dir';
+        SQL
+        EOF
+    ports:
+      - "${TEST_PHYSICAL_POSTGRES_18_TABLESPACE_PORT}:5432"
+    environment:
+      - POSTGRES_DB=testdb
+      - POSTGRES_USER=testuser
+      - POSTGRES_PASSWORD=testpassword
+    command:
+      - postgres
+      - -c
+      - wal_level=replica
+      - -c
+      - summarize_wal=on
+      - -c
+      - max_wal_senders=10
+      - -c
+      - max_replication_slots=10
+      - -c
+      - wal_keep_size=512MB
+    container_name: test-physical-postgres-18-tablespace
+    shm_size: 1gb
+
   # Test Azurite container
   test-azurite:
     image: mcr.microsoft.com/azure-storage/azurite
