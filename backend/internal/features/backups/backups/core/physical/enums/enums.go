@@ -1,0 +1,81 @@
+package physical_enums
+
+type PhysicalBackupStatus string
+
+const (
+	// WHY: pg_basebackup spawned (or about to spawn), not yet finished.
+	PhysicalBackupStatusInProgress PhysicalBackupStatus = "IN_PROGRESS"
+
+	// WHY: artifact in storage, all metadata populated. Chain is extendable
+	// from this row.
+	PhysicalBackupStatusCompleted PhysicalBackupStatus = "COMPLETED"
+
+	// WHY: transient failure (network blip, pg_basebackup spurious error,
+	// storage upload retry exhausted, byte-stall watcher tripped). Chain is
+	// still valid for this attempt's parent; scheduler retries the SAME kind
+	// (FULL or INCR) on next tick per retry policy.
+	PhysicalBackupStatusError PhysicalBackupStatus = "ERROR"
+
+	// WHY: chain cannot be extended further from this point. Next attempt
+	// MUST escalate to a fresh FULL (new chain identity). Rare for FULL but
+	// possible (corrupted manifest mid-stream, sys_id mismatch caught
+	// partway, start_lsn outside any known timeline range). Common for INCR
+	// (summaries expired, summarizer off, parent manifest missing).
+	PhysicalBackupStatusChainBroken PhysicalBackupStatus = "CHAIN_BROKEN"
+
+	// WHY: user- or system-initiated cancel. See PhysicalBackupErrorReason
+	// for the cancel variants.
+	PhysicalBackupStatusCanceled PhysicalBackupStatus = "CANCELED"
+)
+
+type PhysicalBackupErrorReason string
+
+const (
+	PhysicalBackupErrorPgBasebackupFailed       PhysicalBackupErrorReason = "PG_BASEBACKUP_FAILED"
+	PhysicalBackupErrorStorageUploadFailed      PhysicalBackupErrorReason = "STORAGE_UPLOAD_FAILED"
+	PhysicalBackupErrorNetworkFailure           PhysicalBackupErrorReason = "NETWORK_FAILURE"
+	PhysicalBackupErrorNetworkStallTimeout      PhysicalBackupErrorReason = "NETWORK_STALL_TIMEOUT"
+	PhysicalBackupErrorApplicationRestart       PhysicalBackupErrorReason = "APPLICATION_RESTART"
+	PhysicalBackupErrorSystemIdentifierMismatch PhysicalBackupErrorReason = "SYSTEM_IDENTIFIER_MISMATCH"
+	PhysicalBackupErrorTimelineRegression       PhysicalBackupErrorReason = "TIMELINE_REGRESSION"
+	PhysicalBackupErrorManifestCorrupted        PhysicalBackupErrorReason = "MANIFEST_CORRUPTED"
+	PhysicalBackupErrorStartLsnOutsideTimeline  PhysicalBackupErrorReason = "START_LSN_OUTSIDE_TIMELINE_RANGE"
+
+	// WHY: covers both an explicit user cancel on an in-flight backup AND
+	// in-flight backups cancelled by OnBackupConfigChanged when the user
+	// disables backups or demotes BackupType.
+	PhysicalBackupErrorCanceledByUser PhysicalBackupErrorReason = "CANCELED_BY_USER"
+
+	// WHY: in-flight backup killed because the parent DB was removed via
+	// OnBeforeDatabaseRemove. The backup row is cascade-deleted moments
+	// later — so this value is rarely observed in steady-state queries, but
+	// it appears in archived audit logs and in tests that snapshot status
+	// between the CANCEL and the DROP.
+	PhysicalBackupErrorCanceledByDbRemoval PhysicalBackupErrorReason = "CANCELED_BY_DB_REMOVAL"
+
+	// INCR-specific (all chain-killing, status = CHAIN_BROKEN).
+	PhysicalBackupErrorSummariesExpired      PhysicalBackupErrorReason = "SUMMARIES_EXPIRED"
+	PhysicalBackupErrorSummarizerOff         PhysicalBackupErrorReason = "SUMMARIZER_OFF"
+	PhysicalBackupErrorParentManifestMissing PhysicalBackupErrorReason = "PARENT_MANIFEST_MISSING"
+)
+
+type PhysicalWalStreamerStatus string
+
+const (
+	PhysicalWalStreamerStatusRunning PhysicalWalStreamerStatus = "RUNNING"
+	PhysicalWalStreamerStatusFailed  PhysicalWalStreamerStatus = "FAILED"
+)
+
+type PhysicalBackupEncryption string
+
+const (
+	PhysicalBackupEncryptionNone      PhysicalBackupEncryption = "NONE"
+	PhysicalBackupEncryptionAes256Gcm PhysicalBackupEncryption = "AES_256_GCM"
+)
+
+type PhysicalBackupType string
+
+const (
+	PhysicalBackupTypeFull        PhysicalBackupType = "FULL"
+	PhysicalBackupTypeIncremental PhysicalBackupType = "INCREMENTAL"
+)

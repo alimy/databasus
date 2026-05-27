@@ -1,0 +1,103 @@
+package physical_repositories
+
+import (
+	"errors"
+	"time"
+
+	"github.com/google/uuid"
+	"gorm.io/gorm"
+
+	physical_enums "databasus-backend/internal/features/backups/backups/core/physical/enums"
+	physical_models "databasus-backend/internal/features/backups/backups/core/physical/models"
+	"databasus-backend/internal/storage"
+)
+
+type PhysicalFullBackupRepository struct{}
+
+func (r *PhysicalFullBackupRepository) Save(b *physical_models.PhysicalFullBackup) error {
+	if b.DatabaseID == uuid.Nil || b.StorageID == uuid.Nil {
+		return errors.New("database ID and storage ID are required")
+	}
+
+	db := storage.GetDb()
+
+	if b.ID == uuid.Nil {
+		b.ID = uuid.New()
+		if b.CreatedAt.IsZero() {
+			b.CreatedAt = time.Now().UTC()
+		}
+
+		return db.Create(b).Error
+	}
+
+	return db.Save(b).Error
+}
+
+func (r *PhysicalFullBackupRepository) FindByID(id uuid.UUID) (*physical_models.PhysicalFullBackup, error) {
+	var backup physical_models.PhysicalFullBackup
+
+	if err := storage.GetDb().Where("id = ?", id).First(&backup).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+
+		return nil, err
+	}
+
+	return &backup, nil
+}
+
+func (r *PhysicalFullBackupRepository) FindCompletedNewestFirstByDatabase(
+	databaseID uuid.UUID,
+) ([]*physical_models.PhysicalFullBackup, error) {
+	var backups []*physical_models.PhysicalFullBackup
+
+	if err := storage.
+		GetDb().
+		Where("database_id = ? AND status = ?", databaseID, physical_enums.PhysicalBackupStatusCompleted).
+		Order("created_at DESC").
+		Find(&backups).Error; err != nil {
+		return nil, err
+	}
+
+	return backups, nil
+}
+
+func (r *PhysicalFullBackupRepository) FindAllForGFS(
+	databaseID uuid.UUID,
+) ([]*physical_models.PhysicalFullBackup, error) {
+	var backups []*physical_models.PhysicalFullBackup
+
+	if err := storage.
+		GetDb().
+		Where("database_id = ? AND status = ?", databaseID, physical_enums.PhysicalBackupStatusCompleted).
+		Order("created_at ASC").
+		Find(&backups).Error; err != nil {
+		return nil, err
+	}
+
+	return backups, nil
+}
+
+func (r *PhysicalFullBackupRepository) UpdateStatus(
+	id uuid.UUID,
+	status physical_enums.PhysicalBackupStatus,
+	errorReason *physical_enums.PhysicalBackupErrorReason,
+) error {
+	updates := map[string]any{"status": status, "error_reason": errorReason}
+
+	if status == physical_enums.PhysicalBackupStatusCompleted {
+		now := time.Now().UTC()
+		updates["completed_at"] = &now
+	}
+
+	return storage.
+		GetDb().
+		Model(&physical_models.PhysicalFullBackup{}).
+		Where("id = ?", id).
+		Updates(updates).Error
+}
+
+func (r *PhysicalFullBackupRepository) DeleteByID(id uuid.UUID) error {
+	return storage.GetDb().Delete(&physical_models.PhysicalFullBackup{}, "id = ?", id).Error
+}
