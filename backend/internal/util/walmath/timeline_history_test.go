@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"databasus-backend/internal/features/backups/backups/core/physical/walmath"
+	"databasus-backend/internal/util/walmath"
 )
 
 func Test_ParseHistoryFile_SingleRecord_ParsesTimelineLsnComment(t *testing.T) {

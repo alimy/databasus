@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"databasus-backend/internal/features/backups/backups/core/physical/walmath"
+	"databasus-backend/internal/util/walmath"
 )
 
 func Test_NewWalSegmentNo_LsnInsideSegment_ReturnsSegmentNumber(t *testing.T) {
