@@ -117,6 +117,71 @@ export function EditTelegramNotifierComponent({ notifier, setNotifier, setUnsave
       </div>
 
       <div className="mt-4 mb-1 flex w-full flex-col items-start sm:flex-row sm:items-center">
+        <div className="mb-1 min-w-[150px] sm:mb-0">Use HTTP proxy</div>
+        <div className="flex items-center">
+          <Switch
+            checked={notifier?.telegramNotifier?.isHttpProxyEnabled || false}
+            onChange={(checked) => {
+              if (!notifier?.telegramNotifier) return;
+
+              setNotifier({
+                ...notifier,
+                telegramNotifier: {
+                  ...notifier.telegramNotifier,
+                  isHttpProxyEnabled: checked,
+                  httpProxyUrl: checked ? notifier.telegramNotifier.httpProxyUrl : undefined,
+                  hasHttpProxyUrl: checked ? notifier.telegramNotifier.hasHttpProxyUrl : false,
+                },
+              });
+              setUnsaved();
+            }}
+            size="small"
+          />
+
+          <Tooltip className="cursor-pointer" title="Use HTTP proxy for Telegram API requests">
+            <InfoCircleOutlined className="ml-2" style={{ color: 'gray' }} />
+          </Tooltip>
+        </div>
+      </div>
+
+      {notifier?.telegramNotifier?.isHttpProxyEnabled && (
+        <div className="mb-1 flex w-full flex-col items-start sm:flex-row sm:items-center">
+          <div className="mb-1 min-w-[150px] sm:mb-0">HTTP proxy URL</div>
+          <div className="flex items-center">
+            <Input.Password
+              value={notifier?.telegramNotifier?.httpProxyUrl || ''}
+              onChange={(e) => {
+                if (!notifier?.telegramNotifier) return;
+
+                setNotifier({
+                  ...notifier,
+                  telegramNotifier: {
+                    ...notifier.telegramNotifier,
+                    httpProxyUrl: e.target.value.trim(),
+                  },
+                });
+                setUnsaved();
+              }}
+              size="small"
+              className="w-full max-w-[250px]"
+              placeholder={
+                notifier.telegramNotifier.hasHttpProxyUrl
+                  ? 'Configured'
+                  : 'http://proxy.example.com:3128'
+              }
+            />
+
+            <Tooltip
+              className="cursor-pointer"
+              title="Proxy URL must start with http:// and may include username and password"
+            >
+              <InfoCircleOutlined className="ml-2" style={{ color: 'gray' }} />
+            </Tooltip>
+          </div>
+        </div>
+      )}
+
+      <div className="mt-4 mb-1 flex w-full flex-col items-start sm:flex-row sm:items-center">
         <div className="mb-1 min-w-[150px] sm:mb-0">Send to group topic</div>
         <div className="flex items-center">
           <Switch

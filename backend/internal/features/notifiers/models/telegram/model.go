@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -17,10 +18,13 @@ import (
 )
 
 type TelegramNotifier struct {
-	NotifierID   uuid.UUID `json:"notifierId"   gorm:"primaryKey;column:notifier_id"`
-	BotToken     string    `json:"botToken"     gorm:"not null;column:bot_token"`
-	TargetChatID string    `json:"targetChatId" gorm:"not null;column:target_chat_id"`
-	ThreadID     *int64    `json:"threadId"     gorm:"column:thread_id"`
+	NotifierID         uuid.UUID `json:"notifierId"         gorm:"primaryKey;column:notifier_id"`
+	BotToken           string    `json:"botToken"           gorm:"not null;column:bot_token"`
+	TargetChatID       string    `json:"targetChatId"       gorm:"not null;column:target_chat_id"`
+	ThreadID           *int64    `json:"threadId"           gorm:"column:thread_id"`
+	IsHTTPProxyEnabled bool      `json:"isHttpProxyEnabled" gorm:"column:is_http_proxy_enabled;type:boolean;not null;default:false"`
+	HTTPProxyURL       string    `json:"httpProxyUrl"       gorm:"column:http_proxy_url;type:text"`
+	HasHTTPProxyURL    bool      `json:"hasHttpProxyUrl"    gorm:"-"`
 }
 
 func (t *TelegramNotifier) TableName() string {
@@ -34,6 +38,22 @@ func (t *TelegramNotifier) Validate(encryptor encryption.FieldEncryptor) error {
 
 	if t.TargetChatID == "" {
 		return errors.New("target chat ID is required")
+	}
+
+	if t.IsHTTPProxyEnabled {
+		if t.HTTPProxyURL == "" {
+			return errors.New("HTTP proxy URL is required")
+		}
+
+		proxyURL, err := encryptor.Decrypt(t.HTTPProxyURL)
+		if err != nil {
+			return fmt.Errorf("failed to decrypt HTTP proxy URL: %w", err)
+		}
+
+		parsedProxyURL, err := url.Parse(proxyURL)
+		if err != nil || parsedProxyURL.Scheme != "http" || parsedProxyURL.Host == "" {
+			return errors.New("HTTP proxy URL must be a valid http:// URL")
+		}
 	}
 
 	return nil
@@ -73,7 +93,11 @@ func (t *TelegramNotifier) Send(
 
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	client := &http.Client{}
+	client, err := t.buildHTTPClient(encryptor)
+	if err != nil {
+		return err
+	}
+
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to send telegram message: %w", err)
@@ -94,13 +118,50 @@ func (t *TelegramNotifier) Send(
 	return nil
 }
 
+func (t *TelegramNotifier) buildHTTPClient(
+	encryptor encryption.FieldEncryptor,
+) (*http.Client, error) {
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+
+	if !t.IsHTTPProxyEnabled {
+		return client, nil
+	}
+
+	proxyURL, err := encryptor.Decrypt(t.HTTPProxyURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decrypt HTTP proxy URL: %w", err)
+	}
+
+	parsedProxyURL, err := url.Parse(proxyURL)
+	if err != nil || parsedProxyURL.Scheme != "http" || parsedProxyURL.Host == "" {
+		return nil, errors.New("HTTP proxy URL must be a valid http:// URL")
+	}
+
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.Proxy = http.ProxyURL(parsedProxyURL)
+	client.Transport = transport
+
+	return client, nil
+}
+
 func (t *TelegramNotifier) HideSensitiveData() {
 	t.BotToken = ""
+	t.HasHTTPProxyURL = t.IsHTTPProxyEnabled && t.HTTPProxyURL != ""
+	t.HTTPProxyURL = ""
 }
 
 func (t *TelegramNotifier) Update(incoming *TelegramNotifier) {
 	t.TargetChatID = incoming.TargetChatID
 	t.ThreadID = incoming.ThreadID
+	t.IsHTTPProxyEnabled = incoming.IsHTTPProxyEnabled
+
+	if !incoming.IsHTTPProxyEnabled {
+		t.HTTPProxyURL = ""
+	} else if incoming.HTTPProxyURL != "" {
+		t.HTTPProxyURL = incoming.HTTPProxyURL
+	}
 
 	if incoming.BotToken != "" {
 		t.BotToken = incoming.BotToken
@@ -115,5 +176,16 @@ func (t *TelegramNotifier) EncryptSensitiveData(encryptor encryption.FieldEncryp
 		}
 		t.BotToken = encrypted
 	}
+
+	if !t.IsHTTPProxyEnabled {
+		t.HTTPProxyURL = ""
+	} else if t.HTTPProxyURL != "" {
+		encrypted, err := encryptor.Encrypt(t.HTTPProxyURL)
+		if err != nil {
+			return fmt.Errorf("failed to encrypt HTTP proxy URL: %w", err)
+		}
+		t.HTTPProxyURL = encrypted
+	}
+
 	return nil
 }
