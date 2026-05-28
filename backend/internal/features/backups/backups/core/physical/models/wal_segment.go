@@ -9,8 +9,6 @@ import (
 	"databasus-backend/internal/util/walmath"
 )
 
-// PhysicalWalSegment is one fully-rotated WAL segment in storage.
-//
 // file_name = NULL means the row is claimed but bytes are still uploading.
 type PhysicalWalSegment struct {
 	ID         uuid.UUID `json:"id"         gorm:"column:id;type:uuid;primaryKey;default:gen_random_uuid()"`

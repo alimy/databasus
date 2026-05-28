@@ -14,10 +14,9 @@ import (
 
 type PhysicalWalStreamerRepository struct{}
 
-// Claim inserts or refreshes the per-database streamer sidecar. Idempotent —
-// if the row already exists, the heartbeat is bumped and status flipped back
-// to RUNNING (the supervisor reclaiming a previously-failed streamer is a
-// normal flow).
+// Idempotent — supervisor reclaiming a previously-failed streamer is a
+// normal flow, so an existing row bumps the heartbeat and flips status back
+// to RUNNING instead of returning a conflict.
 func (r *PhysicalWalStreamerRepository) Claim(databaseID uuid.UUID) error {
 	if databaseID == uuid.Nil {
 		return errors.New("database ID is required")

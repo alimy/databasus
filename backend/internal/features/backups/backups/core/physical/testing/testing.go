@@ -13,27 +13,21 @@ import (
 	"databasus-backend/internal/util/walmath"
 )
 
-// NewTestCompletedFullBackup returns a fully-populated COMPLETED FULL ready
-// for Save. Tests can mutate any field before persisting (e.g. set
-// CompletedAt to a fixed past time for retention math).
 func NewTestCompletedFullBackup(
 	databaseID, storageID uuid.UUID,
 	timelineID int,
 	startLSN, stopLSN walmath.LSN,
 ) *physical_models.PhysicalFullBackup {
-	now := time.Now().UTC()
-	fileName := "test-full-" + uuid.New().String() + ".tar.zst"
-
 	return &physical_models.PhysicalFullBackup{
 		DatabaseID:  databaseID,
 		StorageID:   storageID,
 		TimelineID:  timelineID,
 		Status:      physical_enums.PhysicalBackupStatusCompleted,
-		FileName:    &fileName,
+		FileName:    new("test-full-" + uuid.New().String() + ".tar.zst"),
 		StartLSN:    &startLSN,
 		StopLSN:     &stopLSN,
-		CreatedAt:   now,
-		CompletedAt: &now,
+		CreatedAt:   time.Now().UTC(),
+		CompletedAt: new(time.Now().UTC()),
 	}
 }
 
@@ -43,19 +37,16 @@ func NewTestCompletedIncrementalBackup(
 	timelineID int,
 	startLSN, stopLSN walmath.LSN,
 ) *physical_models.PhysicalIncrementalBackup {
-	now := time.Now().UTC()
-	fileName := "test-incr-" + uuid.New().String() + ".tar.zst"
-
 	return &physical_models.PhysicalIncrementalBackup{
 		DatabaseID:                databaseID,
 		StorageID:                 storageID,
 		TimelineID:                timelineID,
 		Status:                    physical_enums.PhysicalBackupStatusCompleted,
-		FileName:                  &fileName,
+		FileName:                  new("test-incr-" + uuid.New().String() + ".tar.zst"),
 		StartLSN:                  &startLSN,
 		StopLSN:                   &stopLSN,
-		CreatedAt:                 now,
-		CompletedAt:               &now,
+		CreatedAt:                 time.Now().UTC(),
+		CompletedAt:               new(time.Now().UTC()),
 		RootFullBackupID:          rootFullBackupID,
 		ParentIncrementalBackupID: parentIncrementalBackupID,
 	}
@@ -68,13 +59,12 @@ func NewTestWalSegment(
 	startLSN, endLSN walmath.LSN,
 ) *physical_models.PhysicalWalSegment {
 	now := time.Now().UTC()
-	fileName := "test-wal-" + uuid.New().String() + ".zst"
 
 	return &physical_models.PhysicalWalSegment{
 		DatabaseID:       databaseID,
 		StorageID:        storageID,
 		TimelineID:       timelineID,
-		FileName:         &fileName,
+		FileName:         new("test-wal-" + uuid.New().String() + ".zst"),
 		WalFilename:      walFilename,
 		StartLSN:         startLSN,
 		EndLSN:           endLSN,
@@ -99,64 +89,60 @@ func NewTestWalHistoryFile(
 	}
 }
 
-// CreateTestFullBackup persists a FULL via the repository. Tests use
-// NewTestCompletedFullBackup (or build the struct directly) to set the row
-// up, then hand it to this helper to save.
 func CreateTestFullBackup(
 	t *testing.T,
-	b *physical_models.PhysicalFullBackup,
+	fullBackup *physical_models.PhysicalFullBackup,
 ) *physical_models.PhysicalFullBackup {
 	t.Helper()
 
-	if err := physical_repositories.GetFullBackupRepository().Save(b); err != nil {
+	if err := physical_repositories.GetFullBackupRepository().Save(fullBackup); err != nil {
 		t.Fatalf("save test full backup: %v", err)
 	}
 
-	return b
+	return fullBackup
 }
 
 func CreateTestIncrementalBackup(
 	t *testing.T,
-	b *physical_models.PhysicalIncrementalBackup,
+	incrementalBackup *physical_models.PhysicalIncrementalBackup,
 ) *physical_models.PhysicalIncrementalBackup {
 	t.Helper()
 
-	if err := physical_repositories.GetIncrementalBackupRepository().Save(b); err != nil {
+	if err := physical_repositories.GetIncrementalBackupRepository().Save(incrementalBackup); err != nil {
 		t.Fatalf("save test incremental backup: %v", err)
 	}
 
-	return b
+	return incrementalBackup
 }
 
 func CreateTestWalSegment(
 	t *testing.T,
-	seg *physical_models.PhysicalWalSegment,
+	walSegment *physical_models.PhysicalWalSegment,
 ) *physical_models.PhysicalWalSegment {
 	t.Helper()
 
-	if err := physical_repositories.GetWalSegmentRepository().Insert(seg); err != nil {
+	if err := physical_repositories.GetWalSegmentRepository().Insert(walSegment); err != nil {
 		t.Fatalf("save test wal segment: %v", err)
 	}
 
-	return seg
+	return walSegment
 }
 
 func CreateTestWalHistoryFile(
 	t *testing.T,
-	h *physical_models.PhysicalWalHistoryFile,
+	walHistoryFile *physical_models.PhysicalWalHistoryFile,
 ) *physical_models.PhysicalWalHistoryFile {
 	t.Helper()
 
-	if err := physical_repositories.GetWalHistoryRepository().Insert(h); err != nil {
+	if err := physical_repositories.GetWalHistoryRepository().Insert(walHistoryFile); err != nil {
 		t.Fatalf("save test wal history: %v", err)
 	}
 
-	return h
+	return walHistoryFile
 }
 
-// DeleteAllPhysicalCatalogForDatabase wipes every row physical/* owns for the
-// given database, in FK-safe order. Use in t.Cleanup so tests don't leak
-// state across runs.
+// Call from t.Cleanup; deletes in FK-safe order so the cascade can't fight
+// the explicit deletes.
 func DeleteAllPhysicalCatalogForDatabase(t *testing.T, databaseID uuid.UUID) {
 	t.Helper()
 

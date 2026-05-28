@@ -14,26 +14,26 @@ import (
 
 type PhysicalIncrementalBackupRepository struct{}
 
-func (r *PhysicalIncrementalBackupRepository) Save(b *physical_models.PhysicalIncrementalBackup) error {
-	if b.DatabaseID == uuid.Nil || b.StorageID == uuid.Nil {
+func (r *PhysicalIncrementalBackupRepository) Save(incrementalBackup *physical_models.PhysicalIncrementalBackup) error {
+	if incrementalBackup.DatabaseID == uuid.Nil || incrementalBackup.StorageID == uuid.Nil {
 		return errors.New("database ID and storage ID are required")
 	}
-	if b.RootFullBackupID == uuid.Nil {
+	if incrementalBackup.RootFullBackupID == uuid.Nil {
 		return errors.New("root full backup ID is required")
 	}
 
 	db := storage.GetDb()
 
-	if b.ID == uuid.Nil {
-		b.ID = uuid.New()
-		if b.CreatedAt.IsZero() {
-			b.CreatedAt = time.Now().UTC()
+	if incrementalBackup.ID == uuid.Nil {
+		incrementalBackup.ID = uuid.New()
+		if incrementalBackup.CreatedAt.IsZero() {
+			incrementalBackup.CreatedAt = time.Now().UTC()
 		}
 
-		return db.Create(b).Error
+		return db.Create(incrementalBackup).Error
 	}
 
-	return db.Save(b).Error
+	return db.Save(incrementalBackup).Error
 }
 
 func (r *PhysicalIncrementalBackupRepository) FindByID(
@@ -114,8 +114,7 @@ func (r *PhysicalIncrementalBackupRepository) UpdateStatus(
 	updates := map[string]any{"status": status, "error_reason": errorReason}
 
 	if status == physical_enums.PhysicalBackupStatusCompleted {
-		now := time.Now().UTC()
-		updates["completed_at"] = &now
+		updates["completed_at"] = new(time.Now().UTC())
 	}
 
 	return storage.

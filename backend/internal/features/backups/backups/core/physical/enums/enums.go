@@ -3,28 +3,28 @@ package physical_enums
 type PhysicalBackupStatus string
 
 const (
-	// WHY: pg_basebackup spawned (or about to spawn), not yet finished.
+	// pg_basebackup spawned (or about to spawn), not yet finished.
 	PhysicalBackupStatusInProgress PhysicalBackupStatus = "IN_PROGRESS"
 
-	// WHY: artifact in storage, all metadata populated. Chain is extendable
+	// Artifact in storage, all metadata populated. Chain is extendable
 	// from this row.
 	PhysicalBackupStatusCompleted PhysicalBackupStatus = "COMPLETED"
 
-	// WHY: transient failure (network blip, pg_basebackup spurious error,
+	// Transient failure (network blip, pg_basebackup spurious error,
 	// storage upload retry exhausted, byte-stall watcher tripped). Chain is
 	// still valid for this attempt's parent; scheduler retries the SAME kind
 	// (FULL or INCR) on next tick per retry policy.
 	PhysicalBackupStatusError PhysicalBackupStatus = "ERROR"
 
-	// WHY: chain cannot be extended further from this point. Next attempt
-	// MUST escalate to a fresh FULL (new chain identity). Rare for FULL but
+	// Chain cannot be extended further from this point. Next attempt MUST
+	// escalate to a fresh FULL (new chain identity). Rare for FULL but
 	// possible (corrupted manifest mid-stream, sys_id mismatch caught
 	// partway, start_lsn outside any known timeline range). Common for INCR
 	// (summaries expired, summarizer off, parent manifest missing).
 	PhysicalBackupStatusChainBroken PhysicalBackupStatus = "CHAIN_BROKEN"
 
-	// WHY: user- or system-initiated cancel. See PhysicalBackupErrorReason
-	// for the cancel variants.
+	// User- or system-initiated cancel. See PhysicalBackupErrorReason for
+	// the cancel variants.
 	PhysicalBackupStatusCanceled PhysicalBackupStatus = "CANCELED"
 )
 
@@ -41,12 +41,12 @@ const (
 	PhysicalBackupErrorManifestCorrupted        PhysicalBackupErrorReason = "MANIFEST_CORRUPTED"
 	PhysicalBackupErrorStartLsnOutsideTimeline  PhysicalBackupErrorReason = "START_LSN_OUTSIDE_TIMELINE_RANGE"
 
-	// WHY: covers both an explicit user cancel on an in-flight backup AND
+	// Covers both an explicit user cancel on an in-flight backup AND
 	// in-flight backups cancelled by OnBackupConfigChanged when the user
 	// disables backups or demotes BackupType.
 	PhysicalBackupErrorCanceledByUser PhysicalBackupErrorReason = "CANCELED_BY_USER"
 
-	// WHY: in-flight backup killed because the parent DB was removed via
+	// In-flight backup killed because the parent DB was removed via
 	// OnBeforeDatabaseRemove. The backup row is cascade-deleted moments
 	// later — so this value is rarely observed in steady-state queries, but
 	// it appears in archived audit logs and in tests that snapshot status

@@ -15,30 +15,30 @@ import (
 
 type PhysicalWalSegmentRepository struct{}
 
-func (r *PhysicalWalSegmentRepository) Insert(seg *physical_models.PhysicalWalSegment) error {
-	if seg.DatabaseID == uuid.Nil || seg.StorageID == uuid.Nil {
+func (r *PhysicalWalSegmentRepository) Insert(segment *physical_models.PhysicalWalSegment) error {
+	if segment.DatabaseID == uuid.Nil || segment.StorageID == uuid.Nil {
 		return errors.New("database ID and storage ID are required")
 	}
 
-	if seg.ID == uuid.Nil {
-		seg.ID = uuid.New()
+	if segment.ID == uuid.Nil {
+		segment.ID = uuid.New()
 	}
 
 	now := time.Now().UTC()
-	if seg.ReceivedAt.IsZero() {
-		seg.ReceivedAt = now
+	if segment.ReceivedAt.IsZero() {
+		segment.ReceivedAt = now
 	}
-	if seg.ClaimedAt.IsZero() {
-		seg.ClaimedAt = now
+	if segment.ClaimedAt.IsZero() {
+		segment.ClaimedAt = now
 	}
 
-	return storage.GetDb().Create(seg).Error
+	return storage.GetDb().Create(segment).Error
 }
 
 func (r *PhysicalWalSegmentRepository) FindByID(id uuid.UUID) (*physical_models.PhysicalWalSegment, error) {
-	var seg physical_models.PhysicalWalSegment
+	var segment physical_models.PhysicalWalSegment
 
-	if err := storage.GetDb().Where("id = ?", id).First(&seg).Error; err != nil {
+	if err := storage.GetDb().Where("id = ?", id).First(&segment).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
@@ -46,7 +46,7 @@ func (r *PhysicalWalSegmentRepository) FindByID(id uuid.UUID) (*physical_models.
 		return nil, err
 	}
 
-	return &seg, nil
+	return &segment, nil
 }
 
 func (r *PhysicalWalSegmentRepository) FindByChainSpan(
@@ -70,10 +70,8 @@ func (r *PhysicalWalSegmentRepository) FindByChainSpan(
 	return segments, nil
 }
 
-// FindOrphans returns WAL segments whose (timeline_id, start_lsn) cannot be
-// matched to any chain on that timeline — i.e. no FULL exists on the same
-// (database_id, timeline_id) with start_lsn <= this WAL's start_lsn. Used by
-// the cleaner orphan pass.
+// Anti-join not covered by idx_physical_wal_segments_database_id_received_at;
+// expect a seq scan on physical_full_backups when invoked in bulk.
 func (r *PhysicalWalSegmentRepository) FindOrphans(
 	databaseID uuid.UUID,
 ) ([]*physical_models.PhysicalWalSegment, error) {

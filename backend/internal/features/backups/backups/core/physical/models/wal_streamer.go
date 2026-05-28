@@ -8,11 +8,11 @@ import (
 	physical_enums "databasus-backend/internal/features/backups/backups/core/physical/enums"
 )
 
-// PhysicalWalStreamer is the sidecar row for the long-running pg_receivewal
-// supervisor. The PK is database_id (one streamer per database). Heartbeat
-// > 90 s means the row is dead and the scheduler reassigns; the row carries
-// no node_id because heartbeat alone answers liveness, and runtime PG-slot
-// semantics (active_pid != ours ⇒ refuse) prevent two-node races.
+// Sidecar row for the long-running pg_receivewal supervisor. The PK is
+// database_id (one streamer per database). Heartbeat > 90 s means the row is
+// dead and the scheduler reassigns; the row carries no node_id because
+// heartbeat alone answers liveness, and runtime PG-slot semantics
+// (active_pid != ours ⇒ refuse) prevent two-node races.
 type PhysicalWalStreamer struct {
 	DatabaseID      uuid.UUID                                `json:"databaseId"      gorm:"column:database_id;type:uuid;primaryKey"`
 	StartedAt       time.Time                                `json:"startedAt"       gorm:"column:started_at"`

@@ -40,6 +40,9 @@ type PostgresqlPhysicalDatabase struct {
 
 	ReplicationSlotName string  `json:"-"                gorm:"column:replication_slot_name;type:text;not null"`
 	SystemIdentifier    *string `json:"systemIdentifier" gorm:"column:system_identifier;type:text"`
+
+	// WalSegmentSizeBytes captures the source cluster's wal_segment_size at first connect.
+	WalSegmentSizeBytes *int64 `json:"walSegmentSizeBytes" gorm:"column:wal_segment_size_bytes;type:bigint"`
 }
 
 func (p *PostgresqlPhysicalDatabase) TableName() string {
@@ -100,6 +103,13 @@ func (p *PostgresqlPhysicalDatabase) ValidateUpdate(old *PostgresqlPhysicalDatab
 		*old.SystemIdentifier != *p.SystemIdentifier {
 		return errors.New(
 			"system_identifier is immutable; cluster swap refused",
+		)
+	}
+
+	if old.WalSegmentSizeBytes != nil && p.WalSegmentSizeBytes != nil &&
+		*old.WalSegmentSizeBytes != *p.WalSegmentSizeBytes {
+		return errors.New(
+			"wal_segment_size_bytes is immutable; cluster swap refused",
 		)
 	}
 
@@ -201,6 +211,18 @@ func (p *PostgresqlPhysicalDatabase) PopulateDbData(
 		}
 
 		p.SystemIdentifier = &sysID
+	}
+
+	if p.WalSegmentSizeBytes == nil {
+		var sizeBytes int64
+
+		if err := conn.QueryRow(ctx,
+			"SELECT setting::bigint FROM pg_settings WHERE name = 'wal_segment_size'",
+		).Scan(&sizeBytes); err != nil {
+			return fmt.Errorf("failed to read wal_segment_size: %w", err)
+		}
+
+		p.WalSegmentSizeBytes = &sizeBytes
 	}
 
 	return nil
@@ -724,6 +746,17 @@ func (p *PostgresqlPhysicalDatabase) CreateReplicationOnlyUser(
 	}
 
 	return "", "", errors.New("failed to generate unique username after 3 attempts")
+}
+
+// OpenInspectionConn opens a regular (non-replication) connection to the
+// source cluster. Used by the FULL/INCR executors for pre-flight checks
+// (timeline.CheckTimelineCompatibility), .history file reads, and
+// post-stream LSN validation.
+func (p *PostgresqlPhysicalDatabase) OpenInspectionConn(
+	ctx context.Context,
+	encryptor encryption.FieldEncryptor,
+) (*pgx.Conn, error) {
+	return openConn(ctx, p, encryptor)
 }
 
 // checkNoCustomTablespaces enforces ADR-0010: physical backups refuse any

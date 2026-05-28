@@ -3,6 +3,7 @@ package chain_view
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -179,8 +180,8 @@ func (s *ChainViewService) CheckHistoryFilePresence(
 		return ValidationResult{Status: ValidationStatusOK}, nil
 	}
 
-	for _, h := range histories {
-		if h.TimelineID == timelineID {
+	for _, history := range histories {
+		if history.TimelineID == timelineID {
 			return ValidationResult{Status: ValidationStatusOK}, nil
 		}
 	}
@@ -205,14 +206,14 @@ func (s *ChainViewService) GetChainEndTimestamp(rootFullBackupID uuid.UUID) (tim
 		latest = *full.CompletedAt
 	}
 
-	incrs, err := s.incrementalBackupRepository.FindAllByRootFull(rootFullBackupID)
+	incrementalBackups, err := s.incrementalBackupRepository.FindAllByRootFull(rootFullBackupID)
 	if err != nil {
 		return time.Time{}, err
 	}
 
-	for _, incr := range incrs {
-		if incr.CompletedAt != nil && incr.CompletedAt.After(latest) {
-			latest = *incr.CompletedAt
+	for _, incrementalBackup := range incrementalBackups {
+		if incrementalBackup.CompletedAt != nil && incrementalBackup.CompletedAt.After(latest) {
+			latest = *incrementalBackup.CompletedAt
 		}
 	}
 
@@ -228,9 +229,9 @@ func (s *ChainViewService) GetChainEndTimestamp(rootFullBackupID uuid.UUID) (tim
 		return time.Time{}, err
 	}
 
-	for _, seg := range segments {
-		if seg.ReceivedAt.After(latest) {
-			latest = seg.ReceivedAt
+	for _, segment := range segments {
+		if segment.ReceivedAt.After(latest) {
+			latest = segment.ReceivedAt
 		}
 	}
 
@@ -244,8 +245,8 @@ func (s *ChainViewService) FindWalOrphansByDatabase(databaseID uuid.UUID) ([]Wal
 	}
 
 	refs := make([]WalOrphanRef, 0, len(walOrphans))
-	for _, w := range walOrphans {
-		refs = append(refs, WalOrphanRef{WalSegment: w})
+	for _, walOrphan := range walOrphans {
+		refs = append(refs, WalOrphanRef{WalSegment: walOrphan})
 	}
 
 	return refs, nil
@@ -272,15 +273,19 @@ func (s *ChainViewService) getChainState(rootFullBackupID uuid.UUID) (ChainState
 		return ChainStateClosedByNewerFull, nil
 	}
 
-	incrs, err := s.incrementalBackupRepository.FindAllByRootFull(rootFullBackupID)
+	incrementalBackups, err := s.incrementalBackupRepository.FindAllByRootFull(rootFullBackupID)
 	if err != nil {
 		return "", err
 	}
 
-	for _, incr := range incrs {
-		if incr.Status == physical_enums.PhysicalBackupStatusChainBroken {
-			return ChainStateBrokenByIncr, nil
-		}
+	chainBroken := slices.ContainsFunc(
+		incrementalBackups,
+		func(incrementalBackup *physical_models.PhysicalIncrementalBackup) bool {
+			return incrementalBackup.Status == physical_enums.PhysicalBackupStatusChainBroken
+		},
+	)
+	if chainBroken {
+		return ChainStateBrokenByIncr, nil
 	}
 
 	return ChainStateExtendable, nil
@@ -289,23 +294,23 @@ func (s *ChainViewService) getChainState(rootFullBackupID uuid.UUID) (ChainState
 func (s *ChainViewService) findNewerCompletedFulls(
 	full *physical_models.PhysicalFullBackup,
 ) ([]*physical_models.PhysicalFullBackup, error) {
-	all, err := s.fullBackupRepository.FindCompletedNewestFirstByDatabase(full.DatabaseID)
+	allCompletedFulls, err := s.fullBackupRepository.FindCompletedNewestFirstByDatabase(full.DatabaseID)
 	if err != nil {
 		return nil, err
 	}
 
-	newer := make([]*physical_models.PhysicalFullBackup, 0)
-	for _, candidate := range all {
+	newerCompletedFulls := make([]*physical_models.PhysicalFullBackup, 0)
+	for _, candidate := range allCompletedFulls {
 		if candidate.ID == full.ID {
 			continue
 		}
 
 		if candidate.CreatedAt.After(full.CreatedAt) {
-			newer = append(newer, candidate)
+			newerCompletedFulls = append(newerCompletedFulls, candidate)
 		}
 	}
 
-	return newer, nil
+	return newerCompletedFulls, nil
 }
 
 func (s *ChainViewService) buildChainView(
@@ -316,7 +321,7 @@ func (s *ChainViewService) buildChainView(
 		return nil, err
 	}
 
-	incrs, err := s.incrementalBackupRepository.FindAllByRootFull(full.ID)
+	incrementalBackups, err := s.incrementalBackupRepository.FindAllByRootFull(full.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -333,36 +338,32 @@ func (s *ChainViewService) buildChainView(
 		return nil, err
 	}
 
-	maxReplayable := walmath.LSN(0)
+	maxReplayableLSN := walmath.LSN(0)
 	if full.StopLSN != nil {
-		maxReplayable = *full.StopLSN
+		maxReplayableLSN = *full.StopLSN
 	}
 
-	for _, seg := range segments {
-		segEnd := seg.EndLSN
+	for _, segment := range segments {
+		segmentEndLSN := segment.EndLSN
 
-		insideGap := false
-		for _, gap := range gaps {
-			if segEnd > gap.Start {
-				insideGap = true
-				break
-			}
-		}
+		insideGap := slices.ContainsFunc(gaps, func(gap LSNRange) bool {
+			return segmentEndLSN > gap.Start
+		})
 		if insideGap {
 			break
 		}
 
-		if segEnd > maxReplayable {
-			maxReplayable = segEnd
+		if segmentEndLSN > maxReplayableLSN {
+			maxReplayableLSN = segmentEndLSN
 		}
 	}
 
 	return &ChainView{
 		RootFull:         full,
-		Incrementals:     incrs,
+		Incrementals:     incrementalBackups,
 		WalSegments:      segments,
 		Gaps:             gaps,
 		Span:             span,
-		MaxReplayableLSN: maxReplayable,
+		MaxReplayableLSN: maxReplayableLSN,
 	}, nil
 }

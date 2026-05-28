@@ -113,8 +113,7 @@ func Test_FindLastExtendableChainByDatabase_WhenChainHasBrokenIncr_ReturnsNil(t 
 		walmath.LSN(segmentBytes), walmath.LSN(2*segmentBytes),
 	)
 	brokenIncr.Status = physical_enums.PhysicalBackupStatusChainBroken
-	brokenReason := physical_enums.PhysicalBackupErrorSummariesExpired
-	brokenIncr.ErrorReason = &brokenReason
+	brokenIncr.ErrorReason = new(physical_enums.PhysicalBackupErrorSummariesExpired)
 
 	physical_testing.CreateTestIncrementalBackup(t, brokenIncr)
 
@@ -182,8 +181,7 @@ func Test_FindLastExtendableChainByDatabase_WhenNewerFullExists_ReturnsNewestAnd
 		walmath.LSN(0), walmath.LSN(segmentBytes),
 	)
 	olderFull.CreatedAt = time.Now().UTC().Add(-time.Hour)
-	olderCompletedAt := olderFull.CreatedAt.Add(time.Minute)
-	olderFull.CompletedAt = &olderCompletedAt
+	olderFull.CompletedAt = new(olderFull.CreatedAt.Add(time.Minute))
 	physical_testing.CreateTestFullBackup(t, olderFull)
 
 	newerFull := physical_testing.CreateTestFullBackup(t,
@@ -206,60 +204,71 @@ func Test_FindLastExtendableChainByDatabase_WhenNewerFullExists_ReturnsNewestAnd
 	assert.Equal(t, olderFull.ID, closedViews[0].RootFull.ID)
 }
 
-func Test_GetChainSpan_WithAndWithoutSuccessorFull_UpperBoundReflectsSuccessor(t *testing.T) {
+func Test_GetChainSpan_WhenSuccessorFullExists_EndIsSuccessorStartLSN(t *testing.T) {
 	t.Parallel()
 
 	prereqs := createChainViewTestPrereqs(t)
 	databaseID := prereqs.database.ID
 
-	lsn1 := walmath.LSN(0)
-	lsn2 := walmath.LSN(segmentBytes)
-	lsn3 := walmath.LSN(4 * segmentBytes)
-	lsn4 := walmath.LSN(5 * segmentBytes)
+	olderStart := walmath.LSN(0)
+	olderStop := walmath.LSN(segmentBytes)
+	newerStart := walmath.LSN(4 * segmentBytes)
+	newerStop := walmath.LSN(5 * segmentBytes)
 
-	full1 := physical_testing.NewTestCompletedFullBackup(
-		databaseID, prereqs.storage.ID, 1, lsn1, lsn2,
+	olderFull := physical_testing.NewTestCompletedFullBackup(
+		databaseID, prereqs.storage.ID, 1, olderStart, olderStop,
 	)
-	full1.CreatedAt = time.Now().UTC().Add(-time.Hour)
-	full1Completed := full1.CreatedAt.Add(time.Minute)
-	full1.CompletedAt = &full1Completed
-	physical_testing.CreateTestFullBackup(t, full1)
+	olderFull.CreatedAt = time.Now().UTC().Add(-time.Hour)
+	olderFull.CompletedAt = new(olderFull.CreatedAt.Add(time.Minute))
+	physical_testing.CreateTestFullBackup(t, olderFull)
 
-	full2 := physical_testing.CreateTestFullBackup(t,
+	physical_testing.CreateTestFullBackup(t,
 		physical_testing.NewTestCompletedFullBackup(
-			databaseID, prereqs.storage.ID, 1, lsn3, lsn4,
-		))
-
-	physical_testing.CreateTestWalSegment(t,
-		physical_testing.NewTestWalSegment(
-			databaseID, prereqs.storage.ID, 1, "000000010000000000000001",
-			lsn2, walmath.LSN(2*segmentBytes),
-		))
-	physical_testing.CreateTestWalSegment(t,
-		physical_testing.NewTestWalSegment(
-			databaseID, prereqs.storage.ID, 1, "000000010000000000000005",
-			lsn4, walmath.LSN(6*segmentBytes),
+			databaseID, prereqs.storage.ID, 1, newerStart, newerStop,
 		))
 
 	service := chain_view.GetChainViewService()
 
-	span1, err := service.GetChainSpan(full1.ID)
+	span, err := service.GetChainSpan(olderFull.ID)
 	require.NoError(t, err)
-	assert.Equal(t, lsn1, span1.Start)
-	assert.Equal(t, lsn3, span1.End, "older FULL's span ends at next FULL's start_lsn")
+	assert.Equal(t, olderStart, span.Start)
+	assert.Equal(t, newerStart, span.End, "older FULL's span ends at next FULL's start_lsn")
 
-	span2, err := service.GetChainSpan(full2.ID)
+	walInSpan, err := service.FindWalSegmentsInSpan(databaseID, 1, span.Start, span.End)
 	require.NoError(t, err)
-	assert.Equal(t, lsn3, span2.Start)
-	assert.Equal(t, chain_view.LSNMax, span2.End, "latest FULL has unbounded span")
+	assert.Empty(t, walInSpan)
+}
 
-	full1Wal, err := service.FindWalSegmentsInSpan(databaseID, 1, span1.Start, span1.End)
-	require.NoError(t, err)
-	assert.Len(t, full1Wal, 1, "WAL at LSN segmentBytes belongs to full1")
+func Test_GetChainSpan_WhenNoSuccessorFull_EndIsLSNMax(t *testing.T) {
+	t.Parallel()
 
-	full2Wal, err := service.FindWalSegmentsInSpan(databaseID, 1, span2.Start, span2.End)
+	prereqs := createChainViewTestPrereqs(t)
+	databaseID := prereqs.database.ID
+
+	fullStart := walmath.LSN(4 * segmentBytes)
+	fullStop := walmath.LSN(5 * segmentBytes)
+
+	full := physical_testing.CreateTestFullBackup(t,
+		physical_testing.NewTestCompletedFullBackup(
+			databaseID, prereqs.storage.ID, 1, fullStart, fullStop,
+		))
+
+	physical_testing.CreateTestWalSegment(t,
+		physical_testing.NewTestWalSegment(
+			databaseID, prereqs.storage.ID, 1, "000000010000000000000005",
+			fullStop, walmath.LSN(6*segmentBytes),
+		))
+
+	service := chain_view.GetChainViewService()
+
+	span, err := service.GetChainSpan(full.ID)
 	require.NoError(t, err)
-	assert.Len(t, full2Wal, 1, "WAL at LSN 5*segmentBytes belongs to full2")
+	assert.Equal(t, fullStart, span.Start)
+	assert.Equal(t, chain_view.LSNMax, span.End, "latest FULL has unbounded span")
+
+	walInSpan, err := service.FindWalSegmentsInSpan(databaseID, 1, span.Start, span.End)
+	require.NoError(t, err)
+	assert.Len(t, walInSpan, 1, "WAL after the FULL's stop_lsn belongs to its open-ended span")
 }
 
 func Test_CheckHistoryFilePresence_WhenNoHistoryRows_ReturnsOk(t *testing.T) {
@@ -300,22 +309,20 @@ func Test_GetChainEndTimestamp_WhenWalReceivedAfterIncr_ReturnsWalReceivedAt(t *
 	prereqs := createChainViewTestPrereqs(t)
 	databaseID := prereqs.database.ID
 
-	fullCompleted := time.Now().UTC().Add(-2 * time.Hour)
-	incrCompleted := time.Now().UTC().Add(-30 * time.Minute)
 	walReceived := time.Now().UTC().Add(-1 * time.Minute)
 
 	full := physical_testing.NewTestCompletedFullBackup(
 		databaseID, prereqs.storage.ID, 1,
 		walmath.LSN(0), walmath.LSN(segmentBytes),
 	)
-	full.CompletedAt = &fullCompleted
+	full.CompletedAt = new(time.Now().UTC().Add(-2 * time.Hour))
 	physical_testing.CreateTestFullBackup(t, full)
 
 	incr := physical_testing.NewTestCompletedIncrementalBackup(
 		databaseID, prereqs.storage.ID, full.ID, nil, 1,
 		walmath.LSN(segmentBytes), walmath.LSN(2*segmentBytes),
 	)
-	incr.CompletedAt = &incrCompleted
+	incr.CompletedAt = new(time.Now().UTC().Add(-30 * time.Minute))
 	physical_testing.CreateTestIncrementalBackup(t, incr)
 
 	seg := physical_testing.NewTestWalSegment(
@@ -410,7 +417,7 @@ func Test_FindWalGapsInChain_WhenMultipleGapsExist_ReturnsAllGaps(t *testing.T) 
 	assert.Equal(t, seg3Start, gaps[1].End)
 }
 
-func Test_FindLastExtendableChainByDatabase_WhenChainHasGap_MaxReplayableLsnStopsAtFirstGap(t *testing.T) {
+func Test_FindLastExtendableChainByDatabase_WhenChainHasGap_MaxReplayableLSNStopsAtFirstGap(t *testing.T) {
 	t.Parallel()
 
 	prereqs := createChainViewTestPrereqs(t)

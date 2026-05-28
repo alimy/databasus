@@ -14,23 +14,23 @@ import (
 
 type PhysicalFullBackupRepository struct{}
 
-func (r *PhysicalFullBackupRepository) Save(b *physical_models.PhysicalFullBackup) error {
-	if b.DatabaseID == uuid.Nil || b.StorageID == uuid.Nil {
+func (r *PhysicalFullBackupRepository) Save(fullBackup *physical_models.PhysicalFullBackup) error {
+	if fullBackup.DatabaseID == uuid.Nil || fullBackup.StorageID == uuid.Nil {
 		return errors.New("database ID and storage ID are required")
 	}
 
 	db := storage.GetDb()
 
-	if b.ID == uuid.Nil {
-		b.ID = uuid.New()
-		if b.CreatedAt.IsZero() {
-			b.CreatedAt = time.Now().UTC()
+	if fullBackup.ID == uuid.Nil {
+		fullBackup.ID = uuid.New()
+		if fullBackup.CreatedAt.IsZero() {
+			fullBackup.CreatedAt = time.Now().UTC()
 		}
 
-		return db.Create(b).Error
+		return db.Create(fullBackup).Error
 	}
 
-	return db.Save(b).Error
+	return db.Save(fullBackup).Error
 }
 
 func (r *PhysicalFullBackupRepository) FindByID(id uuid.UUID) (*physical_models.PhysicalFullBackup, error) {
@@ -87,8 +87,7 @@ func (r *PhysicalFullBackupRepository) UpdateStatus(
 	updates := map[string]any{"status": status, "error_reason": errorReason}
 
 	if status == physical_enums.PhysicalBackupStatusCompleted {
-		now := time.Now().UTC()
-		updates["completed_at"] = &now
+		updates["completed_at"] = new(time.Now().UTC())
 	}
 
 	return storage.

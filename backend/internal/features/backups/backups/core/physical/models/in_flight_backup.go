@@ -8,10 +8,10 @@ import (
 	physical_enums "databasus-backend/internal/features/backups/backups/core/physical/enums"
 )
 
-// PhysicalInFlightBackup enforces the cross-table single-in-flight invariant:
-// at most one in-flight backup per database, across both FULL and INCR. The
-// database_id PK is the cross-table claim; the typed row INSERT and this
-// table's claim happen in the same transaction.
+// Cross-table single-in-flight invariant: at most one in-flight backup per
+// database, across both FULL and INCR. The database_id PK is the cross-table
+// claim; the typed row INSERT and this table's claim happen in the same
+// transaction.
 type PhysicalInFlightBackup struct {
 	DatabaseID uuid.UUID                         `json:"databaseId" gorm:"column:database_id;type:uuid;primaryKey"`
 	BackupType physical_enums.PhysicalBackupType `json:"backupType" gorm:"column:backup_type;type:text;not null"`
