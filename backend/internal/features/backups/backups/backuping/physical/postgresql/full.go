@@ -10,7 +10,6 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -683,10 +682,6 @@ func truncateStderr(b []byte) string {
 func signalForGracefulCancel(p *os.Process) error {
 	if p == nil {
 		return nil
-	}
-
-	if runtime.GOOS == "windows" {
-		return p.Kill()
 	}
 
 	return p.Signal(os.Interrupt)

@@ -3,7 +3,6 @@ package tools
 import (
 	"fmt"
 	"path/filepath"
-	"runtime"
 	"strings"
 )
 
@@ -47,18 +46,10 @@ func GetPostgresqlExecutable(
 	version PostgresqlVersion,
 	executable PostgresqlExecutable,
 ) string {
-	return filepath.Join(getPostgresqlBinDir(version), withExeOnWindows(string(executable)))
+	return filepath.Join(getPostgresqlBinDir(version), string(executable))
 }
 
 func getPostgresqlBinDir(version PostgresqlVersion) string {
-	// Windows pg 12/13 have a piping bug on restore — fall through to the v14
-	// client which speaks the older wire formats fine.
-	if runtime.GOOS == "windows" {
-		if version == PostgresqlVersion12 || version == PostgresqlVersion13 {
-			version = PostgresqlVersion14
-		}
-	}
-
 	return filepath.Join(
 		AssetsToolsDir(),
 		"postgresql",
