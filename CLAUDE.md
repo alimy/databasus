@@ -13,6 +13,12 @@ This root file holds the engineering philosophy that applies everywhere.
 
 ---
 
+## Development environment
+
+Work happens inside the repo's [Dev Container](.devcontainer/devcontainer.json). The container ships Go, Node.js + pnpm, Docker-in-Docker, linters and matching VS Code extensions, so the toolchain is identical for every contributor. Ports `4005` (backend) and `5173` (Vite) are forwarded automatically. Don't install or rely on host-level SDKs — run `make`, `pnpm` and `docker` commands from inside the container.
+
+---
+
 ## Language in code
 
 **English only in code, comments, identifiers, log messages, API strings, test assertions, and commit messages.** No other language inside `backend/`, `agent/`, or `frontend/src/` — even for user-facing fallback copy or error messages.
