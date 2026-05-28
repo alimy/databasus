@@ -358,6 +358,24 @@ services:
     container_name: test-physical-postgres-18-tablespace
     shm_size: 1gb
 
+  # Idle PG 17 image used by the FULL+INCR pg_combinebackup restore test as a
+  # restore target. Entrypoint is sleep so PG does not auto-start on an
+  # uninitialised PGDATA; the test docker-execs to extract artefacts, run
+  # pg_combinebackup and start the cluster on the combined PGDATA. zstd is
+  # installed because the postgres image does not ship the CLI tool — the
+  # test pipes `zstd -d | tar -x` inside the container to avoid host-side
+  # cross-platform tar/symlink trouble.
+  test-physical-postgres-17-restore-target:
+    build:
+      dockerfile_inline: |
+        FROM postgres:17
+        RUN apt-get update && apt-get install -y --no-install-recommends zstd && rm -rf /var/lib/apt/lists/*
+    entrypoint: ["sleep", "infinity"]
+    ports:
+      - "${TEST_PHYSICAL_POSTGRES_17_RESTORE_TARGET_PORT}:5432"
+    container_name: test-physical-postgres-17-restore-target
+    shm_size: 1gb
+
   # Test Azurite container
   test-azurite:
     image: mcr.microsoft.com/azure-storage/azurite

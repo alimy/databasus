@@ -75,12 +75,13 @@ type EnvVariables struct {
 	TestLogicalPostgres17Port string `env:"TEST_LOGICAL_POSTGRES_17_PORT"`
 	TestLogicalPostgres18Port string `env:"TEST_LOGICAL_POSTGRES_18_PORT"`
 
-	TestPhysicalPostgres17Port           string `env:"TEST_PHYSICAL_POSTGRES_17_PORT"`
-	TestPhysicalPostgres18Port           string `env:"TEST_PHYSICAL_POSTGRES_18_PORT"`
-	TestPhysicalPostgres17NoSummaryPort  string `env:"TEST_PHYSICAL_POSTGRES_17_NO_SUMMARY_PORT"`
-	TestPhysicalPostgres18NoSummaryPort  string `env:"TEST_PHYSICAL_POSTGRES_18_NO_SUMMARY_PORT"`
-	TestPhysicalPostgres17TablespacePort string `env:"TEST_PHYSICAL_POSTGRES_17_TABLESPACE_PORT"`
-	TestPhysicalPostgres18TablespacePort string `env:"TEST_PHYSICAL_POSTGRES_18_TABLESPACE_PORT"`
+	TestPhysicalPostgres17Port              string `env:"TEST_PHYSICAL_POSTGRES_17_PORT"`
+	TestPhysicalPostgres18Port              string `env:"TEST_PHYSICAL_POSTGRES_18_PORT"`
+	TestPhysicalPostgres17NoSummaryPort     string `env:"TEST_PHYSICAL_POSTGRES_17_NO_SUMMARY_PORT"`
+	TestPhysicalPostgres18NoSummaryPort     string `env:"TEST_PHYSICAL_POSTGRES_18_NO_SUMMARY_PORT"`
+	TestPhysicalPostgres17TablespacePort    string `env:"TEST_PHYSICAL_POSTGRES_17_TABLESPACE_PORT"`
+	TestPhysicalPostgres18TablespacePort    string `env:"TEST_PHYSICAL_POSTGRES_18_TABLESPACE_PORT"`
+	TestPhysicalPostgres17RestoreTargetPort string `env:"TEST_PHYSICAL_POSTGRES_17_RESTORE_TARGET_PORT"`
 
 	TestMinioPort        string `env:"TEST_MINIO_PORT"`
 	TestMinioConsolePort string `env:"TEST_MINIO_CONSOLE_PORT"`
@@ -352,6 +353,10 @@ func loadEnvVariables() {
 		}
 		if env.TestPhysicalPostgres18TablespacePort == "" {
 			log.Error("TEST_PHYSICAL_POSTGRES_18_TABLESPACE_PORT is empty")
+			os.Exit(1)
+		}
+		if env.TestPhysicalPostgres17RestoreTargetPort == "" {
+			log.Error("TEST_PHYSICAL_POSTGRES_17_RESTORE_TARGET_PORT is empty")
 			os.Exit(1)
 		}
 

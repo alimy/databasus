@@ -273,6 +273,12 @@ Examples: `Test_CreateApiKey_WhenUserIsProjectOwner_ApiKeyCreated`, `Test_Delete
 - Use unit tests only for complex model logic with no API surface.
 - File names: `controller_test.go` or `service_test.go` — never `integration_test.go`.
 
+### `features/tests/` is for backup → restore cycle tests only
+
+The `internal/features/tests/` package is reserved for **end-to-end tests that exercise a full backup → restore cycle** against a real database container (today: `tests/logical/`; physical restore tests land here once the restore path ships). These tests cross multiple feature packages and have no single "owner" file, so they live in this shared package.
+
+**Everything else** — controller tests, service tests, executor / backuper tests, slot-lifecycle tests, helpers — lives next to its source per the source-split rule (`backup_slot.go` → `backup_slot_test.go`, `full.go` → `full_test.go`). Shared per-package test fixtures go in that package's `testing.go`.
+
 ### Shared testing utilities
 
 Each feature creates a `testing.go` (or `testing/testing.go`) with router builders, model creation helpers, and request helpers used by other features' tests. Build creation helpers via the API (`POST /...`) — not direct DB inserts — so the helpers double as a sanity check on the create endpoint.
