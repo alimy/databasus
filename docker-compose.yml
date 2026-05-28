@@ -33,7 +33,7 @@ services:
       - POSTGRES_USER=${DEV_DB_USERNAME}
       - POSTGRES_PASSWORD=${DEV_DB_PASSWORD}
     volumes:
-      - ./pgdata:/var/lib/postgresql/data
+      - /var/lib/postgresql/data
     container_name: backend-db
     shm_size: 10gb
 
@@ -47,7 +47,7 @@ services:
       - POSTGRES_USER=${DEV_DB_USERNAME}
       - POSTGRES_PASSWORD=${DEV_DB_PASSWORD}
     volumes:
-      - ./pgdata-test:/var/lib/postgresql/data
+      - /var/lib/postgresql/data
     container_name: backend-db-test
     shm_size: 10gb
 
@@ -57,7 +57,7 @@ services:
     ports:
       - "${VALKEY_PORT}:6379"
     volumes:
-      - ./valkey-data:/data
+      - /data
     container_name: backend-valkey
     healthcheck:
       test: ["CMD", "valkey-cli", "ping"]
@@ -77,7 +77,7 @@ services:
       - -retentionPeriod=7d
       - -httpAuth.password=devpassword
     volumes:
-      - ./victoria-logs-data:/victoria-logs-data
+      - /victoria-logs-data
     restart: unless-stopped
 
   # ================================================================
@@ -393,7 +393,7 @@ services:
       - USERID=1000
       - GROUPID=1000
     volumes:
-      - ./temp/nas:/shared
+      - /shared
     command: >
       -u "testuser;testpassword"
       -s "backups;/shared;yes;no;no;testuser"
@@ -434,7 +434,7 @@ services:
       - MYSQL_PASSWORD=testpassword
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     volumes:
-      - ./mysqldata/mysql-57:/var/lib/mysql
+      - /var/lib/mysql
     container_name: test-logical-mysql-57
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword"]
@@ -453,7 +453,7 @@ services:
       - MYSQL_PASSWORD=testpassword
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --default-authentication-plugin=mysql_native_password
     volumes:
-      - ./mysqldata/mysql-80:/var/lib/mysql
+      - /var/lib/mysql
     container_name: test-logical-mysql-80
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword"]
@@ -472,7 +472,7 @@ services:
       - MYSQL_PASSWORD=testpassword
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     volumes:
-      - ./mysqldata/mysql-84:/var/lib/mysql
+      - /var/lib/mysql
     container_name: test-logical-mysql-84
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword"]
@@ -491,7 +491,7 @@ services:
       - MYSQL_PASSWORD=testpassword
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     volumes:
-      - ./mysqldata/mysql-90:/var/lib/mysql
+      - /var/lib/mysql
     container_name: test-logical-mysql-90
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword"]
@@ -511,7 +511,7 @@ services:
       - MYSQL_PASSWORD=testpassword
     command: --character-set-server=utf8 --collation-server=utf8_unicode_ci
     volumes:
-      - ./mariadbdata/mariadb-55:/var/lib/mysql
+      - /var/lib/mysql
     container_name: test-logical-mariadb-55
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-prootpassword"]
@@ -530,7 +530,7 @@ services:
       - MYSQL_PASSWORD=testpassword
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     volumes:
-      - ./mariadbdata/mariadb-101:/var/lib/mysql
+      - /var/lib/mysql
     container_name: test-logical-mariadb-101
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-prootpassword"]
@@ -549,7 +549,7 @@ services:
       - MYSQL_PASSWORD=testpassword
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     volumes:
-      - ./mariadbdata/mariadb-102:/var/lib/mysql
+      - /var/lib/mysql
     container_name: test-logical-mariadb-102
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-prootpassword"]
@@ -568,7 +568,7 @@ services:
       - MYSQL_PASSWORD=testpassword
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     volumes:
-      - ./mariadbdata/mariadb-103:/var/lib/mysql
+      - /var/lib/mysql
     container_name: test-logical-mariadb-103
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-prootpassword"]
@@ -587,7 +587,7 @@ services:
       - MARIADB_PASSWORD=testpassword
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     volumes:
-      - ./mariadbdata/mariadb-104:/var/lib/mysql
+      - /var/lib/mysql
     container_name: test-logical-mariadb-104
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
@@ -606,7 +606,7 @@ services:
       - MARIADB_PASSWORD=testpassword
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     volumes:
-      - ./mariadbdata/mariadb-105:/var/lib/mysql
+      - /var/lib/mysql
     container_name: test-logical-mariadb-105
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
@@ -625,7 +625,7 @@ services:
       - MARIADB_PASSWORD=testpassword
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     volumes:
-      - ./mariadbdata/mariadb-106:/var/lib/mysql
+      - /var/lib/mysql
     container_name: test-logical-mariadb-106
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
@@ -644,7 +644,7 @@ services:
       - MARIADB_PASSWORD=testpassword
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     volumes:
-      - ./mariadbdata/mariadb-1011:/var/lib/mysql
+      - /var/lib/mysql
     container_name: test-logical-mariadb-1011
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
@@ -663,7 +663,7 @@ services:
       - MARIADB_PASSWORD=testpassword
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     volumes:
-      - ./mariadbdata/mariadb-114:/var/lib/mysql
+      - /var/lib/mysql
     container_name: test-logical-mariadb-114
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
@@ -682,7 +682,7 @@ services:
       - MARIADB_PASSWORD=testpassword
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     volumes:
-      - ./mariadbdata/mariadb-118:/var/lib/mysql
+      - /var/lib/mysql
     container_name: test-logical-mariadb-118
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
@@ -701,7 +701,7 @@ services:
       - MARIADB_PASSWORD=testpassword
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     volumes:
-      - ./mariadbdata/mariadb-120:/var/lib/mysql
+      - /var/lib/mysql
     container_name: test-logical-mariadb-120
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
@@ -896,7 +896,7 @@ services:
       - --collation-server=utf8mb4_unicode_ci
       - --require-secure-transport=ON
     volumes:
-      - ./mariadbdata/mariadb-ssl:/var/lib/mysql
+      - /var/lib/mysql
     container_name: test-logical-mariadb-ssl
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
@@ -918,7 +918,7 @@ services:
       - --collation-server=utf8mb4_unicode_ci
       - --require_secure_transport=ON
     volumes:
-      - ./mysqldata/mysql-ssl:/var/lib/mysql
+      - /var/lib/mysql
     container_name: test-logical-mysql-ssl
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword"]

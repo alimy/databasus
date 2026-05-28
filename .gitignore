@@ -19,3 +19,5 @@ node_modules/
 .claude
 backend/cleanup_test_db.exe
 plans/
+
+.pnpm-store
