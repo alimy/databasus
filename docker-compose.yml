@@ -174,8 +174,20 @@ services:
     container_name: test-logical-postgres-18
     shm_size: 1gb
 
+  # Init script appends a password-protected replication rule so pg_basebackup
+  # works from the host through Docker NAT (default pg_hba only allows
+  # replication from 127.0.0.1/32, but the Docker bridge presents the host
+  # connection as the bridge subnet IP). scram-sha-256 keeps the password
+  # requirement intact.
   test-physical-postgres-17:
-    image: postgres:17
+    build:
+      dockerfile_inline: |
+        FROM postgres:17
+        COPY --chmod=0755 <<"EOF" /docker-entrypoint-initdb.d/02_allow_replication.sh
+        #!/bin/bash
+        set -e
+        echo "host replication all all scram-sha-256" >> "$$PGDATA/pg_hba.conf"
+        EOF
     ports:
       - "${TEST_PHYSICAL_POSTGRES_17_PORT}:5432"
     environment:
@@ -198,7 +210,14 @@ services:
     shm_size: 1gb
 
   test-physical-postgres-18:
-    image: postgres:18
+    build:
+      dockerfile_inline: |
+        FROM postgres:18
+        COPY --chmod=0755 <<"EOF" /docker-entrypoint-initdb.d/02_allow_replication.sh
+        #!/bin/bash
+        set -e
+        echo "host replication all all scram-sha-256" >> "$$PGDATA/pg_hba.conf"
+        EOF
     ports:
       - "${TEST_PHYSICAL_POSTGRES_18_PORT}:5432"
     environment:
@@ -225,7 +244,14 @@ services:
   # of TestReplicationConnection. One per supported physical PG version
   # because every integration test runs against both 17 and 18.
   test-physical-postgres-17-no-summary:
-    image: postgres:17
+    build:
+      dockerfile_inline: |
+        FROM postgres:17
+        COPY --chmod=0755 <<"EOF" /docker-entrypoint-initdb.d/02_allow_replication.sh
+        #!/bin/bash
+        set -e
+        echo "host replication all all scram-sha-256" >> "$$PGDATA/pg_hba.conf"
+        EOF
     ports:
       - "${TEST_PHYSICAL_POSTGRES_17_NO_SUMMARY_PORT}:5432"
     environment:
@@ -236,7 +262,14 @@ services:
     shm_size: 1gb
 
   test-physical-postgres-18-no-summary:
-    image: postgres:18
+    build:
+      dockerfile_inline: |
+        FROM postgres:18
+        COPY --chmod=0755 <<"EOF" /docker-entrypoint-initdb.d/02_allow_replication.sh
+        #!/bin/bash
+        set -e
+        echo "host replication all all scram-sha-256" >> "$$PGDATA/pg_hba.conf"
+        EOF
     ports:
       - "${TEST_PHYSICAL_POSTGRES_18_NO_SUMMARY_PORT}:5432"
     environment:
@@ -260,6 +293,11 @@ services:
         psql -v ON_ERROR_STOP=1 --username "$$POSTGRES_USER" --dbname "$$POSTGRES_DB" <<-SQL
           CREATE TABLESPACE custom_ts LOCATION '/var/lib/postgresql/custom_tablespace_dir';
         SQL
+        EOF
+        COPY --chmod=0755 <<"EOF" /docker-entrypoint-initdb.d/02_allow_replication.sh
+        #!/bin/bash
+        set -e
+        echo "host replication all all scram-sha-256" >> "$$PGDATA/pg_hba.conf"
         EOF
     ports:
       - "${TEST_PHYSICAL_POSTGRES_17_TABLESPACE_PORT}:5432"
@@ -293,6 +331,11 @@ services:
         psql -v ON_ERROR_STOP=1 --username "$$POSTGRES_USER" --dbname "$$POSTGRES_DB" <<-SQL
           CREATE TABLESPACE custom_ts LOCATION '/var/lib/postgresql/custom_tablespace_dir';
         SQL
+        EOF
+        COPY --chmod=0755 <<"EOF" /docker-entrypoint-initdb.d/02_allow_replication.sh
+        #!/bin/bash
+        set -e
+        echo "host replication all all scram-sha-256" >> "$$PGDATA/pg_hba.conf"
         EOF
     ports:
       - "${TEST_PHYSICAL_POSTGRES_18_TABLESPACE_PORT}:5432"
