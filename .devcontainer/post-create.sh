@@ -2,12 +2,12 @@
 set -euo pipefail
 
 sudo chown -R vscode:vscode \
-  /workspaces/postgresus \
+  /workspaces/databasus \
   /home/vscode/go \
   /home/vscode/.cache \
   /home/vscode/.local/share/pnpm
 
-cd /workspaces/postgresus
+cd /workspaces/databasus
 
 cd backend
 go mod download

@@ -4,8 +4,8 @@
     "dockerfile": "Dockerfile",
     "context": "."
   },
-  "workspaceFolder": "/workspaces/postgresus",
-  "workspaceMount": "source=databasus-workspace,target=/workspaces/postgresus,type=volume",
+  "workspaceFolder": "/workspaces/databasus",
+  "workspaceMount": "source=databasus-workspace,target=/workspaces/databasus,type=volume",
   "features": {
     "ghcr.io/devcontainers/features/docker-in-docker:2": {
       "version": "latest",
@@ -14,7 +14,6 @@
     }
   },
   "mounts": [
-    "source=databasus-dind-data,target=/var/lib/docker,type=volume",
     "source=databasus-go-mod-cache,target=/home/vscode/go/pkg/mod,type=volume",
     "source=databasus-go-build-cache,target=/home/vscode/.cache/go-build,type=volume",
     "source=databasus-golangci-cache,target=/home/vscode/.cache/golangci-lint,type=volume",
@@ -50,5 +49,6 @@
     }
   },
   "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "containerUser": "root",
   "remoteUser": "vscode"
 }
