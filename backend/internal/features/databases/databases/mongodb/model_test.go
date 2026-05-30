@@ -462,7 +462,7 @@ func connectToMongodbContainer(
 	version tools.MongodbVersion,
 ) *MongodbContainer {
 	if port == "" {
-		t.Skipf("MongoDB port not configured for version %s", version)
+		t.Fatalf("MongoDB port not configured for version %s", version)
 	}
 
 	dbName := "testdb"
@@ -490,11 +490,11 @@ func connectToMongodbContainer(
 	clientOptions := options.Client().ApplyURI(uri)
 	client, err := mongo.Connect(ctx, clientOptions)
 	if err != nil {
-		t.Skipf("Failed to connect to MongoDB %s: %v", version, err)
+		t.Fatalf("Failed to connect to MongoDB %s: %v", version, err)
 	}
 
 	if err := client.Ping(ctx, nil); err != nil {
-		t.Skipf("Failed to ping MongoDB %s: %v", version, err)
+		t.Fatalf("Failed to ping MongoDB %s: %v", version, err)
 	}
 
 	return &MongodbContainer{

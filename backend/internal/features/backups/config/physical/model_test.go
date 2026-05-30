@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"databasus-backend/internal/config"
-	backups_config_logical "databasus-backend/internal/features/backups/config/logical"
+	backups_core_enums "databasus-backend/internal/features/backups/backups/core/enums"
 	postgresql_physical "databasus-backend/internal/features/databases/databases/postgresql/physical"
 	"databasus-backend/internal/features/intervals"
 )
@@ -39,7 +39,7 @@ func validFullOnlyConfig() *PhysicalBackupConfig {
 			Policy:  FullBackupsRetentionPolicyGfs,
 			GfsDays: 7,
 		},
-		Encryption: backups_config_logical.BackupEncryptionNone,
+		Encryption: backups_core_enums.BackupEncryptionNone,
 		PostgresqlPhysical: &postgresql_physical.PostgresqlPhysicalDatabase{
 			BackupType: postgresql_physical.BackupTypeFullOnly,
 		},
@@ -53,7 +53,7 @@ func validFullIncrementalConfig() *PhysicalBackupConfig {
 		IncrementalBackupInterval: dailyAt("02:00"),
 		Retention:                 RetentionChains,
 		ChainsRetention:           ChainsRetention{Count: 3},
-		Encryption:                backups_config_logical.BackupEncryptionNone,
+		Encryption:                backups_core_enums.BackupEncryptionNone,
 		PostgresqlPhysical: &postgresql_physical.PostgresqlPhysicalDatabase{
 			BackupType: postgresql_physical.BackupTypeFullAndIncremental,
 		},
@@ -68,7 +68,7 @@ func validFullIncrementalWalStreamConfig() *PhysicalBackupConfig {
 		Retention:                 RetentionChains,
 		ChainsRetention:           ChainsRetention{Count: 3},
 		WalLagThresholdBytes:      16 * 1024 * 1024,
-		Encryption:                backups_config_logical.BackupEncryptionNone,
+		Encryption:                backups_core_enums.BackupEncryptionNone,
 		PostgresqlPhysical: &postgresql_physical.PostgresqlPhysicalDatabase{
 			BackupType: postgresql_physical.BackupTypeFullIncrementalAndWalStream,
 		},
@@ -99,7 +99,7 @@ func Test_Validate_RequiresEncryptedInCloudMode(t *testing.T) {
 	enableCloud(t)
 
 	c := validFullOnlyConfig()
-	c.Encryption = backups_config_logical.BackupEncryptionNone
+	c.Encryption = backups_core_enums.BackupEncryptionNone
 
 	err := c.Validate()
 	assert.Error(t, err)

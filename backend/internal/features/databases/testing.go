@@ -9,11 +9,10 @@ import (
 	"databasus-backend/internal/config"
 	"databasus-backend/internal/features/databases/databases/mariadb"
 	"databasus-backend/internal/features/databases/databases/mongodb"
-	"databasus-backend/internal/features/databases/databases/postgresql/logical"
-	"databasus-backend/internal/features/databases/databases/postgresql/physical"
+	postgresql_logical "databasus-backend/internal/features/databases/databases/postgresql/logical"
+	postgresql_physical "databasus-backend/internal/features/databases/databases/postgresql/physical"
 	"databasus-backend/internal/features/notifiers"
 	"databasus-backend/internal/features/storages"
-	"databasus-backend/internal/storage"
 	"databasus-backend/internal/util/tools"
 )
 
@@ -270,25 +269,7 @@ func CreateTestMongodbDatabase(
 }
 
 func RemoveTestDatabase(database *Database) {
-	// Delete backups and backup configs associated with this database
-	// We hardcode SQL here because we cannot call backups feature due to DI inversion
-	// (databases package cannot import backups package as backups already imports databases)
-	db := storage.GetDb()
-
-	if err := db.Exec("DELETE FROM logical_backups WHERE database_id = ?", database.ID).Error; err != nil {
-		panic(fmt.Sprintf("failed to delete backups: %v", err))
-	}
-
-	if err := db.Exec("DELETE FROM logical_backup_configs WHERE database_id = ?", database.ID).Error; err != nil {
-		panic(fmt.Sprintf("failed to delete backup config: %v", err))
-	}
-
-	if err := db.Exec("DELETE FROM physical_backup_configs WHERE database_id = ?", database.ID).Error; err != nil {
-		panic(fmt.Sprintf("failed to delete physical backup config: %v", err))
-	}
-
-	err := databaseRepository.Delete(database.ID)
-	if err != nil {
-		panic(err)
+	if err := databaseService.DeleteForTest(database.ID); err != nil {
+		panic(fmt.Sprintf("failed to delete test database: %v", err))
 	}
 }

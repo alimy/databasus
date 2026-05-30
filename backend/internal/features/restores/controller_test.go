@@ -23,7 +23,7 @@ import (
 	backups_config_logical "databasus-backend/internal/features/backups/config/logical"
 	"databasus-backend/internal/features/databases"
 	"databasus-backend/internal/features/databases/databases/mysql"
-	"databasus-backend/internal/features/databases/databases/postgresql/logical"
+	postgresql_logical "databasus-backend/internal/features/databases/databases/postgresql/logical"
 	"databasus-backend/internal/features/notifiers"
 	restores_core "databasus-backend/internal/features/restores/core"
 	"databasus-backend/internal/features/restores/restoring"

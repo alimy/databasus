@@ -21,15 +21,14 @@ import (
 
 	"databasus-backend/internal/config"
 	audit_logs "databasus-backend/internal/features/audit_logs"
-	"databasus-backend/internal/features/backups/backups/backuping/logical"
+	backuping_logical "databasus-backend/internal/features/backups/backups/backuping/logical"
 	backups_core_logical "databasus-backend/internal/features/backups/backups/core/logical"
 	backups_download "databasus-backend/internal/features/backups/backups/download"
 	backups_dto_logical "databasus-backend/internal/features/backups/backups/dto/logical"
 	backups_services "databasus-backend/internal/features/backups/backups/services"
-	usecases_logical_dto "databasus-backend/internal/features/backups/backups/usecases/logical/dto"
 	backups_config_logical "databasus-backend/internal/features/backups/config/logical"
 	"databasus-backend/internal/features/databases"
-	"databasus-backend/internal/features/databases/databases/postgresql/logical"
+	postgresql_logical "databasus-backend/internal/features/databases/databases/postgresql/logical"
 	"databasus-backend/internal/features/storages"
 	local_storage "databasus-backend/internal/features/storages/models/local"
 	task_cancellation "databasus-backend/internal/features/tasks/cancellation"
@@ -1479,7 +1478,7 @@ func Test_MakeBackup_VerifyBackupAndMetadataFilesExistInStorage(t *testing.T) {
 	require.NoError(t, err)
 	metadataFile.Close()
 
-	var storageMetadata usecases_logical_dto.BackupMetadata
+	var storageMetadata backups_core_logical.BackupMetadata
 	err = json.Unmarshal(metadataContent, &storageMetadata)
 	assert.NoError(t, err)
 

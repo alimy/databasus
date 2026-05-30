@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 
+	backups_core_enums "databasus-backend/internal/features/backups/backups/core/enums"
 	physical_enums "databasus-backend/internal/features/backups/backups/core/physical/enums"
 )
 
@@ -25,9 +26,11 @@ type PhysicalBackupMetadata struct {
 	RootFullBackupID          *uuid.UUID `json:"rootFullBackupId,omitempty"`
 	ParentIncrementalBackupID *uuid.UUID `json:"parentIncrementalBackupId,omitempty"`
 
-	Encryption     physical_enums.PhysicalBackupEncryption `json:"encryption"`
-	EncryptionSalt string                                  `json:"encryptionSalt,omitempty"`
-	EncryptionIV   string                                  `json:"encryptionIv,omitempty"`
+	Encryption     backups_core_enums.BackupEncryption `json:"encryption"`
+	EncryptionSalt string                              `json:"encryptionSalt,omitempty"`
+	EncryptionIV   string                              `json:"encryptionIv,omitempty"`
+
+	Compression physical_enums.PhysicalBackupCompression `json:"compression"`
 
 	CreatedAt   time.Time `json:"createdAt"`
 	CompletedAt time.Time `json:"completedAt"`
@@ -44,9 +47,9 @@ type PhysicalWalSegmentMetadata struct {
 
 	CompressedSizeBytes int64 `json:"compressedSizeBytes"`
 
-	Encryption     physical_enums.PhysicalBackupEncryption `json:"encryption"`
-	EncryptionSalt string                                  `json:"encryptionSalt,omitempty"`
-	EncryptionIV   string                                  `json:"encryptionIv,omitempty"`
+	Encryption     backups_core_enums.BackupEncryption `json:"encryption"`
+	EncryptionSalt string                              `json:"encryptionSalt,omitempty"`
+	EncryptionIV   string                              `json:"encryptionIv,omitempty"`
 
 	ReceivedAt time.Time `json:"receivedAt"`
 }
@@ -59,9 +62,9 @@ type PhysicalWalHistoryMetadata struct {
 
 	CompressedSizeBytes int64 `json:"compressedSizeBytes"`
 
-	Encryption     physical_enums.PhysicalBackupEncryption `json:"encryption"`
-	EncryptionSalt string                                  `json:"encryptionSalt,omitempty"`
-	EncryptionIV   string                                  `json:"encryptionIv,omitempty"`
+	Encryption     backups_core_enums.BackupEncryption `json:"encryption"`
+	EncryptionSalt string                              `json:"encryptionSalt,omitempty"`
+	EncryptionIV   string                              `json:"encryptionIv,omitempty"`
 
 	CreatedAt time.Time `json:"createdAt"`
 }

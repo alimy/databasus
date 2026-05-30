@@ -23,6 +23,7 @@ import (
 	"databasus-backend/internal/config"
 	"databasus-backend/internal/features/audit_logs"
 	"databasus-backend/internal/features/backups/backups/backuping/logical"
+	backuping_physical "databasus-backend/internal/features/backups/backups/backuping/physical"
 	backups_controllers_logical "databasus-backend/internal/features/backups/backups/controllers/logical"
 	backups_download "databasus-backend/internal/features/backups/backups/download"
 	backups_services "databasus-backend/internal/features/backups/backups/services"
@@ -277,6 +278,7 @@ func setUpDependencies() {
 	storages.SetupDependencies()
 	backups_config_logical.SetupDependencies()
 	backups_config_physical.SetupDependencies()
+	backuping_physical.SetupDependencies()
 	verification_config.SetupDependencies()
 	verification_runs.SetupDependencies()
 	task_cancellation.SetupDependencies()

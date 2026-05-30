@@ -7,7 +7,8 @@ import (
 	"time"
 
 	"databasus-backend/internal/features/audit_logs"
-	"databasus-backend/internal/features/backups/backups/backuping/logical"
+	backuping_logical "databasus-backend/internal/features/backups/backups/backuping/logical"
+	backuping_physical "databasus-backend/internal/features/backups/backups/backuping/physical"
 	backups_services "databasus-backend/internal/features/backups/backups/services"
 	backups_config_logical "databasus-backend/internal/features/backups/config/logical"
 	backups_config_physical "databasus-backend/internal/features/backups/config/physical"
@@ -34,6 +35,9 @@ func Test_SetupDependencies_CalledTwice_LogsWarning(t *testing.T) {
 
 	backups_config_physical.SetupDependencies()
 	backups_config_physical.SetupDependencies()
+
+	backuping_physical.SetupDependencies()
+	backuping_physical.SetupDependencies()
 
 	databases.SetupDependencies()
 	databases.SetupDependencies()

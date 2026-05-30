@@ -8,7 +8,7 @@ import (
 	"databasus-backend/internal/features/databases/databases/mariadb"
 	"databasus-backend/internal/features/databases/databases/mongodb"
 	"databasus-backend/internal/features/databases/databases/mysql"
-	"databasus-backend/internal/features/databases/databases/postgresql/logical"
+	postgresql_logical "databasus-backend/internal/features/databases/databases/postgresql/logical"
 )
 
 type RestoreDatabaseCache struct {

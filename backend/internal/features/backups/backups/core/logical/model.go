@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
-	backups_config_logical "databasus-backend/internal/features/backups/config/logical"
+	backups_core_enums "databasus-backend/internal/features/backups/backups/core/enums"
 	files_utils "databasus-backend/internal/util/files"
 )
 
@@ -28,9 +28,9 @@ type LogicalBackup struct {
 
 	BackupDurationMs int64 `json:"backupDurationMs" gorm:"column:backup_duration_ms;default:0"`
 
-	EncryptionSalt *string                                 `json:"-"          gorm:"column:encryption_salt"`
-	EncryptionIV   *string                                 `json:"-"          gorm:"column:encryption_iv"`
-	Encryption     backups_config_logical.BackupEncryption `json:"encryption" gorm:"column:encryption;type:text;not null;default:'NONE'"`
+	EncryptionSalt *string                             `json:"-"          gorm:"column:encryption_salt"`
+	EncryptionIV   *string                             `json:"-"          gorm:"column:encryption_iv"`
+	Encryption     backups_core_enums.BackupEncryption `json:"encryption" gorm:"column:encryption;type:text;not null;default:'NONE'"`
 
 	CreatedAt time.Time `json:"createdAt" gorm:"column:created_at"`
 }

@@ -18,7 +18,7 @@ import (
 	billing_models "databasus-backend/internal/features/billing/models"
 	billing_provider "databasus-backend/internal/features/billing/provider"
 	"databasus-backend/internal/features/databases"
-	"databasus-backend/internal/features/databases/databases/postgresql/logical"
+	postgresql_logical "databasus-backend/internal/features/databases/databases/postgresql/logical"
 	users_dto "databasus-backend/internal/features/users/dto"
 	users_enums "databasus-backend/internal/features/users/enums"
 	users_middleware "databasus-backend/internal/features/users/middleware"

@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"databasus-backend/internal/config"
+	backups_core_enums "databasus-backend/internal/features/backups/backups/core/enums"
 	backups_core_logical "databasus-backend/internal/features/backups/backups/core/logical"
 	backups_config_logical "databasus-backend/internal/features/backups/config/logical"
 	billing_models "databasus-backend/internal/features/billing/models"
@@ -53,7 +54,7 @@ func Test_CleanOldBackups_DeletesBackupsOlderThanRetentionTimePeriod(t *testing.
 		RetentionTimePeriod: period.PeriodWeek,
 		StorageID:           &storage.ID,
 		BackupInterval:      interval,
-		Encryption:          backups_config_logical.BackupEncryptionEncrypted,
+		Encryption:          backups_core_enums.BackupEncryptionEncrypted,
 	}
 	_, err := backups_config_logical.GetBackupConfigService().SaveBackupConfig(backupConfig)
 	assert.NoError(t, err)
@@ -131,7 +132,7 @@ func Test_CleanOldBackups_SkipsDatabaseWithForeverRetentionPeriod(t *testing.T) 
 		RetentionTimePeriod: period.PeriodForever,
 		StorageID:           &storage.ID,
 		BackupInterval:      interval,
-		Encryption:          backups_config_logical.BackupEncryptionEncrypted,
+		Encryption:          backups_core_enums.BackupEncryptionEncrypted,
 	}
 	_, err := backups_config_logical.GetBackupConfigService().SaveBackupConfig(backupConfig)
 	assert.NoError(t, err)
@@ -188,7 +189,7 @@ func Test_CleanExceededBackups_WhenUnderStorageLimit_NoBackupsDeleted(t *testing
 		RetentionTimePeriod: period.PeriodForever,
 		StorageID:           &storage.ID,
 		BackupInterval:      interval,
-		Encryption:          backups_config_logical.BackupEncryptionEncrypted,
+		Encryption:          backups_core_enums.BackupEncryptionEncrypted,
 	}
 	_, err := backups_config_logical.GetBackupConfigService().SaveBackupConfig(backupConfig)
 	assert.NoError(t, err)
@@ -249,7 +250,7 @@ func Test_CleanExceededBackups_WhenOverStorageLimit_DeletesOldestBackups(t *test
 		RetentionTimePeriod: period.PeriodForever,
 		StorageID:           &storage.ID,
 		BackupInterval:      interval,
-		Encryption:          backups_config_logical.BackupEncryptionEncrypted,
+		Encryption:          backups_core_enums.BackupEncryptionEncrypted,
 	}
 	_, err := backups_config_logical.GetBackupConfigService().SaveBackupConfig(backupConfig)
 	assert.NoError(t, err)
@@ -325,7 +326,7 @@ func Test_CleanExceededBackups_SkipsInProgressBackups(t *testing.T) {
 		RetentionTimePeriod: period.PeriodForever,
 		StorageID:           &storage.ID,
 		BackupInterval:      interval,
-		Encryption:          backups_config_logical.BackupEncryptionEncrypted,
+		Encryption:          backups_core_enums.BackupEncryptionEncrypted,
 	}
 	_, err := backups_config_logical.GetBackupConfigService().SaveBackupConfig(backupConfig)
 	assert.NoError(t, err)
@@ -411,7 +412,7 @@ func Test_CleanExceededBackups_WithZeroStorageLimit_RemovesAllBackups(t *testing
 		RetentionTimePeriod: period.PeriodForever,
 		StorageID:           &storage.ID,
 		BackupInterval:      interval,
-		Encryption:          backups_config_logical.BackupEncryptionEncrypted,
+		Encryption:          backups_core_enums.BackupEncryptionEncrypted,
 	}
 	_, err := backups_config_logical.GetBackupConfigService().SaveBackupConfig(backupConfig)
 	assert.NoError(t, err)
@@ -542,7 +543,7 @@ func Test_CleanByCount_KeepsNewestNBackups_DeletesOlder(t *testing.T) {
 		RetentionCount:      3,
 		StorageID:           &storage.ID,
 		BackupInterval:      interval,
-		Encryption:          backups_config_logical.BackupEncryptionEncrypted,
+		Encryption:          backups_core_enums.BackupEncryptionEncrypted,
 	}
 	_, err := backups_config_logical.GetBackupConfigService().SaveBackupConfig(backupConfig)
 	assert.NoError(t, err)
@@ -614,7 +615,7 @@ func Test_CleanByCount_WhenUnderLimit_NoBackupsDeleted(t *testing.T) {
 		RetentionCount:      10,
 		StorageID:           &storage.ID,
 		BackupInterval:      interval,
-		Encryption:          backups_config_logical.BackupEncryptionEncrypted,
+		Encryption:          backups_core_enums.BackupEncryptionEncrypted,
 	}
 	_, err := backups_config_logical.GetBackupConfigService().SaveBackupConfig(backupConfig)
 	assert.NoError(t, err)
@@ -671,7 +672,7 @@ func Test_CleanByCount_DoesNotDeleteInProgressBackups(t *testing.T) {
 		RetentionCount:      2,
 		StorageID:           &storage.ID,
 		BackupInterval:      interval,
-		Encryption:          backups_config_logical.BackupEncryptionEncrypted,
+		Encryption:          backups_core_enums.BackupEncryptionEncrypted,
 	}
 	_, err := backups_config_logical.GetBackupConfigService().SaveBackupConfig(backupConfig)
 	assert.NoError(t, err)
@@ -796,7 +797,7 @@ func Test_CleanByTimePeriod_SkipsRecentBackup_EvenIfOlderThanRetention(t *testin
 		RetentionTimePeriod: period.PeriodDay,
 		StorageID:           &storage.ID,
 		BackupInterval:      interval,
-		Encryption:          backups_config_logical.BackupEncryptionEncrypted,
+		Encryption:          backups_core_enums.BackupEncryptionEncrypted,
 	}
 	_, err := backups_config_logical.GetBackupConfigService().SaveBackupConfig(backupConfig)
 	assert.NoError(t, err)
@@ -867,7 +868,7 @@ func Test_CleanByCount_SkipsRecentBackup_EvenIfOverLimit(t *testing.T) {
 		RetentionCount:      2,
 		StorageID:           &storage.ID,
 		BackupInterval:      interval,
-		Encryption:          backups_config_logical.BackupEncryptionEncrypted,
+		Encryption:          backups_core_enums.BackupEncryptionEncrypted,
 	}
 	_, err := backups_config_logical.GetBackupConfigService().SaveBackupConfig(backupConfig)
 	assert.NoError(t, err)
@@ -969,7 +970,7 @@ func Test_CleanExceededBackups_SkipsRecentBackup_WhenOverStorageLimit(t *testing
 		RetentionTimePeriod: period.PeriodForever,
 		StorageID:           &storage.ID,
 		BackupInterval:      interval,
-		Encryption:          backups_config_logical.BackupEncryptionEncrypted,
+		Encryption:          backups_core_enums.BackupEncryptionEncrypted,
 	}
 	_, err := backups_config_logical.GetBackupConfigService().SaveBackupConfig(backupConfig)
 	assert.NoError(t, err)
@@ -1045,7 +1046,7 @@ func Test_CleanExceededStorageBackups_WhenNonCloud_SkipsCleanup(t *testing.T) {
 		RetentionTimePeriod: period.PeriodForever,
 		StorageID:           &storage.ID,
 		BackupInterval:      interval,
-		Encryption:          backups_config_logical.BackupEncryptionEncrypted,
+		Encryption:          backups_core_enums.BackupEncryptionEncrypted,
 	}
 	_, err := backups_config_logical.GetBackupConfigService().SaveBackupConfig(backupConfig)
 	assert.NoError(t, err)

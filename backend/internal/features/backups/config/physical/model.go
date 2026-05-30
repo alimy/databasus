@@ -10,7 +10,7 @@ import (
 	"gorm.io/gorm"
 
 	"databasus-backend/internal/config"
-	backups_config_logical "databasus-backend/internal/features/backups/config/logical"
+	backups_core_enums "databasus-backend/internal/features/backups/backups/core/enums"
 	postgresql_physical "databasus-backend/internal/features/databases/databases/postgresql/physical"
 	"databasus-backend/internal/features/intervals"
 	"databasus-backend/internal/features/storages"
@@ -34,7 +34,7 @@ type PhysicalBackupConfig struct {
 	Storage   *storages.Storage `json:"storage"   gorm:"foreignKey:StorageID"`
 	StorageID *uuid.UUID        `json:"storageId" gorm:"column:storage_id;type:uuid"`
 
-	Encryption backups_config_logical.BackupEncryption `json:"encryption" gorm:"column:encryption;type:text;not null;default:'NONE'"`
+	Encryption backups_core_enums.BackupEncryption `json:"encryption" gorm:"column:encryption;type:text;not null;default:'NONE'"`
 
 	SendNotificationsOn       []BackupNotificationType `json:"sendNotificationsOn" gorm:"-"`
 	SendNotificationsOnString string                   `json:"-"                   gorm:"column:send_notifications_on;type:text;not null"`
@@ -82,12 +82,12 @@ func (b *PhysicalBackupConfig) Validate() error {
 	}
 
 	switch b.Encryption {
-	case "", backups_config_logical.BackupEncryptionNone, backups_config_logical.BackupEncryptionEncrypted:
+	case "", backups_core_enums.BackupEncryptionNone, backups_core_enums.BackupEncryptionEncrypted:
 	default:
-		return errors.New("encryption must be NONE or ENCRYPTED")
+		return errors.New("encryption must be NONE or AES_256_GCM")
 	}
 
-	if config.GetEnv().IsCloud && b.Encryption != backups_config_logical.BackupEncryptionEncrypted {
+	if config.GetEnv().IsCloud && b.Encryption != backups_core_enums.BackupEncryptionEncrypted {
 		return errors.New("encryption is mandatory for cloud storage")
 	}
 

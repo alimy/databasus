@@ -14,9 +14,9 @@ import (
 	"github.com/google/uuid"
 
 	"databasus-backend/internal/config"
+	backups_core_enums "databasus-backend/internal/features/backups/backups/core/enums"
 	backups_core_logical "databasus-backend/internal/features/backups/backups/core/logical"
 	backup_encryption "databasus-backend/internal/features/backups/backups/encryption"
-	usecases_logical_dto "databasus-backend/internal/features/backups/backups/usecases/logical/dto"
 	backups_config_logical "databasus-backend/internal/features/backups/config/logical"
 	"databasus-backend/internal/features/databases"
 	mongodbtypes "databasus-backend/internal/features/databases/databases/mongodb"
@@ -52,7 +52,7 @@ func (uc *CreateMongodbBackupUsecase) Execute(
 	db *databases.Database,
 	storage *storages.Storage,
 	backupProgressListener func(completedMBs float64),
-) (*usecases_logical_dto.BackupMetadata, error) {
+) (*backups_core_logical.BackupMetadata, error) {
 	uc.logger.Info(
 		"Creating MongoDB backup via mongodump",
 		"databaseId", db.ID,
@@ -129,7 +129,7 @@ func (uc *CreateMongodbBackupUsecase) streamToStorage(
 	args []string,
 	storage *storages.Storage,
 	backupProgressListener func(completedMBs float64),
-) (*usecases_logical_dto.BackupMetadata, error) {
+) (*backups_core_logical.BackupMetadata, error) {
 	uc.logger.Info("Streaming MongoDB backup to storage", "mongodumpBin", mongodumpBin)
 
 	ctx, cancel := uc.createBackupContext(parentCtx)
@@ -289,13 +289,13 @@ func (uc *CreateMongodbBackupUsecase) setupBackupEncryption(
 	backupID uuid.UUID,
 	backupConfig *backups_config_logical.LogicalBackupConfig,
 	storageWriter io.WriteCloser,
-) (io.Writer, *backup_encryption.EncryptionWriter, usecases_logical_dto.BackupMetadata, error) {
-	backupMetadata := usecases_logical_dto.BackupMetadata{
+) (io.Writer, *backup_encryption.EncryptionWriter, backups_core_logical.BackupMetadata, error) {
+	backupMetadata := backups_core_logical.BackupMetadata{
 		BackupID:   backupID,
-		Encryption: backups_config_logical.BackupEncryptionNone,
+		Encryption: backups_core_enums.BackupEncryptionNone,
 	}
 
-	if backupConfig.Encryption != backups_config_logical.BackupEncryptionEncrypted {
+	if backupConfig.Encryption != backups_core_enums.BackupEncryptionEncrypted {
 		return storageWriter, nil, backupMetadata, nil
 	}
 
@@ -309,7 +309,7 @@ func (uc *CreateMongodbBackupUsecase) setupBackupEncryption(
 		return nil, nil, backupMetadata, err
 	}
 
-	backupMetadata.Encryption = backups_config_logical.BackupEncryptionEncrypted
+	backupMetadata.Encryption = backups_core_enums.BackupEncryptionEncrypted
 	backupMetadata.EncryptionSalt = &encSetup.SaltBase64
 	backupMetadata.EncryptionIV = &encSetup.NonceBase64
 

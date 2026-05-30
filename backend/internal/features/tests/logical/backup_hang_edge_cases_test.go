@@ -12,9 +12,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"databasus-backend/internal/config"
+	backups_core_enums "databasus-backend/internal/features/backups/backups/core/enums"
 	backups_core_logical "databasus-backend/internal/features/backups/backups/core/logical"
 	backups_dto_logical "databasus-backend/internal/features/backups/backups/dto/logical"
-	backups_config_logical "databasus-backend/internal/features/backups/config/logical"
 	"databasus-backend/internal/features/storages"
 	users_enums "databasus-backend/internal/features/users/enums"
 	users_testing "databasus-backend/internal/features/users/testing"
@@ -27,8 +27,7 @@ func Test_BackupShouldFailNotHang_WhenSaveFileFails_RegressionForIssue582(t *tes
 	env := config.GetEnv()
 
 	if env.TestMinioPort == "" {
-		t.Skip("TEST_MINIO_PORT not set; skipping flaky-S3 regression test")
-		return
+		t.Fatal("TEST_MINIO_PORT not set; flaky-S3 regression test requires the minio test container")
 	}
 
 	router := createTestRouter()
@@ -50,8 +49,7 @@ func Test_BackupShouldFailNotHang_WhenSaveFileFails_RegressionForIssue582(t *tes
 			env.TestLogicalMariadb1011Port,
 		)
 		if err != nil {
-			t.Skipf("Skipping: failed to connect to MariaDB test container: %v", err)
-			return
+			t.Fatalf("failed to connect to MariaDB test container: %v", err)
 		}
 		defer container.DB.Close()
 
@@ -71,8 +69,7 @@ func Test_BackupShouldFailNotHang_WhenSaveFileFails_RegressionForIssue582(t *tes
 	t.Run("PostgreSQL", func(t *testing.T) {
 		container, err := connectToPostgresContainer("16", env.TestLogicalPostgres16Port)
 		if err != nil {
-			t.Skipf("Skipping: failed to connect to PostgreSQL test container: %v", err)
-			return
+			t.Fatalf("failed to connect to PostgreSQL test container: %v", err)
 		}
 		defer container.DB.Close()
 
@@ -95,8 +92,7 @@ func Test_BackupShouldFailNotHang_WhenSaveFileFails_RegressionForIssue582(t *tes
 			env.TestLogicalMysql80Port,
 		)
 		if err != nil {
-			t.Skipf("Skipping: failed to connect to MySQL test container: %v", err)
-			return
+			t.Fatalf("failed to connect to MySQL test container: %v", err)
 		}
 		defer container.DB.Close()
 
@@ -119,8 +115,7 @@ func Test_BackupShouldFailNotHang_WhenSaveFileFails_RegressionForIssue582(t *tes
 			env.TestLogicalMongodb70Port,
 		)
 		if err != nil {
-			t.Skipf("Skipping: failed to connect to MongoDB test container: %v", err)
-			return
+			t.Fatalf("failed to connect to MongoDB test container: %v", err)
 		}
 		defer func() { _ = container.Client.Disconnect(t.Context()) }()
 
@@ -158,7 +153,7 @@ func assertBackupFailsWithoutHanging(
 
 	enableBackupsViaAPI(
 		t, router, databaseID, storageID,
-		backups_config_logical.BackupEncryptionNone, token,
+		backups_core_enums.BackupEncryptionNone, token,
 	)
 
 	createBackupViaAPI(t, router, databaseID, token)

@@ -22,8 +22,8 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"databasus-backend/internal/config"
+	backups_core_enums "databasus-backend/internal/features/backups/backups/core/enums"
 	backups_core_logical "databasus-backend/internal/features/backups/backups/core/logical"
-	backups_config_logical "databasus-backend/internal/features/backups/config/logical"
 	"databasus-backend/internal/features/databases"
 	mariadbtypes "databasus-backend/internal/features/databases/databases/mariadb"
 	mongodbtypes "databasus-backend/internal/features/databases/databases/mongodb"
@@ -59,7 +59,7 @@ func registerSSLMysqlTLSConfig(t *testing.T) {
 func Test_BackupAndRestorePostgresqlSSL_Succeeds(t *testing.T) {
 	port := config.GetEnv().TestLogicalPostgresSslPort
 	if port == "" {
-		t.Skip("TEST_LOGICAL_POSTGRES_SSL_PORT not configured")
+		t.Fatal("TEST_LOGICAL_POSTGRES_SSL_PORT not configured")
 	}
 
 	host := config.GetEnv().TestLocalhost
@@ -95,7 +95,7 @@ func Test_BackupAndRestorePostgresqlSSL_Succeeds(t *testing.T) {
 
 	enableBackupsViaAPI(
 		t, router, database.ID, storage.ID,
-		backups_config_logical.BackupEncryptionNone, user.Token,
+		backups_core_enums.BackupEncryptionNone, user.Token,
 	)
 	createBackupViaAPI(t, router, database.ID, user.Token)
 
@@ -140,7 +140,7 @@ func Test_BackupAndRestoreMariadbSSL_Succeeds(t *testing.T) {
 
 	port := config.GetEnv().TestLogicalMariadbSslPort
 	if port == "" {
-		t.Skip("TEST_LOGICAL_MARIADB_SSL_PORT not configured")
+		t.Fatal("TEST_LOGICAL_MARIADB_SSL_PORT not configured")
 	}
 
 	host := config.GetEnv().TestLocalhost
@@ -173,7 +173,7 @@ func Test_BackupAndRestoreMariadbSSL_Succeeds(t *testing.T) {
 
 	enableBackupsViaAPI(
 		t, router, database.ID, storage.ID,
-		backups_config_logical.BackupEncryptionNone, user.Token,
+		backups_core_enums.BackupEncryptionNone, user.Token,
 	)
 	createBackupViaAPI(t, router, database.ID, user.Token)
 
@@ -217,7 +217,7 @@ func Test_BackupAndRestoreMysqlSSL_Succeeds(t *testing.T) {
 
 	port := config.GetEnv().TestLogicalMysqlSslPort
 	if port == "" {
-		t.Skip("TEST_LOGICAL_MYSQL_SSL_PORT not configured")
+		t.Fatal("TEST_LOGICAL_MYSQL_SSL_PORT not configured")
 	}
 
 	host := config.GetEnv().TestLocalhost
@@ -250,7 +250,7 @@ func Test_BackupAndRestoreMysqlSSL_Succeeds(t *testing.T) {
 
 	enableBackupsViaAPI(
 		t, router, database.ID, storage.ID,
-		backups_config_logical.BackupEncryptionNone, user.Token,
+		backups_core_enums.BackupEncryptionNone, user.Token,
 	)
 	createBackupViaAPI(t, router, database.ID, user.Token)
 
@@ -292,7 +292,7 @@ func Test_BackupAndRestoreMysqlSSL_Succeeds(t *testing.T) {
 func Test_BackupAndRestoreMongodbSSL_Succeeds(t *testing.T) {
 	port := config.GetEnv().TestLogicalMongodbSslPort
 	if port == "" {
-		t.Skip("TEST_LOGICAL_MONGODB_SSL_PORT not configured")
+		t.Fatal("TEST_LOGICAL_MONGODB_SSL_PORT not configured")
 	}
 
 	host := config.GetEnv().TestLocalhost
@@ -344,7 +344,7 @@ func Test_BackupAndRestoreMongodbSSL_Succeeds(t *testing.T) {
 
 	enableBackupsViaAPI(
 		t, router, database.ID, storage.ID,
-		backups_config_logical.BackupEncryptionNone, user.Token,
+		backups_core_enums.BackupEncryptionNone, user.Token,
 	)
 	createBackupViaAPI(t, router, database.ID, user.Token)
 

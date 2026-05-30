@@ -13,7 +13,7 @@ import (
 
 	"databasus-backend/internal/features/backups/backups/backuping/nodes"
 	backups_core_logical "databasus-backend/internal/features/backups/backups/core/logical"
-	"databasus-backend/internal/features/backups/backups/usecases/logical"
+	usecases_logical "databasus-backend/internal/features/backups/backups/usecases/logical"
 	backups_config_logical "databasus-backend/internal/features/backups/config/logical"
 	"databasus-backend/internal/features/databases"
 	"databasus-backend/internal/features/notifiers"
@@ -154,6 +154,7 @@ func CreateTestScheduler(billingService BillingService) *BackupsScheduler {
 		CreateTestBackuperNode(),
 		[]backups_core_logical.BackupCompletionListener{},
 		atomic.Bool{},
+		atomic.Bool{},
 	}
 }
 
@@ -247,6 +248,11 @@ func StartBackuperNodeForTest(t *testing.T, backuperNode *BackuperNode) context.
 // StartSchedulerForTest starts the BackupsScheduler in a goroutine for testing.
 // The scheduler subscribes to task completions and manages backup lifecycle.
 // Returns a context cancel function that should be deferred to stop the scheduler.
+//
+// PubSubManager.Subscribe handshakes with Valkey before returning, so we
+// don't need to sleep here waiting for the subscription to register. Poll
+// the scheduler's hasRun flag instead to be sure Run() has entered its
+// loop before the caller proceeds.
 func StartSchedulerForTest(t *testing.T, scheduler *BackupsScheduler) context.CancelFunc {
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -257,19 +263,28 @@ func StartSchedulerForTest(t *testing.T, scheduler *BackupsScheduler) context.Ca
 		close(done)
 	}()
 
-	// Give scheduler time to subscribe to completions
-	time.Sleep(100 * time.Millisecond)
-	t.Log("BackupsScheduler started")
+	deadline := time.Now().UTC().Add(5 * time.Second)
+	for time.Now().UTC().Before(deadline) {
+		if scheduler.IsRunning() {
+			t.Log("BackupsScheduler started")
 
-	return func() {
-		cancel()
-		select {
-		case <-done:
-			t.Log("BackupsScheduler stopped gracefully")
-		case <-time.After(2 * time.Second):
-			t.Log("BackupsScheduler stop timeout")
+			return func() {
+				cancel()
+				select {
+				case <-done:
+					t.Log("BackupsScheduler stopped gracefully")
+				case <-time.After(2 * time.Second):
+					t.Log("BackupsScheduler stop timeout")
+				}
+			}
 		}
+
+		time.Sleep(25 * time.Millisecond)
 	}
+
+	t.Fatal("BackupsScheduler failed to start within timeout")
+
+	return nil
 }
 
 // StopBackuperNodeForTest stops the BackuperNode by canceling its context.

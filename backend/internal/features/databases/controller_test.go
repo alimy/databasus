@@ -16,8 +16,8 @@ import (
 	"databasus-backend/internal/features/audit_logs"
 	"databasus-backend/internal/features/databases/databases/mariadb"
 	"databasus-backend/internal/features/databases/databases/mongodb"
-	"databasus-backend/internal/features/databases/databases/postgresql/logical"
-	"databasus-backend/internal/features/databases/databases/postgresql/physical"
+	postgresql_logical "databasus-backend/internal/features/databases/databases/postgresql/logical"
+	postgresql_physical "databasus-backend/internal/features/databases/databases/postgresql/physical"
 	users_enums "databasus-backend/internal/features/users/enums"
 	users_middleware "databasus-backend/internal/features/users/middleware"
 	users_services "databasus-backend/internal/features/users/services"
@@ -1389,7 +1389,7 @@ func physicalNoSummaryVersionTags() []string {
 func Test_CreateDatabase_FailsForPhysicalIncrementalWhenSummarizeWalOff(t *testing.T) {
 	versionTags := physicalNoSummaryVersionTags()
 	if len(versionTags) == 0 {
-		t.Skip("no physical no-summary postgres ports configured")
+		t.Fatal("no physical no-summary postgres ports configured")
 	}
 
 	incrementalBackupTypes := []postgresql_physical.BackupType{
@@ -1433,7 +1433,7 @@ func Test_CreateDatabase_FailsForPhysicalIncrementalWhenSummarizeWalOff(t *testi
 func Test_UpdateDatabase_FailsForSwitchToPhysicalIncrementalWhenSummarizeWalOff(t *testing.T) {
 	versionTags := physicalNoSummaryVersionTags()
 	if len(versionTags) == 0 {
-		t.Skip("no physical no-summary postgres ports configured")
+		t.Fatal("no physical no-summary postgres ports configured")
 	}
 
 	for _, versionTag := range versionTags {

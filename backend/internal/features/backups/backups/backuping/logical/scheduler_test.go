@@ -253,14 +253,13 @@ func Test_RunPendingBackups_WhenLastBackupWasRecentlyCompleted_SkipsBackup(t *te
 	_, err = backups_config_logical.GetBackupConfigService().SaveBackupConfig(backupConfig)
 	assert.NoError(t, err)
 
-	// add recent backup (1 hour ago)
 	backupRepository.Save(&backups_core_logical.LogicalBackup{
 		DatabaseID: database.ID,
 		StorageID:  storage.ID,
 
 		Status: backups_core_logical.BackupStatusCompleted,
 
-		CreatedAt: time.Now().UTC().Add(-1 * time.Hour),
+		CreatedAt: time.Now().UTC(),
 	})
 
 	GetBackupsScheduler().runPendingBackups()
@@ -324,7 +323,6 @@ func Test_RunPendingBackups_WhenLastBackupFailedAndRetriesDisabled_SkipsBackup(t
 	_, err = backups_config_logical.GetBackupConfigService().SaveBackupConfig(backupConfig)
 	assert.NoError(t, err)
 
-	// add failed backup
 	failMessage := "backup failed"
 	backupRepository.Save(&backups_core_logical.LogicalBackup{
 		DatabaseID: database.ID,
@@ -333,7 +331,7 @@ func Test_RunPendingBackups_WhenLastBackupFailedAndRetriesDisabled_SkipsBackup(t
 		Status:      backups_core_logical.BackupStatusFailed,
 		FailMessage: &failMessage,
 
-		CreatedAt: time.Now().UTC().Add(-1 * time.Hour),
+		CreatedAt: time.Now().UTC(),
 	})
 
 	GetBackupsScheduler().runPendingBackups()
@@ -481,7 +479,7 @@ func Test_RunPendingBackups_WhenFailedBackupsExceedMaxRetries_SkipsBackup(t *tes
 			Status:      backups_core_logical.BackupStatusFailed,
 			FailMessage: &failMessage,
 
-			CreatedAt: time.Now().UTC().Add(-1 * time.Hour),
+			CreatedAt: time.Now().UTC(),
 		})
 	}
 
@@ -1290,7 +1288,7 @@ func Test_RunPendingBackups_WhenLastBackupFailedWithIsSkipRetry_SkipsBackupEvenW
 		FailMessage: &failMessage,
 		IsSkipRetry: true,
 
-		CreatedAt: time.Now().UTC().Add(-1 * time.Hour),
+		CreatedAt: time.Now().UTC(),
 	})
 
 	// Verify GetRemainedBackupTryCount returns 0 even though retries are enabled

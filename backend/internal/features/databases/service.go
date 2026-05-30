@@ -14,8 +14,8 @@ import (
 	"databasus-backend/internal/features/databases/databases/mariadb"
 	"databasus-backend/internal/features/databases/databases/mongodb"
 	"databasus-backend/internal/features/databases/databases/mysql"
-	"databasus-backend/internal/features/databases/databases/postgresql/logical"
-	"databasus-backend/internal/features/databases/databases/postgresql/physical"
+	postgresql_logical "databasus-backend/internal/features/databases/databases/postgresql/logical"
+	postgresql_physical "databasus-backend/internal/features/databases/databases/postgresql/physical"
 	"databasus-backend/internal/features/notifiers"
 	users_models "databasus-backend/internal/features/users/models"
 	workspaces_services "databasus-backend/internal/features/workspaces/services"
@@ -235,6 +235,20 @@ func (s *DatabaseService) DeleteDatabase(
 		&user.ID,
 		existingDatabase.WorkspaceID,
 	)
+
+	return s.dbRepository.Delete(id)
+}
+
+// DeleteForTest removes a database row through the listener chain without
+// permission checks or audit logging. The path matters because listeners
+// own external cleanup (backup rows, replication slots on source PG); tests
+// that DELETE'd through raw SQL used to leak those resources.
+func (s *DatabaseService) DeleteForTest(id uuid.UUID) error {
+	for _, listener := range s.dbRemoveListener {
+		if err := listener.OnBeforeDatabaseRemove(id); err != nil {
+			return err
+		}
+	}
 
 	return s.dbRepository.Delete(id)
 }

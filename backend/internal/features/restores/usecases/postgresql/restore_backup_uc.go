@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 
 	"databasus-backend/internal/config"
+	backups_core_enums "databasus-backend/internal/features/backups/backups/core/enums"
 	backups_core_logical "databasus-backend/internal/features/backups/backups/core/logical"
 	"databasus-backend/internal/features/backups/backups/encryption"
 	backups_config_logical "databasus-backend/internal/features/backups/config/logical"
@@ -183,7 +184,8 @@ func (uc *RestorePostgresqlBackupUsecase) restoreViaStdin(
 		return fmt.Errorf("failed to decrypt password: %w", err)
 	}
 
-	credentials, err := pgtypes.WriteCredentialFiles(pg, decryptedPassword, fieldEncryptor)
+	credentials, err := postgresql_shared.WriteCredentialFilesToTempDir(
+		pg.CredentialSpec(), decryptedPassword, fieldEncryptor)
 	if err != nil {
 		return fmt.Errorf("failed to create credential files: %w", err)
 	}
@@ -201,7 +203,7 @@ func (uc *RestorePostgresqlBackupUsecase) restoreViaStdin(
 	}()
 
 	var backupReader io.Reader = rawReader
-	if backup.Encryption == backups_config_logical.BackupEncryptionEncrypted {
+	if backup.Encryption == backups_core_enums.BackupEncryptionEncrypted {
 		// Validate encryption metadata
 		if backup.EncryptionSalt == nil || backup.EncryptionIV == nil {
 			return fmt.Errorf("backup is encrypted but missing encryption metadata")
@@ -440,8 +442,8 @@ func (uc *RestorePostgresqlBackupUsecase) restoreFromStorage(
 	}()
 
 	// Materialize connection credentials (.pgpass + optional client certificates)
-	credentials, err := pgtypes.WriteCredentialFiles(
-		pgConfig,
+	credentials, err := postgresql_shared.WriteCredentialFilesToTempDir(
+		pgConfig.CredentialSpec(),
 		password,
 		util_encryption.GetFieldEncryptor(),
 	)
@@ -509,7 +511,7 @@ func (uc *RestorePostgresqlBackupUsecase) downloadBackupToTempFile(
 		"tempFile",
 		tempBackupFile,
 		"encrypted",
-		backup.Encryption == backups_config_logical.BackupEncryptionEncrypted,
+		backup.Encryption == backups_core_enums.BackupEncryptionEncrypted,
 	)
 
 	fieldEncryptor := util_encryption.GetFieldEncryptor()
@@ -527,7 +529,7 @@ func (uc *RestorePostgresqlBackupUsecase) downloadBackupToTempFile(
 
 	// Create a reader that handles decryption if needed
 	var backupReader io.Reader = rawReader
-	if backup.Encryption == backups_config_logical.BackupEncryptionEncrypted {
+	if backup.Encryption == backups_core_enums.BackupEncryptionEncrypted {
 		// Validate encryption metadata
 		if backup.EncryptionSalt == nil || backup.EncryptionIV == nil {
 			cleanupFunc()
@@ -603,7 +605,7 @@ func (uc *RestorePostgresqlBackupUsecase) executePgRestore(
 	database *databases.Database,
 	pgBin string,
 	args []string,
-	credentials *pgtypes.CredentialFiles,
+	credentials *postgresql_shared.CredentialTempFiles,
 	pgConfig *pgtypes.PostgresqlLogicalDatabase,
 ) error {
 	cmd := exec.CommandContext(ctx, pgBin, args...)
@@ -680,7 +682,7 @@ func (uc *RestorePostgresqlBackupUsecase) executePgRestore(
 // setupPgRestoreEnvironment configures environment variables for pg_restore
 func (uc *RestorePostgresqlBackupUsecase) setupPgRestoreEnvironment(
 	cmd *exec.Cmd,
-	credentials *pgtypes.CredentialFiles,
+	credentials *postgresql_shared.CredentialTempFiles,
 	pgConfig *pgtypes.PostgresqlLogicalDatabase,
 ) {
 	cmd.Env = os.Environ()
@@ -879,7 +881,7 @@ func (uc *RestorePostgresqlBackupUsecase) generateFilteredTocList(
 	ctx context.Context,
 	pgBin string,
 	backupFile string,
-	credentials *pgtypes.CredentialFiles,
+	credentials *postgresql_shared.CredentialTempFiles,
 	pgConfig *pgtypes.PostgresqlLogicalDatabase,
 ) (string, error) {
 	uc.logger.Info("Generating filtered TOC list to exclude extensions", "backupFile", backupFile)

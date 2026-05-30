@@ -1030,7 +1030,7 @@ func connectToMariadbContainer(
 	version tools.MariadbVersion,
 ) *MariadbContainer {
 	if port == "" {
-		t.Skipf("MariaDB port not configured for version %s", version)
+		t.Fatalf("MariaDB port not configured for version %s", version)
 	}
 
 	dbName := "testdb"
@@ -1046,7 +1046,7 @@ func connectToMariadbContainer(
 
 	db, err := sqlx.Connect("mysql", dsn)
 	if err != nil {
-		t.Skipf("Failed to connect to MariaDB %s: %v", version, err)
+		t.Fatalf("Failed to connect to MariaDB %s: %v", version, err)
 	}
 
 	return &MariadbContainer{

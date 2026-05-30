@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"databasus-backend/internal/config"
+	backups_core_enums "databasus-backend/internal/features/backups/backups/core/enums"
 	"databasus-backend/internal/features/intervals"
 	"databasus-backend/internal/util/period"
 )
@@ -117,7 +118,7 @@ func Test_Validate_WhenCloudAndEncryptionIsNotEncrypted_ValidationFails(t *testi
 	enableCloud(t)
 
 	backupConfig := createValidBackupConfig()
-	backupConfig.Encryption = BackupEncryptionNone
+	backupConfig.Encryption = backups_core_enums.BackupEncryptionNone
 
 	err := backupConfig.Validate()
 	assert.EqualError(t, err, "encryption is mandatory for cloud storage")
@@ -127,7 +128,7 @@ func Test_Validate_WhenCloudAndEncryptionIsEncrypted_ValidationPasses(t *testing
 	enableCloud(t)
 
 	backupConfig := createValidBackupConfig()
-	backupConfig.Encryption = BackupEncryptionEncrypted
+	backupConfig.Encryption = backups_core_enums.BackupEncryptionEncrypted
 
 	err := backupConfig.Validate()
 	assert.NoError(t, err)
@@ -135,7 +136,7 @@ func Test_Validate_WhenCloudAndEncryptionIsEncrypted_ValidationPasses(t *testing
 
 func Test_Validate_WhenNotCloudAndEncryptionIsNotEncrypted_ValidationPasses(t *testing.T) {
 	backupConfig := createValidBackupConfig()
-	backupConfig.Encryption = BackupEncryptionNone
+	backupConfig.Encryption = backups_core_enums.BackupEncryptionNone
 
 	err := backupConfig.Validate()
 	assert.NoError(t, err)
@@ -159,6 +160,6 @@ func createValidBackupConfig() *LogicalBackupConfig {
 		SendNotificationsOn: []BackupNotificationType{},
 		IsRetryIfFailed:     false,
 		MaxFailedTriesCount: 3,
-		Encryption:          BackupEncryptionNone,
+		Encryption:          backups_core_enums.BackupEncryptionNone,
 	}
 }

@@ -4,10 +4,10 @@ import (
 	"sync"
 
 	audit_logs "databasus-backend/internal/features/audit_logs"
-	"databasus-backend/internal/features/backups/backups/backuping/logical"
+	backuping_logical "databasus-backend/internal/features/backups/backups/backuping/logical"
 	backups_core_logical "databasus-backend/internal/features/backups/backups/core/logical"
 	backups_download "databasus-backend/internal/features/backups/backups/download"
-	"databasus-backend/internal/features/backups/backups/usecases/logical"
+	usecases_logical "databasus-backend/internal/features/backups/backups/usecases/logical"
 	backups_config_logical "databasus-backend/internal/features/backups/config/logical"
 	"databasus-backend/internal/features/databases"
 	encryption_secrets "databasus-backend/internal/features/encryption/secrets"

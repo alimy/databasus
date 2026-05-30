@@ -296,6 +296,33 @@ func Test_ValidateUpdate_AllowsUnchangedSystemIdentifier(t *testing.T) {
 	assert.NoError(t, next.ValidateUpdate(old))
 }
 
+func Test_SystemIdentifierUint64(t *testing.T) {
+	positiveSysID := "7361234567890123456" // fits int64, parses directly
+	highBitSysID := "-1"                   // uint64 max stored as a signed bigint
+	invalidSysID := "not-a-number"
+
+	scenarios := []struct {
+		name     string
+		database *PostgresqlPhysicalDatabase
+		systemID uint64
+	}{
+		{"unset yields zero", &PostgresqlPhysicalDatabase{SystemIdentifier: nil}, 0},
+		{"positive value", &PostgresqlPhysicalDatabase{SystemIdentifier: &positiveSysID}, 7361234567890123456},
+		{
+			"high-bit value stored as negative bigint",
+			&PostgresqlPhysicalDatabase{SystemIdentifier: &highBitSysID},
+			^uint64(0),
+		},
+		{"unparseable yields zero", &PostgresqlPhysicalDatabase{SystemIdentifier: &invalidSysID}, 0},
+	}
+
+	for _, scenario := range scenarios {
+		t.Run(scenario.name, func(t *testing.T) {
+			assert.Equal(t, scenario.systemID, scenario.database.SystemIdentifierUint64())
+		})
+	}
+}
+
 func Test_Update_PreservesPasswordWhenIncomingBlank(t *testing.T) {
 	existing := validModel()
 	existing.Password = "kept"
@@ -413,7 +440,7 @@ func Test_PopulateDbData_DetectsVersion(t *testing.T) {
 	for _, fx := range physicalFixtures() {
 		t.Run(fx.name, func(t *testing.T) {
 			if fx.port() == "" {
-				t.Skipf("%s port not configured", fx.name)
+				t.Fatalf("%s port not configured", fx.name)
 			}
 
 			m := newTestModel(t, fx.port())
@@ -429,7 +456,7 @@ func Test_PopulateDbData_CapturesSystemIdentifierOnFirstCall(t *testing.T) {
 	for _, fx := range physicalFixtures() {
 		t.Run(fx.name, func(t *testing.T) {
 			if fx.port() == "" {
-				t.Skipf("%s port not configured", fx.name)
+				t.Fatalf("%s port not configured", fx.name)
 			}
 
 			m := newTestModel(t, fx.port())
@@ -447,7 +474,7 @@ func Test_PopulateDbData_DoesNotOverwriteExistingSystemIdentifier(t *testing.T) 
 	for _, fx := range physicalFixtures() {
 		t.Run(fx.name, func(t *testing.T) {
 			if fx.port() == "" {
-				t.Skipf("%s port not configured", fx.name)
+				t.Fatalf("%s port not configured", fx.name)
 			}
 
 			m := newTestModel(t, fx.port())
@@ -466,7 +493,7 @@ func Test_TestReplicationConnection_SucceedsAgainstReplicationReadyCluster(t *te
 	for _, fx := range physicalFixtures() {
 		t.Run(fx.name, func(t *testing.T) {
 			if fx.port() == "" {
-				t.Skipf("%s port not configured", fx.name)
+				t.Fatalf("%s port not configured", fx.name)
 			}
 
 			for _, bt := range []BackupType{
@@ -488,7 +515,7 @@ func Test_TestReplicationConnection_FailsForFullIncrementalWhenSummarizeWalOff(t
 	for _, fx := range physicalFixtures() {
 		t.Run(fx.name, func(t *testing.T) {
 			if fx.noSummaryPort() == "" {
-				t.Skipf("%s no-summary port not configured", fx.name)
+				t.Fatalf("%s no-summary port not configured", fx.name)
 			}
 
 			m := newTestModel(t, fx.noSummaryPort())
@@ -505,7 +532,7 @@ func Test_TestReplicationConnection_FailsForFullIncrementalWalStreamWhenSummariz
 	for _, fx := range physicalFixtures() {
 		t.Run(fx.name, func(t *testing.T) {
 			if fx.noSummaryPort() == "" {
-				t.Skipf("%s no-summary port not configured", fx.name)
+				t.Fatalf("%s no-summary port not configured", fx.name)
 			}
 
 			m := newTestModel(t, fx.noSummaryPort())
@@ -522,7 +549,7 @@ func Test_TestReplicationConnection_SucceedsForFullOnlyWhenSummarizeWalOff(t *te
 	for _, fx := range physicalFixtures() {
 		t.Run(fx.name, func(t *testing.T) {
 			if fx.noSummaryPort() == "" {
-				t.Skipf("%s no-summary port not configured", fx.name)
+				t.Fatalf("%s no-summary port not configured", fx.name)
 			}
 
 			m := newTestModel(t, fx.noSummaryPort())
@@ -537,7 +564,7 @@ func Test_TestReplicationConnection_FailsForWrongPassword(t *testing.T) {
 	for _, fx := range physicalFixtures() {
 		t.Run(fx.name, func(t *testing.T) {
 			if fx.port() == "" {
-				t.Skipf("%s port not configured", fx.name)
+				t.Fatalf("%s port not configured", fx.name)
 			}
 
 			m := newTestModel(t, fx.port())
@@ -554,7 +581,7 @@ func Test_TestReplicationConnection_FailsForNonReplicationUser(t *testing.T) {
 	for _, fx := range physicalFixtures() {
 		t.Run(fx.name, func(t *testing.T) {
 			if fx.port() == "" {
-				t.Skipf("%s port not configured", fx.name)
+				t.Fatalf("%s port not configured", fx.name)
 			}
 
 			setupConn := openTestConn(t, fx.port())
@@ -577,7 +604,7 @@ func Test_TestReplicationConnection_FailsWhenCustomTablespacesPresent(t *testing
 		t.Run(fx.name, func(t *testing.T) {
 			port := fx.tablespacePort()
 			if port == "" {
-				t.Skipf("%s tablespace port not configured", fx.name)
+				t.Fatalf("%s tablespace port not configured", fx.name)
 			}
 
 			m := newTestModel(t, port)
@@ -596,7 +623,7 @@ func Test_GetClusterSizeMb_ReturnsPositiveValue(t *testing.T) {
 	for _, fx := range physicalFixtures() {
 		t.Run(fx.name, func(t *testing.T) {
 			if fx.port() == "" {
-				t.Skipf("%s port not configured", fx.name)
+				t.Fatalf("%s port not configured", fx.name)
 			}
 
 			m := newTestModel(t, fx.port())
@@ -612,7 +639,7 @@ func Test_IsUserReplicationOnly_DetectsSuperuser(t *testing.T) {
 	for _, fx := range physicalFixtures() {
 		t.Run(fx.name, func(t *testing.T) {
 			if fx.port() == "" {
-				t.Skipf("%s port not configured", fx.name)
+				t.Fatalf("%s port not configured", fx.name)
 			}
 
 			m := newTestModel(t, fx.port())
@@ -629,7 +656,7 @@ func Test_IsUserReplicationOnly_TrueForFreshlyCreatedReplicationUser(t *testing.
 	for _, fx := range physicalFixtures() {
 		t.Run(fx.name, func(t *testing.T) {
 			if fx.port() == "" {
-				t.Skipf("%s port not configured", fx.name)
+				t.Fatalf("%s port not configured", fx.name)
 			}
 
 			provisioner := newTestModel(t, fx.port())
@@ -663,7 +690,7 @@ func Test_IsUserReplicationOnly_DetectsTableWritePrivilege(t *testing.T) {
 	for _, fx := range physicalFixtures() {
 		t.Run(fx.name, func(t *testing.T) {
 			if fx.port() == "" {
-				t.Skipf("%s port not configured", fx.name)
+				t.Fatalf("%s port not configured", fx.name)
 			}
 
 			setupConn := openTestConn(t, fx.port())
@@ -701,7 +728,7 @@ func Test_CreateReplicationOnlyUser_HappyPath(t *testing.T) {
 	for _, fx := range physicalFixtures() {
 		t.Run(fx.name, func(t *testing.T) {
 			if fx.port() == "" {
-				t.Skipf("%s port not configured", fx.name)
+				t.Fatalf("%s port not configured", fx.name)
 			}
 
 			m := newTestModel(t, fx.port())
@@ -747,7 +774,7 @@ func Test_CreateReplicationOnlyUser_NewUserCanOpenReplicationConnection(t *testi
 	for _, fx := range physicalFixtures() {
 		t.Run(fx.name, func(t *testing.T) {
 			if fx.port() == "" {
-				t.Skipf("%s port not configured", fx.name)
+				t.Fatalf("%s port not configured", fx.name)
 			}
 
 			provisioner := newTestModel(t, fx.port())
@@ -787,7 +814,7 @@ func Test_CreateReplicationOnlyUser_FailsWhenCurrentUserCannotCreateRole(t *test
 	for _, fx := range physicalFixtures() {
 		t.Run(fx.name, func(t *testing.T) {
 			if fx.port() == "" {
-				t.Skipf("%s port not configured", fx.name)
+				t.Fatalf("%s port not configured", fx.name)
 			}
 
 			setupConn := openTestConn(t, fx.port())
@@ -809,7 +836,7 @@ func Test_DetectPlatform_SelfManagedByDefault(t *testing.T) {
 	for _, fx := range physicalFixtures() {
 		t.Run(fx.name, func(t *testing.T) {
 			if fx.port() == "" {
-				t.Skipf("%s port not configured", fx.name)
+				t.Fatalf("%s port not configured", fx.name)
 			}
 
 			setupConn := openTestConn(t, fx.port())
@@ -828,7 +855,7 @@ func Test_DetectPlatform_RdsWhenRdsReplicationRoleExists(t *testing.T) {
 	for _, fx := range physicalFixtures() {
 		t.Run(fx.name, func(t *testing.T) {
 			if fx.port() == "" {
-				t.Skipf("%s port not configured", fx.name)
+				t.Fatalf("%s port not configured", fx.name)
 			}
 
 			setupConn := openTestConn(t, fx.port())
@@ -845,7 +872,7 @@ func Test_DetectPlatform_AzureWhenAzurePgAdminExists(t *testing.T) {
 	for _, fx := range physicalFixtures() {
 		t.Run(fx.name, func(t *testing.T) {
 			if fx.port() == "" {
-				t.Skipf("%s port not configured", fx.name)
+				t.Fatalf("%s port not configured", fx.name)
 			}
 
 			setupConn := openTestConn(t, fx.port())
@@ -862,7 +889,7 @@ func Test_DetectPlatform_GcpWhenCloudsqlSuperuserExists(t *testing.T) {
 	for _, fx := range physicalFixtures() {
 		t.Run(fx.name, func(t *testing.T) {
 			if fx.port() == "" {
-				t.Skipf("%s port not configured", fx.name)
+				t.Fatalf("%s port not configured", fx.name)
 			}
 
 			setupConn := openTestConn(t, fx.port())
@@ -879,7 +906,7 @@ func Test_DetectPlatform_RdsTakesPrecedenceOverOthers(t *testing.T) {
 	for _, fx := range physicalFixtures() {
 		t.Run(fx.name, func(t *testing.T) {
 			if fx.port() == "" {
-				t.Skipf("%s port not configured", fx.name)
+				t.Fatalf("%s port not configured", fx.name)
 			}
 
 			setupConn := openTestConn(t, fx.port())
@@ -898,7 +925,7 @@ func Test_CreateReplicationOnlyUser_OnSimulatedRds_GrantsRdsReplicationMembershi
 	for _, fx := range physicalFixtures() {
 		t.Run(fx.name, func(t *testing.T) {
 			if fx.port() == "" {
-				t.Skipf("%s port not configured", fx.name)
+				t.Fatalf("%s port not configured", fx.name)
 			}
 
 			setupConn := openTestConn(t, fx.port())
@@ -941,7 +968,7 @@ func Test_IsUserReplicationOnly_OnSimulatedRds_FlagsRdsSuperuserMembership(t *te
 	for _, fx := range physicalFixtures() {
 		t.Run(fx.name, func(t *testing.T) {
 			if fx.port() == "" {
-				t.Skipf("%s port not configured", fx.name)
+				t.Fatalf("%s port not configured", fx.name)
 			}
 
 			setupConn := openTestConn(t, fx.port())
@@ -962,7 +989,7 @@ func Test_IsUserReplicationOnly_OnSimulatedAzure_FlagsAzurePgAdminMembership(t *
 	for _, fx := range physicalFixtures() {
 		t.Run(fx.name, func(t *testing.T) {
 			if fx.port() == "" {
-				t.Skipf("%s port not configured", fx.name)
+				t.Fatalf("%s port not configured", fx.name)
 			}
 
 			setupConn := openTestConn(t, fx.port())
@@ -983,7 +1010,7 @@ func Test_IsUserReplicationOnly_OnSimulatedGcp_FlagsCloudsqlSuperuserMembership(
 	for _, fx := range physicalFixtures() {
 		t.Run(fx.name, func(t *testing.T) {
 			if fx.port() == "" {
-				t.Skipf("%s port not configured", fx.name)
+				t.Fatalf("%s port not configured", fx.name)
 			}
 
 			setupConn := openTestConn(t, fx.port())
@@ -1004,7 +1031,7 @@ func Test_TestReplicationConnection_OnSimulatedRds_FixMessageMentionsParameterGr
 	for _, fx := range physicalFixtures() {
 		t.Run(fx.name, func(t *testing.T) {
 			if fx.noSummaryPort() == "" {
-				t.Skipf("%s no-summary port not configured", fx.name)
+				t.Fatalf("%s no-summary port not configured", fx.name)
 			}
 
 			setupConn := openTestConn(t, fx.noSummaryPort())
@@ -1025,7 +1052,7 @@ func Test_TestReplicationConnection_OnSimulatedAzure_FixMessageMentionsServerPar
 	for _, fx := range physicalFixtures() {
 		t.Run(fx.name, func(t *testing.T) {
 			if fx.noSummaryPort() == "" {
-				t.Skipf("%s no-summary port not configured", fx.name)
+				t.Fatalf("%s no-summary port not configured", fx.name)
 			}
 
 			setupConn := openTestConn(t, fx.noSummaryPort())
@@ -1046,7 +1073,7 @@ func Test_TestReplicationConnection_OnSimulatedGcp_FixMessageMentionsGcloud(t *t
 	for _, fx := range physicalFixtures() {
 		t.Run(fx.name, func(t *testing.T) {
 			if fx.noSummaryPort() == "" {
-				t.Skipf("%s no-summary port not configured", fx.name)
+				t.Fatalf("%s no-summary port not configured", fx.name)
 			}
 
 			setupConn := openTestConn(t, fx.noSummaryPort())
@@ -1081,7 +1108,7 @@ func skipIfNotLogicalWalLevel(t *testing.T, conn *pgx.Conn) {
 	require.NoError(t, conn.QueryRow(context.Background(), "SHOW wal_level").Scan(&walLevel))
 
 	if walLevel != "logical" {
-		t.Skipf("logical slot path requires wal_level=logical, got %q", walLevel)
+		t.Fatalf("logical slot path requires wal_level=logical, got %q", walLevel)
 	}
 }
 
@@ -1089,7 +1116,7 @@ func Test_VerifyWalSlot_CreatesSlotIfMissing(t *testing.T) {
 	for _, fx := range physicalFixtures() {
 		t.Run(fx.name, func(t *testing.T) {
 			if fx.port() == "" {
-				t.Skipf("%s port not configured", fx.name)
+				t.Fatalf("%s port not configured", fx.name)
 			}
 
 			m := newTestModel(t, fx.port())
@@ -1116,7 +1143,7 @@ func Test_VerifyWalSlot_IsIdempotent(t *testing.T) {
 	for _, fx := range physicalFixtures() {
 		t.Run(fx.name, func(t *testing.T) {
 			if fx.port() == "" {
-				t.Skipf("%s port not configured", fx.name)
+				t.Fatalf("%s port not configured", fx.name)
 			}
 
 			m := newTestModel(t, fx.port())
@@ -1144,7 +1171,7 @@ func Test_VerifyWalSlot_RefusesLogicalSlotWithSameName(t *testing.T) {
 	for _, fx := range physicalFixtures() {
 		t.Run(fx.name, func(t *testing.T) {
 			if fx.port() == "" {
-				t.Skipf("%s port not configured", fx.name)
+				t.Fatalf("%s port not configured", fx.name)
 			}
 
 			m := newTestModel(t, fx.port())
@@ -1180,7 +1207,7 @@ func Test_DropWalSlot_DropsExistingSlot(t *testing.T) {
 	for _, fx := range physicalFixtures() {
 		t.Run(fx.name, func(t *testing.T) {
 			if fx.port() == "" {
-				t.Skipf("%s port not configured", fx.name)
+				t.Fatalf("%s port not configured", fx.name)
 			}
 
 			m := newTestModel(t, fx.port())
@@ -1213,7 +1240,7 @@ func Test_DropWalSlot_NoOpIfSlotMissing(t *testing.T) {
 	for _, fx := range physicalFixtures() {
 		t.Run(fx.name, func(t *testing.T) {
 			if fx.port() == "" {
-				t.Skipf("%s port not configured", fx.name)
+				t.Fatalf("%s port not configured", fx.name)
 			}
 
 			m := newTestModel(t, fx.port())
@@ -1227,7 +1254,7 @@ func Test_DropWalSlot_RefusesLogicalSlotWithSameName(t *testing.T) {
 	for _, fx := range physicalFixtures() {
 		t.Run(fx.name, func(t *testing.T) {
 			if fx.port() == "" {
-				t.Skipf("%s port not configured", fx.name)
+				t.Fatalf("%s port not configured", fx.name)
 			}
 
 			m := newTestModel(t, fx.port())
@@ -1271,7 +1298,7 @@ func Test_TestReplicationConnection_LeavesNoProbeSlotsBehind(t *testing.T) {
 	for _, fx := range physicalFixtures() {
 		t.Run(fx.name, func(t *testing.T) {
 			if fx.port() == "" {
-				t.Skipf("%s port not configured", fx.name)
+				t.Fatalf("%s port not configured", fx.name)
 			}
 
 			m := newTestModel(t, fx.port())

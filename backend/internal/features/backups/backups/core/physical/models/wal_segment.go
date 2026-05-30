@@ -5,7 +5,7 @@ import (
 
 	"github.com/google/uuid"
 
-	physical_enums "databasus-backend/internal/features/backups/backups/core/physical/enums"
+	backups_core_enums "databasus-backend/internal/features/backups/backups/core/enums"
 	"databasus-backend/internal/util/walmath"
 )
 
@@ -27,9 +27,9 @@ type PhysicalWalSegment struct {
 	ReceivedAt time.Time `json:"receivedAt" gorm:"column:received_at"`
 	ClaimedAt  time.Time `json:"claimedAt"  gorm:"column:claimed_at"`
 
-	Encryption     physical_enums.PhysicalBackupEncryption `json:"encryption" gorm:"column:encryption;type:text;not null;default:'NONE'"`
-	EncryptionSalt *string                                 `json:"-"          gorm:"column:encryption_salt;type:text"`
-	EncryptionIV   *string                                 `json:"-"          gorm:"column:encryption_iv;type:text"`
+	Encryption     backups_core_enums.BackupEncryption `json:"encryption" gorm:"column:encryption;type:text;not null;default:'NONE'"`
+	EncryptionSalt *string                             `json:"-"          gorm:"column:encryption_salt;type:text"`
+	EncryptionIV   *string                             `json:"-"          gorm:"column:encryption_iv;type:text"`
 }
 
 func (PhysicalWalSegment) TableName() string {

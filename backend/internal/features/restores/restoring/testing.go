@@ -15,7 +15,7 @@ import (
 	backups_services "databasus-backend/internal/features/backups/backups/services"
 	backups_config_logical "databasus-backend/internal/features/backups/config/logical"
 	"databasus-backend/internal/features/databases"
-	"databasus-backend/internal/features/databases/databases/postgresql/logical"
+	postgresql_logical "databasus-backend/internal/features/databases/databases/postgresql/logical"
 	restores_core "databasus-backend/internal/features/restores/core"
 	"databasus-backend/internal/features/restores/usecases"
 	"databasus-backend/internal/features/storages"

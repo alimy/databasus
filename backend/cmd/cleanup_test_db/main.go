@@ -31,6 +31,7 @@ import (
 	gormLogger "gorm.io/gorm/logger"
 
 	"databasus-backend/internal/config"
+	cache_utils "databasus-backend/internal/util/cache"
 	"databasus-backend/internal/util/logger"
 )
 
@@ -51,6 +52,11 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := resetValkey(log); err != nil {
+		log.Error("failed to reset Valkey", "error", err)
+		os.Exit(1)
+	}
+
 	if err := resetMetadataDb(log, env); err != nil {
 		log.Error("failed to reset metadata DB", "error", err)
 		os.Exit(1)
@@ -60,6 +66,21 @@ func main() {
 		log.Error("failed to reset test PG containers", "error", err)
 		os.Exit(1)
 	}
+}
+
+// resetValkey wipes every key so each `make test` starts from a clean cache.
+// Without this, a -failfast'd previous run can leave backup:node:* counters,
+// in-flight backup claims, and other state that breaks the next run's
+// scheduler/registry assumptions.
+func resetValkey(log *slog.Logger) error {
+	log.Info("resetting Valkey")
+
+	if err := cache_utils.ClearAllCache(); err != nil {
+		return fmt.Errorf("clear cache: %w", err)
+	}
+
+	log.Info("Valkey reset complete")
+	return nil
 }
 
 func resetMetadataDb(log *slog.Logger, env *config.EnvVariables) error {
@@ -93,16 +114,22 @@ func resetMetadataDb(log *slog.Logger, env *config.EnvVariables) error {
 
 func resetTestPostgresContainers(ctx context.Context, log *slog.Logger, env *config.EnvVariables) error {
 	containers := []struct {
-		version string
-		port    string
+		label string
+		port  string
 	}{
-		{"12", env.TestLogicalPostgres12Port},
-		{"13", env.TestLogicalPostgres13Port},
-		{"14", env.TestLogicalPostgres14Port},
-		{"15", env.TestLogicalPostgres15Port},
-		{"16", env.TestLogicalPostgres16Port},
-		{"17", env.TestLogicalPostgres17Port},
-		{"18", env.TestLogicalPostgres18Port},
+		{"logical-12", env.TestLogicalPostgres12Port},
+		{"logical-13", env.TestLogicalPostgres13Port},
+		{"logical-14", env.TestLogicalPostgres14Port},
+		{"logical-15", env.TestLogicalPostgres15Port},
+		{"logical-16", env.TestLogicalPostgres16Port},
+		{"logical-17", env.TestLogicalPostgres17Port},
+		{"logical-18", env.TestLogicalPostgres18Port},
+		{"physical-17", env.TestPhysicalPostgres17Port},
+		{"physical-18", env.TestPhysicalPostgres18Port},
+		{"physical-17-no-summary", env.TestPhysicalPostgres17NoSummaryPort},
+		{"physical-18-no-summary", env.TestPhysicalPostgres18NoSummaryPort},
+		{"physical-17-tablespace", env.TestPhysicalPostgres17TablespacePort},
+		{"physical-18-tablespace", env.TestPhysicalPostgres18TablespacePort},
 	}
 
 	for _, c := range containers {
@@ -110,16 +137,16 @@ func resetTestPostgresContainers(ctx context.Context, log *slog.Logger, env *con
 			continue
 		}
 
-		if err := resetOnePostgresContainer(ctx, log, env.TestLocalhost, c.version, c.port); err != nil {
-			return fmt.Errorf("PG %s on %s:%s: %w", c.version, env.TestLocalhost, c.port, err)
+		if err := resetOnePostgresContainer(ctx, log, env.TestLocalhost, c.label, c.port); err != nil {
+			return fmt.Errorf("PG %s on %s:%s: %w", c.label, env.TestLocalhost, c.port, err)
 		}
 	}
 
 	return nil
 }
 
-func resetOnePostgresContainer(ctx context.Context, log *slog.Logger, host, version, port string) error {
-	log = log.With("pg_version", version, "port", port)
+func resetOnePostgresContainer(ctx context.Context, log *slog.Logger, host, label, port string) error {
+	log = log.With("pg_label", label, "port", port)
 
 	systemDsn := fmt.Sprintf(
 		"host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
@@ -134,6 +161,10 @@ func resetOnePostgresContainer(ctx context.Context, log *slog.Logger, host, vers
 
 	if err := db.PingContext(ctx); err != nil {
 		return fmt.Errorf("ping: %w", err)
+	}
+
+	if err := dropDatabasusReplicationSlots(ctx, log, db); err != nil {
+		return fmt.Errorf("drop databasus replication slots: %w", err)
 	}
 
 	userDbs, err := listUserDatabases(ctx, db)
@@ -186,6 +217,54 @@ func resetOnePostgresContainer(ctx context.Context, log *slog.Logger, host, vers
 	}
 
 	log.Info("test PG container reset complete")
+	return nil
+}
+
+// dropDatabasusReplicationSlots removes every replication slot whose name
+// starts with the databasus prefixes. Idempotent: a missing slot returns
+// pgx.ErrNoRows from the subquery and the SELECT yields no rows.
+func dropDatabasusReplicationSlots(ctx context.Context, log *slog.Logger, db *sql.DB) error {
+	rows, err := db.QueryContext(ctx, `
+		SELECT slot_name FROM pg_replication_slots
+		WHERE slot_name LIKE 'databasus_basebackup_%'
+		   OR slot_name LIKE 'databasus_slot_%'
+	`)
+	if err != nil {
+		return fmt.Errorf("list slots: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var slotNames []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return fmt.Errorf("scan slot name: %w", err)
+		}
+
+		slotNames = append(slotNames, name)
+	}
+
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	for _, name := range slotNames {
+		// pg_drop_replication_slot fails if the slot is "active". For tests
+		// we want a hard reset, so terminate any active session on the slot
+		// first; ignore errors because slot may have just been released.
+		_, _ = db.ExecContext(ctx,
+			"SELECT pg_terminate_backend(active_pid) FROM pg_replication_slots WHERE slot_name = $1 AND active",
+			name,
+		)
+
+		if _, err := db.ExecContext(ctx, "SELECT pg_drop_replication_slot($1)", name); err != nil {
+			log.Warn("could not drop replication slot", "slot_name", name, "error", err)
+			continue
+		}
+
+		log.Info("dropped leftover replication slot", "slot_name", name)
+	}
+
 	return nil
 }
 

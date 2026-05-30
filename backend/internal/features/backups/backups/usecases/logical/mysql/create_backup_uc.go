@@ -17,9 +17,9 @@ import (
 	"github.com/klauspost/compress/zstd"
 
 	"databasus-backend/internal/config"
+	backups_core_enums "databasus-backend/internal/features/backups/backups/core/enums"
 	backups_core_logical "databasus-backend/internal/features/backups/backups/core/logical"
 	backup_encryption "databasus-backend/internal/features/backups/backups/encryption"
-	usecases_logical_dto "databasus-backend/internal/features/backups/backups/usecases/logical/dto"
 	backups_config_logical "databasus-backend/internal/features/backups/config/logical"
 	"databasus-backend/internal/features/databases"
 	mysqltypes "databasus-backend/internal/features/databases/databases/mysql"
@@ -58,7 +58,7 @@ func (uc *CreateMysqlBackupUsecase) Execute(
 	db *databases.Database,
 	storage *storages.Storage,
 	backupProgressListener func(completedMBs float64),
-) (*usecases_logical_dto.BackupMetadata, error) {
+) (*backups_core_logical.BackupMetadata, error) {
 	uc.logger.Info(
 		"Creating MySQL backup via mysqldump",
 		"databaseId", db.ID,
@@ -181,7 +181,7 @@ func (uc *CreateMysqlBackupUsecase) streamToStorage(
 	storage *storages.Storage,
 	backupProgressListener func(completedMBs float64),
 	myConfig *mysqltypes.MysqlDatabase,
-) (*usecases_logical_dto.BackupMetadata, error) {
+) (*backups_core_logical.BackupMetadata, error) {
 	uc.logger.Info("Streaming MySQL backup to storage", "mysqlBin", mysqlBin)
 
 	ctx, cancel := uc.createBackupContext(parentCtx)
@@ -471,13 +471,13 @@ func (uc *CreateMysqlBackupUsecase) setupBackupEncryption(
 	backupID uuid.UUID,
 	backupConfig *backups_config_logical.LogicalBackupConfig,
 	storageWriter io.WriteCloser,
-) (io.Writer, *backup_encryption.EncryptionWriter, usecases_logical_dto.BackupMetadata, error) {
-	metadata := usecases_logical_dto.BackupMetadata{
+) (io.Writer, *backup_encryption.EncryptionWriter, backups_core_logical.BackupMetadata, error) {
+	metadata := backups_core_logical.BackupMetadata{
 		BackupID: backupID,
 	}
 
-	if backupConfig.Encryption != backups_config_logical.BackupEncryptionEncrypted {
-		metadata.Encryption = backups_config_logical.BackupEncryptionNone
+	if backupConfig.Encryption != backups_core_enums.BackupEncryptionEncrypted {
+		metadata.Encryption = backups_core_enums.BackupEncryptionNone
 		uc.logger.Info("Encryption disabled for backup", "backupId", backupID)
 		return storageWriter, nil, metadata, nil
 	}
@@ -494,7 +494,7 @@ func (uc *CreateMysqlBackupUsecase) setupBackupEncryption(
 
 	metadata.EncryptionSalt = &encSetup.SaltBase64
 	metadata.EncryptionIV = &encSetup.NonceBase64
-	metadata.Encryption = backups_config_logical.BackupEncryptionEncrypted
+	metadata.Encryption = backups_core_enums.BackupEncryptionEncrypted
 
 	uc.logger.Info("Encryption enabled for backup", "backupId", backupID)
 	return encSetup.Writer, encSetup.Writer, metadata, nil

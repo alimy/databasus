@@ -1,7 +1,7 @@
 package system_healthcheck
 
 import (
-	"databasus-backend/internal/features/backups/backups/backuping/logical"
+	backuping_logical "databasus-backend/internal/features/backups/backups/backuping/logical"
 	"databasus-backend/internal/features/disk"
 	verification_agents "databasus-backend/internal/features/verification/agents"
 )

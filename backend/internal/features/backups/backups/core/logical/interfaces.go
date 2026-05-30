@@ -5,7 +5,6 @@ import (
 
 	"github.com/google/uuid"
 
-	usecases_logical_dto "databasus-backend/internal/features/backups/backups/usecases/logical/dto"
 	backups_config_logical "databasus-backend/internal/features/backups/config/logical"
 	"databasus-backend/internal/features/databases"
 	"databasus-backend/internal/features/notifiers"
@@ -28,7 +27,7 @@ type CreateBackupUsecase interface {
 		database *databases.Database,
 		storage *storages.Storage,
 		backupProgressListener func(completedMBs float64),
-	) (*usecases_logical_dto.BackupMetadata, error)
+	) (*BackupMetadata, error)
 }
 
 type BackupRemoveListener interface {

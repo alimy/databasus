@@ -9,8 +9,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"
 
+	backups_core_enums "databasus-backend/internal/features/backups/backups/core/enums"
 	backups_core_logical "databasus-backend/internal/features/backups/backups/core/logical"
-	usecases_logical_dto "databasus-backend/internal/features/backups/backups/usecases/logical/dto"
 	backups_config_logical "databasus-backend/internal/features/backups/config/logical"
 	"databasus-backend/internal/features/databases"
 	"databasus-backend/internal/features/notifiers"
@@ -38,7 +38,7 @@ func (uc *CreateFailedBackupUsecase) Execute(
 	database *databases.Database,
 	storage *storages.Storage,
 	backupProgressListener func(completedMBs float64),
-) (*usecases_logical_dto.BackupMetadata, error) {
+) (*backups_core_logical.BackupMetadata, error) {
 	backupProgressListener(10)
 	return nil, errors.New("backup failed")
 }
@@ -52,12 +52,12 @@ func (uc *CreateSuccessBackupUsecase) Execute(
 	database *databases.Database,
 	storage *storages.Storage,
 	backupProgressListener func(completedMBs float64),
-) (*usecases_logical_dto.BackupMetadata, error) {
+) (*backups_core_logical.BackupMetadata, error) {
 	backupProgressListener(10)
-	return &usecases_logical_dto.BackupMetadata{
+	return &backups_core_logical.BackupMetadata{
 		EncryptionSalt: nil,
 		EncryptionIV:   nil,
-		Encryption:     backups_config_logical.BackupEncryptionNone,
+		Encryption:     backups_core_enums.BackupEncryptionNone,
 	}, nil
 }
 
@@ -71,12 +71,12 @@ func (uc *CreateLargeBackupUsecase) Execute(
 	database *databases.Database,
 	storage *storages.Storage,
 	backupProgressListener func(completedMBs float64),
-) (*usecases_logical_dto.BackupMetadata, error) {
+) (*backups_core_logical.BackupMetadata, error) {
 	backupProgressListener(10000)
-	return &usecases_logical_dto.BackupMetadata{
+	return &backups_core_logical.BackupMetadata{
 		EncryptionSalt: nil,
 		EncryptionIV:   nil,
-		Encryption:     backups_config_logical.BackupEncryptionNone,
+		Encryption:     backups_core_enums.BackupEncryptionNone,
 	}, nil
 }
 
@@ -90,7 +90,7 @@ func (uc *CreateProgressiveBackupUsecase) Execute(
 	database *databases.Database,
 	storage *storages.Storage,
 	backupProgressListener func(completedMBs float64),
-) (*usecases_logical_dto.BackupMetadata, error) {
+) (*backups_core_logical.BackupMetadata, error) {
 	// Simulate progressive backup that grows beyond limit
 	backupProgressListener(1)
 	if ctx.Err() != nil {
@@ -113,10 +113,10 @@ func (uc *CreateProgressiveBackupUsecase) Execute(
 	}
 
 	// Should not reach here due to cancellation
-	return &usecases_logical_dto.BackupMetadata{
+	return &backups_core_logical.BackupMetadata{
 		EncryptionSalt: nil,
 		EncryptionIV:   nil,
-		Encryption:     backups_config_logical.BackupEncryptionNone,
+		Encryption:     backups_core_enums.BackupEncryptionNone,
 	}, nil
 }
 
@@ -130,12 +130,12 @@ func (uc *CreateMediumBackupUsecase) Execute(
 	database *databases.Database,
 	storage *storages.Storage,
 	backupProgressListener func(completedMBs float64),
-) (*usecases_logical_dto.BackupMetadata, error) {
+) (*backups_core_logical.BackupMetadata, error) {
 	backupProgressListener(50)
-	return &usecases_logical_dto.BackupMetadata{
+	return &backups_core_logical.BackupMetadata{
 		EncryptionSalt: nil,
 		EncryptionIV:   nil,
-		Encryption:     backups_config_logical.BackupEncryptionNone,
+		Encryption:     backups_core_enums.BackupEncryptionNone,
 	}, nil
 }
 
@@ -158,7 +158,7 @@ func (m *MockTrackingBackupUsecase) Execute(
 	database *databases.Database,
 	storage *storages.Storage,
 	backupProgressListener func(completedMBs float64),
-) (*usecases_logical_dto.BackupMetadata, error) {
+) (*backups_core_logical.BackupMetadata, error) {
 	m.callCount.Add(1)
 
 	// Send backup ID to channel (non-blocking)
@@ -171,10 +171,10 @@ func (m *MockTrackingBackupUsecase) Execute(
 	time.Sleep(100 * time.Millisecond)
 	backupProgressListener(10)
 
-	return &usecases_logical_dto.BackupMetadata{
+	return &backups_core_logical.BackupMetadata{
 		EncryptionSalt: nil,
 		EncryptionIV:   nil,
-		Encryption:     backups_config_logical.BackupEncryptionNone,
+		Encryption:     backups_core_enums.BackupEncryptionNone,
 	}, nil
 }
 

@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 
+	backups_core_enums "databasus-backend/internal/features/backups/backups/core/enums"
 	"databasus-backend/internal/features/databases"
 	"databasus-backend/internal/features/intervals"
 	"databasus-backend/internal/features/notifiers"
@@ -313,7 +314,7 @@ func (s *BackupConfigService) initializeDefaultConfig(
 		},
 		IsRetryIfFailed:     true,
 		MaxFailedTriesCount: 3,
-		Encryption:          BackupEncryptionNone,
+		Encryption:          backups_core_enums.BackupEncryptionNone,
 	})
 
 	return err

@@ -42,7 +42,15 @@ type BackupsScheduler struct {
 
 	backupCompletionListeners []backups_core_logical.BackupCompletionListener
 
-	hasRun atomic.Bool
+	hasRun  atomic.Bool
+	isReady atomic.Bool
+}
+
+// IsRunning reports whether the scheduler has subscribed to backup
+// completions and is ready to receive them. Tests use it to gate the
+// start of work
+func (s *BackupsScheduler) IsRunning() bool {
+	return s.isReady.Load()
 }
 
 func (s *BackupsScheduler) AddBackupCompletionListener(
@@ -74,7 +82,11 @@ func (s *BackupsScheduler) Run(ctx context.Context) {
 		panic(err)
 	}
 
+	s.isReady.Store(true)
+
 	defer func() {
+		s.isReady.Store(false)
+
 		if err := s.backupNodesRegistry.UnsubscribeForBackupsCompletions(); err != nil {
 			s.logger.Error("Failed to unsubscribe from backup completions", "error", err)
 		}
@@ -224,6 +236,23 @@ func (s *BackupsScheduler) StartBackup(database *databases.Database, isCallNotif
 		return
 	}
 
+	// Populate the relation map BEFORE publishing the assignment. The
+	// backuper can complete a tiny backup in <1ms and the completion
+	// message can race ahead of relation registration — onBackupCompleted
+	// then sees "unknown node" and skips the decrement, leaving the active
+	// counter stuck. With the map populated first, the race is gone.
+	s.backupToNodeRelationsMtx.Lock()
+	if relation, exists := s.backupToNodeRelations[*leastBusyNodeID]; exists {
+		relation.BackupsIDs = append(relation.BackupsIDs, backup.ID)
+		s.backupToNodeRelations[*leastBusyNodeID] = relation
+	} else {
+		s.backupToNodeRelations[*leastBusyNodeID] = nodes.BackupToNodeRelation{
+			NodeID:     *leastBusyNodeID,
+			BackupsIDs: []uuid.UUID{backup.ID},
+		}
+	}
+	s.backupToNodeRelationsMtx.Unlock()
+
 	if err := s.backupNodesRegistry.IncrementBackupsInProgress(*leastBusyNodeID); err != nil {
 		s.logger.Error(
 			"Failed to increment backups in progress",
@@ -234,6 +263,9 @@ func (s *BackupsScheduler) StartBackup(database *databases.Database, isCallNotif
 			"error",
 			err,
 		)
+
+		s.removeBackupFromRelation(*leastBusyNodeID, backup.ID)
+
 		return
 	}
 
@@ -247,6 +279,7 @@ func (s *BackupsScheduler) StartBackup(database *databases.Database, isCallNotif
 			"error",
 			err,
 		)
+
 		if decrementErr := s.backupNodesRegistry.DecrementBackupsInProgress(*leastBusyNodeID); decrementErr != nil {
 			s.logger.Error(
 				"Failed to decrement backups in progress after submit failure",
@@ -256,20 +289,11 @@ func (s *BackupsScheduler) StartBackup(database *databases.Database, isCallNotif
 				decrementErr,
 			)
 		}
+
+		s.removeBackupFromRelation(*leastBusyNodeID, backup.ID)
+
 		return
 	}
-
-	s.backupToNodeRelationsMtx.Lock()
-	if relation, exists := s.backupToNodeRelations[*leastBusyNodeID]; exists {
-		relation.BackupsIDs = append(relation.BackupsIDs, backup.ID)
-		s.backupToNodeRelations[*leastBusyNodeID] = relation
-	} else {
-		s.backupToNodeRelations[*leastBusyNodeID] = nodes.BackupToNodeRelation{
-			NodeID:     *leastBusyNodeID,
-			BackupsIDs: []uuid.UUID{backup.ID},
-		}
-	}
-	s.backupToNodeRelationsMtx.Unlock()
 
 	s.logger.Info(
 		"Successfully triggered scheduled backup",
@@ -651,4 +675,32 @@ func (s *BackupsScheduler) checkDeadNodesAndFailBackups() error {
 	}
 
 	return nil
+}
+
+// removeBackupFromRelation rolls back a relation map insert when a later
+// step in StartBackup (Increment / Assign) fails. Matches the cleanup that
+// onBackupCompleted performs on the happy path.
+func (s *BackupsScheduler) removeBackupFromRelation(nodeID, backupID uuid.UUID) {
+	s.backupToNodeRelationsMtx.Lock()
+	defer s.backupToNodeRelationsMtx.Unlock()
+
+	relation, exists := s.backupToNodeRelations[nodeID]
+	if !exists {
+		return
+	}
+
+	remaining := relation.BackupsIDs[:0]
+	for _, id := range relation.BackupsIDs {
+		if id != backupID {
+			remaining = append(remaining, id)
+		}
+	}
+
+	if len(remaining) == 0 {
+		delete(s.backupToNodeRelations, nodeID)
+		return
+	}
+
+	relation.BackupsIDs = remaining
+	s.backupToNodeRelations[nodeID] = relation
 }

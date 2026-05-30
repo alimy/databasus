@@ -15,8 +15,8 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"databasus-backend/internal/config"
+	backups_core_enums "databasus-backend/internal/features/backups/backups/core/enums"
 	backups_core_logical "databasus-backend/internal/features/backups/backups/core/logical"
-	backups_config_logical "databasus-backend/internal/features/backups/config/logical"
 	"databasus-backend/internal/features/databases"
 	pgtypes "databasus-backend/internal/features/databases/databases/postgresql/logical"
 	postgresql_shared "databasus-backend/internal/features/databases/databases/postgresql/shared"
@@ -31,7 +31,7 @@ import (
 func Test_BackupAndRestorePostgresqlMtls_Succeeds(t *testing.T) {
 	port := config.GetEnv().TestLogicalPostgresMtlsPort
 	if port == "" {
-		t.Skip("TEST_LOGICAL_POSTGRES_MTLS_PORT not configured")
+		t.Fatal("TEST_LOGICAL_POSTGRES_MTLS_PORT not configured")
 	}
 
 	host := config.GetEnv().TestLocalhost
@@ -67,7 +67,7 @@ func Test_BackupAndRestorePostgresqlMtls_Succeeds(t *testing.T) {
 
 	enableBackupsViaAPI(
 		t, router, database.ID, storage.ID,
-		backups_config_logical.BackupEncryptionNone, user.Token,
+		backups_core_enums.BackupEncryptionNone, user.Token,
 	)
 	createBackupViaAPI(t, router, database.ID, user.Token)
 
@@ -107,7 +107,7 @@ func Test_BackupAndRestorePostgresqlMtls_Succeeds(t *testing.T) {
 func Test_CreatePostgresqlMtls_WhenClientCertMissing_IsRejected(t *testing.T) {
 	port := config.GetEnv().TestLogicalPostgresMtlsPort
 	if port == "" {
-		t.Skip("TEST_LOGICAL_POSTGRES_MTLS_PORT not configured")
+		t.Fatal("TEST_LOGICAL_POSTGRES_MTLS_PORT not configured")
 	}
 
 	host := config.GetEnv().TestLocalhost

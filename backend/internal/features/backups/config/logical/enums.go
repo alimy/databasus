@@ -7,13 +7,6 @@ const (
 	NotificationBackupSuccess BackupNotificationType = "BACKUP_SUCCESS"
 )
 
-type BackupEncryption string
-
-const (
-	BackupEncryptionNone      BackupEncryption = "NONE"
-	BackupEncryptionEncrypted BackupEncryption = "ENCRYPTED"
-)
-
 type RetentionPolicyType string
 
 const (

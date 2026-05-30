@@ -18,6 +18,7 @@ import (
 	"github.com/klauspost/compress/zstd"
 
 	"databasus-backend/internal/config"
+	backups_core_enums "databasus-backend/internal/features/backups/backups/core/enums"
 	backups_core_logical "databasus-backend/internal/features/backups/backups/core/logical"
 	"databasus-backend/internal/features/backups/backups/encryption"
 	backups_config_logical "databasus-backend/internal/features/backups/config/logical"
@@ -170,7 +171,7 @@ func (uc *RestoreMysqlBackupUsecase) executeMysqlRestore(
 
 	var inputReader io.Reader = backupReader
 
-	if backup.Encryption == backups_config_logical.BackupEncryptionEncrypted {
+	if backup.Encryption == backups_core_enums.BackupEncryptionEncrypted {
 		decryptReader, err := uc.setupDecryption(backupReader, backup)
 		if err != nil {
 			return fmt.Errorf("failed to setup decryption: %w", err)

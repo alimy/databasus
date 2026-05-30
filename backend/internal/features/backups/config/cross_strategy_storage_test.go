@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 
+	backuping_physical "databasus-backend/internal/features/backups/backups/backuping/physical"
 	backups_config_logical "databasus-backend/internal/features/backups/config/logical"
 	backups_config_physical "databasus-backend/internal/features/backups/config/physical"
 	"databasus-backend/internal/features/databases"
@@ -36,6 +37,7 @@ func createCrossStrategyRouter() *gin.Engine {
 	notifiers.SetupDependencies()
 	backups_config_logical.SetupDependencies()
 	backups_config_physical.SetupDependencies()
+	backuping_physical.SetupDependencies()
 
 	return router
 }

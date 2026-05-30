@@ -13,8 +13,9 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"databasus-backend/internal/config"
+	backups_core_enums "databasus-backend/internal/features/backups/backups/core/enums"
 	"databasus-backend/internal/features/databases"
-	"databasus-backend/internal/features/databases/databases/postgresql/logical"
+	postgresql_logical "databasus-backend/internal/features/databases/databases/postgresql/logical"
 	"databasus-backend/internal/features/intervals"
 	"databasus-backend/internal/features/notifiers"
 	"databasus-backend/internal/features/storages"
@@ -430,7 +431,7 @@ func Test_SaveBackupConfig_WithEncryptionNone_ConfigSaved(t *testing.T) {
 		},
 		IsRetryIfFailed:     true,
 		MaxFailedTriesCount: 3,
-		Encryption:          BackupEncryptionNone,
+		Encryption:          backups_core_enums.BackupEncryptionNone,
 	}
 
 	var response LogicalBackupConfig
@@ -445,7 +446,7 @@ func Test_SaveBackupConfig_WithEncryptionNone_ConfigSaved(t *testing.T) {
 	)
 
 	assert.Equal(t, database.ID, response.DatabaseID)
-	assert.Equal(t, BackupEncryptionNone, response.Encryption)
+	assert.Equal(t, backups_core_enums.BackupEncryptionNone, response.Encryption)
 }
 
 func Test_SaveBackupConfig_WithEncryptionEncrypted_ConfigSaved(t *testing.T) {
@@ -475,7 +476,7 @@ func Test_SaveBackupConfig_WithEncryptionEncrypted_ConfigSaved(t *testing.T) {
 		},
 		IsRetryIfFailed:     true,
 		MaxFailedTriesCount: 3,
-		Encryption:          BackupEncryptionEncrypted,
+		Encryption:          backups_core_enums.BackupEncryptionEncrypted,
 	}
 
 	var response LogicalBackupConfig
@@ -490,7 +491,7 @@ func Test_SaveBackupConfig_WithEncryptionEncrypted_ConfigSaved(t *testing.T) {
 	)
 
 	assert.Equal(t, database.ID, response.DatabaseID)
-	assert.Equal(t, BackupEncryptionEncrypted, response.Encryption)
+	assert.Equal(t, backups_core_enums.BackupEncryptionEncrypted, response.Encryption)
 }
 
 func Test_TransferDatabase_PermissionsEnforced(t *testing.T) {
@@ -774,7 +775,7 @@ func Test_TransferDatabase_ToNewStorage_DatabaseTransferd(t *testing.T) {
 		},
 		IsRetryIfFailed:     true,
 		MaxFailedTriesCount: 3,
-		Encryption:          BackupEncryptionNone,
+		Encryption:          backups_core_enums.BackupEncryptionNone,
 	}
 
 	var savedConfig LogicalBackupConfig
@@ -861,7 +862,7 @@ func Test_TransferDatabase_WithExistingStorage_DatabaseAndStorageTransferd(t *te
 		},
 		IsRetryIfFailed:     true,
 		MaxFailedTriesCount: 3,
-		Encryption:          BackupEncryptionNone,
+		Encryption:          backups_core_enums.BackupEncryptionNone,
 	}
 
 	var savedConfig LogicalBackupConfig
@@ -959,7 +960,7 @@ func Test_TransferDatabase_StorageHasOtherDBs_CannotTransfer(t *testing.T) {
 		},
 		IsRetryIfFailed:     true,
 		MaxFailedTriesCount: 3,
-		Encryption:          BackupEncryptionNone,
+		Encryption:          backups_core_enums.BackupEncryptionNone,
 	}
 
 	test_utils.MakePostRequest(
@@ -986,7 +987,7 @@ func Test_TransferDatabase_StorageHasOtherDBs_CannotTransfer(t *testing.T) {
 		},
 		IsRetryIfFailed:     true,
 		MaxFailedTriesCount: 3,
-		Encryption:          BackupEncryptionNone,
+		Encryption:          backups_core_enums.BackupEncryptionNone,
 	}
 
 	test_utils.MakePostRequest(
@@ -1063,7 +1064,7 @@ func Test_TransferDatabase_WithNotifiers_NotifiersTransferred(t *testing.T) {
 		},
 		IsRetryIfFailed:     true,
 		MaxFailedTriesCount: 3,
-		Encryption:          BackupEncryptionNone,
+		Encryption:          backups_core_enums.BackupEncryptionNone,
 	}
 
 	test_utils.MakePostRequest(
@@ -1184,7 +1185,7 @@ func Test_TransferDatabase_NotifierHasOtherDBs_NotifierSkipped(t *testing.T) {
 		},
 		IsRetryIfFailed:     true,
 		MaxFailedTriesCount: 3,
-		Encryption:          BackupEncryptionNone,
+		Encryption:          backups_core_enums.BackupEncryptionNone,
 	}
 
 	test_utils.MakePostRequest(
@@ -1307,7 +1308,7 @@ func Test_TransferDatabase_WithMultipleNotifiers_OnlyExclusiveOnesTransferred(t 
 		},
 		IsRetryIfFailed:     true,
 		MaxFailedTriesCount: 3,
-		Encryption:          BackupEncryptionNone,
+		Encryption:          backups_core_enums.BackupEncryptionNone,
 	}
 
 	test_utils.MakePostRequest(
@@ -1407,7 +1408,7 @@ func Test_TransferDatabase_WithTargetNotifiers_NotifiersAssigned(t *testing.T) {
 		},
 		IsRetryIfFailed:     true,
 		MaxFailedTriesCount: 3,
-		Encryption:          BackupEncryptionNone,
+		Encryption:          backups_core_enums.BackupEncryptionNone,
 	}
 
 	test_utils.MakePostRequest(
@@ -1488,7 +1489,7 @@ func Test_TransferDatabase_TargetNotifierFromDifferentWorkspace_ReturnsBadReques
 		},
 		IsRetryIfFailed:     true,
 		MaxFailedTriesCount: 3,
-		Encryption:          BackupEncryptionNone,
+		Encryption:          backups_core_enums.BackupEncryptionNone,
 	}
 
 	test_utils.MakePostRequest(
@@ -1554,7 +1555,7 @@ func Test_TransferDatabase_TargetStorageFromDifferentWorkspace_ReturnsBadRequest
 		},
 		IsRetryIfFailed:     true,
 		MaxFailedTriesCount: 3,
-		Encryption:          BackupEncryptionNone,
+		Encryption:          backups_core_enums.BackupEncryptionNone,
 	}
 
 	test_utils.MakePostRequest(
@@ -1615,7 +1616,7 @@ func Test_SaveBackupConfig_WithSystemStorage_CanBeUsedByAnyDatabase(t *testing.T
 		},
 		IsRetryIfFailed:     true,
 		MaxFailedTriesCount: 3,
-		Encryption:          BackupEncryptionNone,
+		Encryption:          backups_core_enums.BackupEncryptionNone,
 	}
 
 	respRegular := test_utils.MakePostRequest(
@@ -1667,7 +1668,7 @@ func Test_SaveBackupConfig_WithSystemStorage_CanBeUsedByAnyDatabase(t *testing.T
 		},
 		IsRetryIfFailed:     true,
 		MaxFailedTriesCount: 3,
-		Encryption:          BackupEncryptionNone,
+		Encryption:          backups_core_enums.BackupEncryptionNone,
 	}
 
 	var savedConfig LogicalBackupConfig

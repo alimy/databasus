@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 
+	backups_core_enums "databasus-backend/internal/features/backups/backups/core/enums"
 	"databasus-backend/internal/features/databases"
 	"databasus-backend/internal/features/intervals"
 	"databasus-backend/internal/features/storages"
@@ -49,7 +50,7 @@ func Test_AttachStorageFromSameWorkspace_SuccessfullyAttached(t *testing.T) {
 		},
 		IsRetryIfFailed:     true,
 		MaxFailedTriesCount: 3,
-		Encryption:          BackupEncryptionNone,
+		Encryption:          backups_core_enums.BackupEncryptionNone,
 	}
 
 	var response LogicalBackupConfig
@@ -102,7 +103,7 @@ func Test_AttachStorageFromDifferentWorkspace_ReturnsForbidden(t *testing.T) {
 		},
 		IsRetryIfFailed:     true,
 		MaxFailedTriesCount: 3,
-		Encryption:          BackupEncryptionNone,
+		Encryption:          backups_core_enums.BackupEncryptionNone,
 	}
 
 	testResp := test_utils.MakePostRequest(
@@ -147,7 +148,7 @@ func Test_DeleteStorageWithAttachedDatabases_CannotDelete(t *testing.T) {
 		},
 		IsRetryIfFailed:     true,
 		MaxFailedTriesCount: 3,
-		Encryption:          BackupEncryptionNone,
+		Encryption:          backups_core_enums.BackupEncryptionNone,
 	}
 
 	var response LogicalBackupConfig
@@ -208,7 +209,7 @@ func Test_TransferStorageWithAttachedDatabase_CannotTransfer(t *testing.T) {
 		},
 		IsRetryIfFailed:     true,
 		MaxFailedTriesCount: 3,
-		Encryption:          BackupEncryptionNone,
+		Encryption:          backups_core_enums.BackupEncryptionNone,
 	}
 
 	var response LogicalBackupConfig

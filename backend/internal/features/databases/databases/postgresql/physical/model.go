@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -178,11 +179,6 @@ func (p *PostgresqlPhysicalDatabase) EncryptSensitiveFields(
 	return nil
 }
 
-// PopulateDbData captures the cluster facts that are immutable once seen:
-// PostgreSQL major version and system_identifier. Called on first connect
-// and on every later save; the sys_id is captured exactly once — later
-// calls observe the existing value and the mismatch (if any) is caught by
-// ValidateUpdate, not silently overwritten.
 func (p *PostgresqlPhysicalDatabase) PopulateDbData(
 	logger *slog.Logger,
 	encryptor encryption.FieldEncryptor,
@@ -226,6 +222,22 @@ func (p *PostgresqlPhysicalDatabase) PopulateDbData(
 	}
 
 	return nil
+}
+
+func (p *PostgresqlPhysicalDatabase) SystemIdentifierUint64() uint64 {
+	if p.SystemIdentifier == nil {
+		return 0
+	}
+
+	if value, err := strconv.ParseUint(*p.SystemIdentifier, 10, 64); err == nil {
+		return value
+	}
+
+	if value, err := strconv.ParseInt(*p.SystemIdentifier, 10, 64); err == nil {
+		return uint64(value)
+	}
+
+	return 0
 }
 
 // TestReplicationConnection validates that the cluster is ready for the
@@ -1053,29 +1065,25 @@ func classifyReplicationConnectError(err error) error {
 }
 
 // openConn opens a regular pgx connection to the `postgres` database (always
-// exists; physical model has no per-DB selection). Materializes credential
-// files via the logical package so we don't duplicate the .pgpass / cert
-// machinery yet (decision: defer extraction until a second real caller).
+// exists; physical model has no per-DB selection), carrying the source's client
+// certificates the same way pg_basebackup does via the shared credential files.
 func openConn(
 	ctx context.Context,
 	p *PostgresqlPhysicalDatabase,
 	encryptor encryption.FieldEncryptor,
 ) (*pgx.Conn, error) {
-	password, err := decryptIfNeeded(p.Password, encryptor)
+	password, err := postgresql_shared.DecryptFieldIfNeeded(p.Password, encryptor)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt password: %w", err)
 	}
 
-	connStr := fmt.Sprintf(
-		"host=%s port=%d user=%s password='%s' dbname=postgres sslmode=%s default_query_exec_mode=simple_protocol standard_conforming_strings=on client_encoding=UTF8",
-		p.Host,
-		p.Port,
-		p.Username,
-		escapeConnStringValue(password),
-		effectiveSslMode(p),
-	)
+	files, err := postgresql_shared.WriteCredentialFilesToTempDir(p.CredentialSpec(), password, encryptor)
+	if err != nil {
+		return nil, err
+	}
+	defer files.Remove()
 
-	return pgx.Connect(ctx, connStr)
+	return pgx.Connect(ctx, postgresql_shared.BuildConnString(p.CredentialSpec(), password, "postgres", false, files))
 }
 
 // openReplicationConn opens a connection with `replication=database` in the
@@ -1085,43 +1093,18 @@ func openReplicationConn(
 	p *PostgresqlPhysicalDatabase,
 	encryptor encryption.FieldEncryptor,
 ) (*pgx.Conn, error) {
-	password, err := decryptIfNeeded(p.Password, encryptor)
+	password, err := postgresql_shared.DecryptFieldIfNeeded(p.Password, encryptor)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt password: %w", err)
 	}
 
-	connStr := fmt.Sprintf(
-		"host=%s port=%d user=%s password='%s' dbname=postgres sslmode=%s replication=database default_query_exec_mode=simple_protocol standard_conforming_strings=on client_encoding=UTF8",
-		p.Host,
-		p.Port,
-		p.Username,
-		escapeConnStringValue(password),
-		effectiveSslMode(p),
-	)
-
-	return pgx.Connect(ctx, connStr)
-}
-
-func effectiveSslMode(p *PostgresqlPhysicalDatabase) postgresql_shared.PostgresSslMode {
-	if p.SslMode == "" {
-		return postgresql_shared.PostgresSslModeDisable
+	files, err := postgresql_shared.WriteCredentialFilesToTempDir(p.CredentialSpec(), password, encryptor)
+	if err != nil {
+		return nil, err
 	}
-	return p.SslMode
-}
+	defer files.Remove()
 
-func escapeConnStringValue(value string) string {
-	value = strings.ReplaceAll(value, `\`, `\\`)
-	value = strings.ReplaceAll(value, `'`, `\'`)
-
-	return value
-}
-
-func decryptIfNeeded(value string, encryptor encryption.FieldEncryptor) (string, error) {
-	if encryptor == nil {
-		return value, nil
-	}
-
-	return encryptor.Decrypt(value)
+	return pgx.Connect(ctx, postgresql_shared.BuildConnString(p.CredentialSpec(), password, "postgres", true, files))
 }
 
 func closeConnQuietly(ctx context.Context, conn *pgx.Conn, logger *slog.Logger) {

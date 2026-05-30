@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"databasus-backend/internal/config"
-	"databasus-backend/internal/features/backups/backups/backuping/logical"
+	backuping_logical "databasus-backend/internal/features/backups/backups/backuping/logical"
 	"databasus-backend/internal/features/disk"
 	verification_agents "databasus-backend/internal/features/verification/agents"
 	verification_runs "databasus-backend/internal/features/verification/runs"

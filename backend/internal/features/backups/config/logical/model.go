@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm"
 
 	"databasus-backend/internal/config"
+	backups_core_enums "databasus-backend/internal/features/backups/backups/core/enums"
 	"databasus-backend/internal/features/intervals"
 	"databasus-backend/internal/features/storages"
 	"databasus-backend/internal/util/period"
@@ -40,7 +41,7 @@ type LogicalBackupConfig struct {
 	IsRetryIfFailed     bool `json:"isRetryIfFailed"     gorm:"column:is_retry_if_failed;type:boolean;not null"`
 	MaxFailedTriesCount int  `json:"maxFailedTriesCount" gorm:"column:max_failed_tries_count;type:int;not null"`
 
-	Encryption BackupEncryption `json:"encryption" gorm:"column:encryption;type:text;not null;default:'NONE'"`
+	Encryption backups_core_enums.BackupEncryption `json:"encryption" gorm:"column:encryption;type:text;not null;default:'NONE'"`
 }
 
 func (h *LogicalBackupConfig) TableName() string {
@@ -93,13 +94,13 @@ func (b *LogicalBackupConfig) Validate() error {
 		return errors.New("max failed tries count must be greater than 0")
 	}
 
-	if b.Encryption != "" && b.Encryption != BackupEncryptionNone &&
-		b.Encryption != BackupEncryptionEncrypted {
+	if b.Encryption != "" && b.Encryption != backups_core_enums.BackupEncryptionNone &&
+		b.Encryption != backups_core_enums.BackupEncryptionEncrypted {
 		return errors.New("encryption must be NONE or ENCRYPTED")
 	}
 
 	if config.GetEnv().IsCloud {
-		if b.Encryption != BackupEncryptionEncrypted {
+		if b.Encryption != backups_core_enums.BackupEncryptionEncrypted {
 			return errors.New("encryption is mandatory for cloud storage")
 		}
 	}

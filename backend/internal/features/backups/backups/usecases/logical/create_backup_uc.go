@@ -5,7 +5,6 @@ import (
 	"errors"
 
 	backups_core_logical "databasus-backend/internal/features/backups/backups/core/logical"
-	usecases_logical_dto "databasus-backend/internal/features/backups/backups/usecases/logical/dto"
 	usecases_logical_mariadb "databasus-backend/internal/features/backups/backups/usecases/logical/mariadb"
 	usecases_logical_mongodb "databasus-backend/internal/features/backups/backups/usecases/logical/mongodb"
 	usecases_logical_mysql "databasus-backend/internal/features/backups/backups/usecases/logical/mysql"
@@ -29,7 +28,7 @@ func (uc *CreateBackupUsecase) Execute(
 	database *databases.Database,
 	storage *storages.Storage,
 	backupProgressListener func(completedMBs float64),
-) (*usecases_logical_dto.BackupMetadata, error) {
+) (*backups_core_logical.BackupMetadata, error) {
 	switch database.Type {
 	case databases.DatabaseTypePostgresLogical:
 		return uc.CreatePostgresqlBackupUsecase.Execute(

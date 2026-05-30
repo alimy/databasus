@@ -9,8 +9,8 @@ import (
 	"github.com/google/uuid"
 
 	backuping_logical "databasus-backend/internal/features/backups/backups/backuping/logical"
-	postgresql_executor "databasus-backend/internal/features/backups/backups/backuping/physical/postgresql"
 	physical_repositories "databasus-backend/internal/features/backups/backups/core/physical/repositories"
+	postgresql_executor "databasus-backend/internal/features/backups/backups/usecases/physical/postgresql"
 	backups_config_physical "databasus-backend/internal/features/backups/config/physical"
 	"databasus-backend/internal/features/databases"
 	encryption_secrets "databasus-backend/internal/features/encryption/secrets"
@@ -47,8 +47,8 @@ func CreateTestPhysicalBackuper(notificationSender NotificationSender) *Physical
 		backuping_logical.GetBackupNodesRegistry(),
 		encryption_secrets.GetSecretKeyService(),
 		logger.GetLogger(),
-		postgresql_executor.NewFullExecutor(),
-		postgresql_executor.NewIncrementalExecutor(),
+		postgresql_executor.NewCreateFullBackupUsecase(),
+		postgresql_executor.NewCreateIncrementalBackupUsecase(),
 		uuid.New(),
 		time.Time{},
 		atomic.Bool{},

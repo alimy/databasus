@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"databasus-backend/internal/features/backups/backups/backuping/logical"
+	backuping_logical "databasus-backend/internal/features/backups/backups/backuping/logical"
 	"databasus-backend/internal/features/restores/restoring"
 	cache_utils "databasus-backend/internal/util/cache"
 )

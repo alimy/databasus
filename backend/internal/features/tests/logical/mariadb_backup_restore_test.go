@@ -17,8 +17,8 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"databasus-backend/internal/config"
+	backups_core_enums "databasus-backend/internal/features/backups/backups/core/enums"
 	backups_core_logical "databasus-backend/internal/features/backups/backups/core/logical"
-	backups_config_logical "databasus-backend/internal/features/backups/config/logical"
 	"databasus-backend/internal/features/databases"
 	mariadbtypes "databasus-backend/internal/features/databases/databases/mariadb"
 	restores_core "databasus-backend/internal/features/restores/core"
@@ -194,8 +194,7 @@ func testMariadbBackupRestoreForVersion(
 ) {
 	container, err := connectToMariadbContainer(mariadbVersion, port)
 	if err != nil {
-		t.Skipf("Skipping MariaDB %s test: %v", mariadbVersion, err)
-		return
+		t.Fatalf("MariaDB %s test failed: %v", mariadbVersion, err)
 	}
 	defer func() {
 		if container.DB != nil {
@@ -221,7 +220,7 @@ func testMariadbBackupRestoreForVersion(
 
 	enableBackupsViaAPI(
 		t, router, database.ID, storage.ID,
-		backups_config_logical.BackupEncryptionNone, user.Token,
+		backups_core_enums.BackupEncryptionNone, user.Token,
 	)
 
 	createBackupViaAPI(t, router, database.ID, user.Token)
@@ -287,8 +286,7 @@ func testMariadbBackupRestoreWithEncryptionForVersion(
 ) {
 	container, err := connectToMariadbContainer(mariadbVersion, port)
 	if err != nil {
-		t.Skipf("Skipping MariaDB %s test: %v", mariadbVersion, err)
-		return
+		t.Fatalf("MariaDB %s test failed: %v", mariadbVersion, err)
 	}
 	defer func() {
 		if container.DB != nil {
@@ -318,14 +316,14 @@ func testMariadbBackupRestoreWithEncryptionForVersion(
 
 	enableBackupsViaAPI(
 		t, router, database.ID, storage.ID,
-		backups_config_logical.BackupEncryptionEncrypted, user.Token,
+		backups_core_enums.BackupEncryptionEncrypted, user.Token,
 	)
 
 	createBackupViaAPI(t, router, database.ID, user.Token)
 
 	backup := waitForBackupCompletion(t, router, database.ID, user.Token, 5*time.Minute)
 	assert.Equal(t, backups_core_logical.BackupStatusCompleted, backup.Status)
-	assert.Equal(t, backups_config_logical.BackupEncryptionEncrypted, backup.Encryption)
+	assert.Equal(t, backups_core_enums.BackupEncryptionEncrypted, backup.Encryption)
 
 	newDBName := "restoreddb_mariadb_encrypted"
 	_, err = container.DB.Exec(fmt.Sprintf("DROP DATABASE IF EXISTS %s;", newDBName))
@@ -385,8 +383,7 @@ func testMariadbBackupRestoreWithReadOnlyUserForVersion(
 ) {
 	container, err := connectToMariadbContainer(mariadbVersion, port)
 	if err != nil {
-		t.Skipf("Skipping MariaDB %s test: %v", mariadbVersion, err)
-		return
+		t.Fatalf("MariaDB %s test failed: %v", mariadbVersion, err)
 	}
 	defer func() {
 		if container.DB != nil {
@@ -426,7 +423,7 @@ func testMariadbBackupRestoreWithReadOnlyUserForVersion(
 
 	enableBackupsViaAPI(
 		t, router, updatedDatabase.ID, storage.ID,
-		backups_config_logical.BackupEncryptionNone, user.Token,
+		backups_core_enums.BackupEncryptionNone, user.Token,
 	)
 
 	createBackupViaAPI(t, router, updatedDatabase.ID, user.Token)
@@ -750,8 +747,7 @@ func testMariadbBackupRestoreWithExcludeTablesForVersion(
 ) {
 	container, err := connectToMariadbContainer(mariadbVersion, port)
 	if err != nil {
-		t.Skipf("Skipping MariaDB %s test: %v", mariadbVersion, err)
-		return
+		t.Fatalf("MariaDB %s test failed: %v", mariadbVersion, err)
 	}
 	defer func() {
 		if container.DB != nil {
@@ -815,7 +811,7 @@ func testMariadbBackupRestoreWithExcludeTablesForVersion(
 
 	enableBackupsViaAPI(
 		t, router, database.ID, storage.ID,
-		backups_config_logical.BackupEncryptionNone, user.Token,
+		backups_core_enums.BackupEncryptionNone, user.Token,
 	)
 
 	createBackupViaAPI(t, router, database.ID, user.Token)
@@ -893,8 +889,7 @@ func testMariadbBackupRestoreWithExcludeEventsForVersion(
 ) {
 	container, err := connectToMariadbContainer(mariadbVersion, port)
 	if err != nil {
-		t.Skipf("Skipping MariaDB %s test: %v", mariadbVersion, err)
-		return
+		t.Fatalf("MariaDB %s test failed: %v", mariadbVersion, err)
 	}
 	defer func() {
 		if container.DB != nil {
@@ -912,11 +907,10 @@ func testMariadbBackupRestoreWithExcludeEventsForVersion(
 		END
 	`)
 	if err != nil {
-		t.Skipf(
-			"Skipping test: MariaDB version doesn't support events or event scheduler disabled: %v",
+		t.Fatalf(
+			"MariaDB version doesn't support events or event scheduler disabled: %v",
 			err,
 		)
-		return
 	}
 
 	router := createTestRouter()
@@ -955,7 +949,7 @@ func testMariadbBackupRestoreWithExcludeEventsForVersion(
 
 	enableBackupsViaAPI(
 		t, router, database.ID, storage.ID,
-		backups_config_logical.BackupEncryptionNone, user.Token,
+		backups_core_enums.BackupEncryptionNone, user.Token,
 	)
 
 	createBackupViaAPI(t, router, database.ID, user.Token)

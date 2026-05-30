@@ -82,11 +82,15 @@ type EnvVariables struct {
 	TestPhysicalPostgres17TablespacePort    string `env:"TEST_PHYSICAL_POSTGRES_17_TABLESPACE_PORT"`
 	TestPhysicalPostgres18TablespacePort    string `env:"TEST_PHYSICAL_POSTGRES_18_TABLESPACE_PORT"`
 	TestPhysicalPostgres17RestoreTargetPort string `env:"TEST_PHYSICAL_POSTGRES_17_RESTORE_TARGET_PORT"`
+	TestPhysicalPostgres18RestoreTargetPort string `env:"TEST_PHYSICAL_POSTGRES_18_RESTORE_TARGET_PORT"`
 
 	TestMinioPort        string `env:"TEST_MINIO_PORT"`
 	TestMinioConsolePort string `env:"TEST_MINIO_CONSOLE_PORT"`
 
 	TestAzuriteBlobPort string `env:"TEST_AZURITE_BLOB_PORT"`
+
+	TestMailpitSmtpPort string `env:"TEST_MAILPIT_SMTP_PORT"`
+	TestMailpitHttpPort string `env:"TEST_MAILPIT_HTTP_PORT"`
 
 	TestNASPort  string `env:"TEST_NAS_PORT"`
 	TestFTPPort  string `env:"TEST_FTP_PORT"`
@@ -357,6 +361,10 @@ func loadEnvVariables() {
 		}
 		if env.TestPhysicalPostgres17RestoreTargetPort == "" {
 			log.Error("TEST_PHYSICAL_POSTGRES_17_RESTORE_TARGET_PORT is empty")
+			os.Exit(1)
+		}
+		if env.TestPhysicalPostgres18RestoreTargetPort == "" {
+			log.Error("TEST_PHYSICAL_POSTGRES_18_RESTORE_TARGET_PORT is empty")
 			os.Exit(1)
 		}
 

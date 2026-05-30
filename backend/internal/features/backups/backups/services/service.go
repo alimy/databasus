@@ -11,7 +11,8 @@ import (
 	"github.com/google/uuid"
 
 	audit_logs "databasus-backend/internal/features/audit_logs"
-	"databasus-backend/internal/features/backups/backups/backuping/logical"
+	backuping_logical "databasus-backend/internal/features/backups/backups/backuping/logical"
+	backups_core_enums "databasus-backend/internal/features/backups/backups/core/enums"
 	backups_core_logical "databasus-backend/internal/features/backups/backups/core/logical"
 	backups_download "databasus-backend/internal/features/backups/backups/download"
 	backups_dto_logical "databasus-backend/internal/features/backups/backups/dto/logical"
@@ -326,13 +327,13 @@ func (s *BackupService) GetBackupReader(backupID uuid.UUID) (io.ReadCloser, erro
 	}
 
 	// If not encrypted, return raw reader
-	if backup.Encryption == backups_config_logical.BackupEncryptionNone {
+	if backup.Encryption == backups_core_enums.BackupEncryptionNone {
 		s.logger.Info("Returning non-encrypted backup", "backupId", backupID)
 		return fileReader, nil
 	}
 
 	// Decrypt on-the-fly for encrypted backups
-	if backup.Encryption != backups_config_logical.BackupEncryptionEncrypted {
+	if backup.Encryption != backups_core_enums.BackupEncryptionEncrypted {
 		if err := fileReader.Close(); err != nil {
 			s.logger.Error("Failed to close file reader", "error", err)
 		}

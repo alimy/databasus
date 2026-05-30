@@ -9,7 +9,7 @@ import (
 
 	"databasus-backend/internal/features/backups/backups/backuping/nodes"
 	backups_core_logical "databasus-backend/internal/features/backups/backups/core/logical"
-	"databasus-backend/internal/features/backups/backups/usecases/logical"
+	usecases_logical "databasus-backend/internal/features/backups/backups/usecases/logical"
 	backups_config_logical "databasus-backend/internal/features/backups/config/logical"
 	"databasus-backend/internal/features/billing"
 	"databasus-backend/internal/features/databases"
@@ -79,6 +79,7 @@ var backupsScheduler = &BackupsScheduler{
 	sync.Mutex{},
 	backuperNode,
 	[]backups_core_logical.BackupCompletionListener{},
+	atomic.Bool{},
 	atomic.Bool{},
 }
 

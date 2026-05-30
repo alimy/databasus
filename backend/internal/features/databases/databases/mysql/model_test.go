@@ -963,7 +963,7 @@ func connectToMysqlContainer(
 	version tools.MysqlVersion,
 ) *MysqlContainer {
 	if port == "" {
-		t.Skipf("MySQL port not configured for version %s", version)
+		t.Fatalf("MySQL port not configured for version %s", version)
 	}
 
 	dbName := "testdb"
@@ -979,7 +979,7 @@ func connectToMysqlContainer(
 
 	db, err := sqlx.Connect("mysql", dsn)
 	if err != nil {
-		t.Skipf("Failed to connect to MySQL %s: %v", version, err)
+		t.Fatalf("Failed to connect to MySQL %s: %v", version, err)
 	}
 
 	return &MysqlContainer{

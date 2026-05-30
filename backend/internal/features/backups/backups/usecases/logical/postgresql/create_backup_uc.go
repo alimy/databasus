@@ -16,9 +16,9 @@ import (
 	"github.com/google/uuid"
 
 	"databasus-backend/internal/config"
+	backups_core_enums "databasus-backend/internal/features/backups/backups/core/enums"
 	backups_core_logical "databasus-backend/internal/features/backups/backups/core/logical"
 	backup_encryption "databasus-backend/internal/features/backups/backups/encryption"
-	usecases_logical_dto "databasus-backend/internal/features/backups/backups/usecases/logical/dto"
 	backups_config_logical "databasus-backend/internal/features/backups/config/logical"
 	"databasus-backend/internal/features/databases"
 	pgtypes "databasus-backend/internal/features/databases/databases/postgresql/logical"
@@ -62,7 +62,7 @@ func (uc *CreatePostgresqlBackupUsecase) Execute(
 	backupProgressListener func(
 		completedMBs float64,
 	),
-) (*usecases_logical_dto.BackupMetadata, error) {
+) (*backups_core_logical.BackupMetadata, error) {
 	uc.logger.Info(
 		"Creating PostgreSQL backup via pg_dump custom format",
 		"databaseId",
@@ -121,13 +121,14 @@ func (uc *CreatePostgresqlBackupUsecase) streamToStorage(
 	storage *storages.Storage,
 	db *databases.Database,
 	backupProgressListener func(completedMBs float64),
-) (*usecases_logical_dto.BackupMetadata, error) {
+) (*backups_core_logical.BackupMetadata, error) {
 	uc.logger.Info("Streaming PostgreSQL backup to storage", "pgBin", pgBin, "args", args)
 
 	ctx, cancel := uc.createBackupContext(parentCtx)
 	defer cancel()
 
-	credentials, err := pgtypes.WriteCredentialFiles(db.PostgresqlLogical, password, uc.fieldEncryptor)
+	credentials, err := postgresql_shared.WriteCredentialFilesToTempDir(
+		db.PostgresqlLogical.CredentialSpec(), password, uc.fieldEncryptor)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create credential files: %w", err)
 	}
@@ -422,7 +423,7 @@ func (uc *CreatePostgresqlBackupUsecase) createBackupContext(
 
 func (uc *CreatePostgresqlBackupUsecase) setupPgEnvironment(
 	cmd *exec.Cmd,
-	credentials *pgtypes.CredentialFiles,
+	credentials *postgresql_shared.CredentialTempFiles,
 	sslMode postgresql_shared.PostgresSslMode,
 	password string,
 	cpuCount int,
@@ -470,13 +471,13 @@ func (uc *CreatePostgresqlBackupUsecase) setupBackupEncryption(
 	backupID uuid.UUID,
 	backupConfig *backups_config_logical.LogicalBackupConfig,
 	storageWriter io.WriteCloser,
-) (io.Writer, *backup_encryption.EncryptionWriter, usecases_logical_dto.BackupMetadata, error) {
-	metadata := usecases_logical_dto.BackupMetadata{
+) (io.Writer, *backup_encryption.EncryptionWriter, backups_core_logical.BackupMetadata, error) {
+	metadata := backups_core_logical.BackupMetadata{
 		BackupID: backupID,
 	}
 
-	if backupConfig.Encryption != backups_config_logical.BackupEncryptionEncrypted {
-		metadata.Encryption = backups_config_logical.BackupEncryptionNone
+	if backupConfig.Encryption != backups_core_enums.BackupEncryptionEncrypted {
+		metadata.Encryption = backups_core_enums.BackupEncryptionNone
 		uc.logger.Info("Encryption disabled for backup", "backupId", backupID)
 		return storageWriter, nil, metadata, nil
 	}
@@ -493,7 +494,7 @@ func (uc *CreatePostgresqlBackupUsecase) setupBackupEncryption(
 
 	metadata.EncryptionSalt = &encSetup.SaltBase64
 	metadata.EncryptionIV = &encSetup.NonceBase64
-	metadata.Encryption = backups_config_logical.BackupEncryptionEncrypted
+	metadata.Encryption = backups_core_enums.BackupEncryptionEncrypted
 
 	uc.logger.Info("Encryption enabled for backup", "backupId", backupID)
 	return encSetup.Writer, encSetup.Writer, metadata, nil

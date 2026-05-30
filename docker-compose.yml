@@ -197,7 +197,7 @@ services:
     command:
       - postgres
       - -c
-      - wal_level=replica
+      - wal_level=logical
       - -c
       - summarize_wal=on
       - -c
@@ -227,7 +227,7 @@ services:
     command:
       - postgres
       - -c
-      - wal_level=replica
+      - wal_level=logical
       - -c
       - summarize_wal=on
       - -c
@@ -308,7 +308,7 @@ services:
     command:
       - postgres
       - -c
-      - wal_level=replica
+      - wal_level=logical
       - -c
       - summarize_wal=on
       - -c
@@ -346,7 +346,7 @@ services:
     command:
       - postgres
       - -c
-      - wal_level=replica
+      - wal_level=logical
       - -c
       - summarize_wal=on
       - -c
@@ -376,6 +376,23 @@ services:
     container_name: test-physical-postgres-17-restore-target
     shm_size: 1gb
 
+  # Idle PG 18 restore target for the PG 18 leg of the FULL+INCR
+  # pg_combinebackup restore test. PG 18 binaries are required to combine and
+  # start a PG 18 backup, and PG 18's pg_verifybackup is the only one that can
+  # verify a compressed-tar backup (-F tar), so this container also runs the
+  # manifest-correctness gate. zstd is installed for extraction; pg_combinebackup
+  # and pg_verifybackup ship with the image.
+  test-physical-postgres-18-restore-target:
+    build:
+      dockerfile_inline: |
+        FROM postgres:18
+        RUN apt-get update && apt-get install -y --no-install-recommends zstd && rm -rf /var/lib/apt/lists/*
+    entrypoint: ["sleep", "infinity"]
+    ports:
+      - "${TEST_PHYSICAL_POSTGRES_18_RESTORE_TARGET_PORT}:5432"
+    container_name: test-physical-postgres-18-restore-target
+    shm_size: 1gb
+
   # Test Azurite container
   test-azurite:
     image: mcr.microsoft.com/azure-storage/azurite
@@ -383,6 +400,17 @@ services:
       - "${TEST_AZURITE_BLOB_PORT}:10000"
     container_name: test-azurite
     command: azurite-blob --blobHost 0.0.0.0 --skipApiVersionCheck
+
+  # Test Mailpit container (local SMTP sink for tests; accepts any auth)
+  test-mailpit:
+    image: axllent/mailpit:v1.20.5
+    ports:
+      - "${TEST_MAILPIT_SMTP_PORT}:1025"
+      - "${TEST_MAILPIT_HTTP_PORT}:8025"
+    environment:
+      - MP_SMTP_AUTH_ACCEPT_ANY=true
+      - MP_SMTP_AUTH_ALLOW_INSECURE=true
+    container_name: test-mailpit
 
   # Test NAS server (Samba)
   test-nas:
@@ -821,12 +849,6 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
-
-  # ================================================================
-  # SSL / TLS test containers
-  # One representative version per engine — the goal is to catch SSL
-  # handshake regressions without multiplying the version matrix.
-  # ================================================================
 
   test-logical-postgres-ssl:
     build:

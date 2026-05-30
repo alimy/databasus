@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"databasus-backend/internal/features/audit_logs"
-	"databasus-backend/internal/features/backups/backups/backuping/logical"
+	backuping_logical "databasus-backend/internal/features/backups/backups/backuping/logical"
 	backups_controllers_logical "databasus-backend/internal/features/backups/backups/controllers/logical"
 	"databasus-backend/internal/features/databases"
 	"databasus-backend/internal/features/notifiers"

@@ -66,11 +66,12 @@ const (
 	PhysicalWalStreamerStatusFailed  PhysicalWalStreamerStatus = "FAILED"
 )
 
-type PhysicalBackupEncryption string
+type PhysicalBackupCompression string
 
 const (
-	PhysicalBackupEncryptionNone      PhysicalBackupEncryption = "NONE"
-	PhysicalBackupEncryptionAes256Gcm PhysicalBackupEncryption = "AES_256_GCM"
+	PhysicalBackupCompressionZstd PhysicalBackupCompression = "ZSTD"
+	PhysicalBackupCompressionGzip PhysicalBackupCompression = "GZIP"
+	PhysicalBackupCompressionNone PhysicalBackupCompression = "NONE"
 )
 
 type PhysicalBackupType string

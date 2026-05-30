@@ -19,8 +19,8 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"databasus-backend/internal/config"
+	backups_core_enums "databasus-backend/internal/features/backups/backups/core/enums"
 	backups_core_logical "databasus-backend/internal/features/backups/backups/core/logical"
-	backups_config_logical "databasus-backend/internal/features/backups/config/logical"
 	"databasus-backend/internal/features/databases"
 	mongodbtypes "databasus-backend/internal/features/databases/databases/mongodb"
 	restores_core "databasus-backend/internal/features/restores/core"
@@ -54,7 +54,7 @@ func Test_CreateMongodbDatabase_WhenVersionIsBelow42_ReturnsBadRequest(t *testin
 	env := config.GetEnv()
 	port := env.TestLogicalMongodb40Port
 	if port == "" {
-		t.Skip("MongoDB 4.0 port not configured")
+		t.Fatal("MongoDB 4.0 port not configured")
 	}
 	portInt, err := strconv.Atoi(port)
 	if err != nil {
@@ -198,7 +198,7 @@ func testMongodbBackupRestoreForVersion(
 ) {
 	container, err := connectToMongodbContainer(mongodbVersion, port)
 	if err != nil {
-		t.Skipf("Skipping MongoDB %s test: %v", mongodbVersion, err)
+		t.Fatalf("MongoDB %s test failed: %v", mongodbVersion, err)
 		return
 	}
 	defer container.Client.Disconnect(t.Context())
@@ -222,7 +222,7 @@ func testMongodbBackupRestoreForVersion(
 
 	enableBackupsViaAPI(
 		t, router, database.ID, storage.ID,
-		backups_config_logical.BackupEncryptionNone, user.Token,
+		backups_core_enums.BackupEncryptionNone, user.Token,
 	)
 
 	createBackupViaAPI(t, router, database.ID, user.Token)
@@ -272,7 +272,7 @@ func testMongodbBackupRestoreWithEncryptionForVersion(
 ) {
 	container, err := connectToMongodbContainer(mongodbVersion, port)
 	if err != nil {
-		t.Skipf("Skipping MongoDB %s test: %v", mongodbVersion, err)
+		t.Fatalf("MongoDB %s test failed: %v", mongodbVersion, err)
 		return
 	}
 	defer container.Client.Disconnect(t.Context())
@@ -300,14 +300,14 @@ func testMongodbBackupRestoreWithEncryptionForVersion(
 
 	enableBackupsViaAPI(
 		t, router, database.ID, storage.ID,
-		backups_config_logical.BackupEncryptionEncrypted, user.Token,
+		backups_core_enums.BackupEncryptionEncrypted, user.Token,
 	)
 
 	createBackupViaAPI(t, router, database.ID, user.Token)
 
 	backup := waitForBackupCompletion(t, router, database.ID, user.Token, 5*time.Minute)
 	assert.Equal(t, backups_core_logical.BackupStatusCompleted, backup.Status)
-	assert.Equal(t, backups_config_logical.BackupEncryptionEncrypted, backup.Encryption)
+	assert.Equal(t, backups_core_enums.BackupEncryptionEncrypted, backup.Encryption)
 
 	newDBName := "restoreddb_mongodb_enc_" + uuid.New().String()[:8]
 
@@ -351,7 +351,7 @@ func testMongodbBackupRestoreWithReadOnlyUserForVersion(
 ) {
 	container, err := connectToMongodbContainer(mongodbVersion, port)
 	if err != nil {
-		t.Skipf("Skipping MongoDB %s test: %v", mongodbVersion, err)
+		t.Fatalf("MongoDB %s test failed: %v", mongodbVersion, err)
 		return
 	}
 	defer container.Client.Disconnect(t.Context())
@@ -389,7 +389,7 @@ func testMongodbBackupRestoreWithReadOnlyUserForVersion(
 
 	enableBackupsViaAPI(
 		t, router, updatedDatabase.ID, storage.ID,
-		backups_config_logical.BackupEncryptionNone, user.Token,
+		backups_core_enums.BackupEncryptionNone, user.Token,
 	)
 
 	createBackupViaAPI(t, router, updatedDatabase.ID, user.Token)
@@ -441,7 +441,7 @@ func testMongodbBackupRestoreWithExcludeCollectionsForVersion(
 ) {
 	container, err := connectToMongodbContainer(mongodbVersion, port)
 	if err != nil {
-		t.Skipf("Skipping MongoDB %s test: %v", mongodbVersion, err)
+		t.Fatalf("MongoDB %s test failed: %v", mongodbVersion, err)
 		return
 	}
 	defer container.Client.Disconnect(t.Context())
@@ -498,7 +498,7 @@ func testMongodbBackupRestoreWithExcludeCollectionsForVersion(
 
 	enableBackupsViaAPI(
 		t, router, database.ID, storage.ID,
-		backups_config_logical.BackupEncryptionNone, user.Token,
+		backups_core_enums.BackupEncryptionNone, user.Token,
 	)
 
 	createBackupViaAPI(t, router, database.ID, user.Token)

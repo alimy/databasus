@@ -27,7 +27,7 @@ import (
 	billing_repositories "databasus-backend/internal/features/billing/repositories"
 	billing_webhooks "databasus-backend/internal/features/billing/webhooks"
 	"databasus-backend/internal/features/databases"
-	"databasus-backend/internal/features/databases/databases/postgresql/logical"
+	postgresql_logical "databasus-backend/internal/features/databases/databases/postgresql/logical"
 	users_dto "databasus-backend/internal/features/users/dto"
 	users_enums "databasus-backend/internal/features/users/enums"
 	users_middleware "databasus-backend/internal/features/users/middleware"

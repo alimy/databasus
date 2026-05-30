@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 
+	backups_core_enums "databasus-backend/internal/features/backups/backups/core/enums"
 	physical_enums "databasus-backend/internal/features/backups/backups/core/physical/enums"
 	"databasus-backend/internal/util/walmath"
 )
@@ -28,9 +29,15 @@ type PhysicalFullBackup struct {
 	RawSizeMb        *float64 `json:"rawSizeMb"        gorm:"column:raw_size_mb;type:double precision"`
 	BackupDurationMs *int64   `json:"backupDurationMs" gorm:"column:backup_duration_ms;type:bigint"`
 
-	Encryption     physical_enums.PhysicalBackupEncryption `json:"encryption" gorm:"column:encryption;type:text;not null;default:'NONE'"`
-	EncryptionSalt *string                                 `json:"-"          gorm:"column:encryption_salt;type:text"`
-	EncryptionIV   *string                                 `json:"-"          gorm:"column:encryption_iv;type:text"`
+	Encryption     backups_core_enums.BackupEncryption `json:"encryption" gorm:"column:encryption;type:text;not null;default:'NONE'"`
+	EncryptionSalt *string                             `json:"-"          gorm:"column:encryption_salt;type:text"`
+	EncryptionIV   *string                             `json:"-"          gorm:"column:encryption_iv;type:text"`
+
+	Compression physical_enums.PhysicalBackupCompression `json:"compression" gorm:"column:compression;type:text;not null;default:'ZSTD'"`
+
+	ManifestFileName       *string `json:"manifestFileName" gorm:"column:manifest_file_name;type:text"`
+	ManifestEncryptionSalt *string `json:"-"                gorm:"column:manifest_encryption_salt;type:text"`
+	ManifestEncryptionIV   *string `json:"-"                gorm:"column:manifest_encryption_iv;type:text"`
 
 	CreatedAt   time.Time  `json:"createdAt"   gorm:"column:created_at"`
 	CompletedAt *time.Time `json:"completedAt" gorm:"column:completed_at"`

@@ -18,6 +18,7 @@ import (
 
 	"databasus-backend/internal/config"
 	backups_controllers_logical "databasus-backend/internal/features/backups/backups/controllers/logical"
+	backups_core_enums "databasus-backend/internal/features/backups/backups/core/enums"
 	backups_core_logical "databasus-backend/internal/features/backups/backups/core/logical"
 	backups_dto_logical "databasus-backend/internal/features/backups/backups/dto/logical"
 	backups_config_logical "databasus-backend/internal/features/backups/config/logical"
@@ -375,7 +376,7 @@ func testBackupRestoreForVersion(t *testing.T, pgVersion, port string, cpuCount 
 
 	enableBackupsViaAPI(
 		t, router, database.ID, storage.ID,
-		backups_config_logical.BackupEncryptionNone, user.Token,
+		backups_core_enums.BackupEncryptionNone, user.Token,
 	)
 
 	createBackupViaAPI(t, router, database.ID, user.Token)
@@ -492,7 +493,7 @@ func testSchemaSelectionAllSchemasForVersion(t *testing.T, pgVersion, port strin
 
 	enableBackupsViaAPI(
 		t, router, database.ID, storage.ID,
-		backups_config_logical.BackupEncryptionNone, user.Token,
+		backups_core_enums.BackupEncryptionNone, user.Token,
 	)
 
 	createBackupViaAPI(t, router, database.ID, user.Token)
@@ -620,7 +621,7 @@ func testBackupRestoreWithExcludeExtensionsForVersion(t *testing.T, pgVersion, p
 
 	enableBackupsViaAPI(
 		t, router, database.ID, storage.ID,
-		backups_config_logical.BackupEncryptionNone, user.Token,
+		backups_core_enums.BackupEncryptionNone, user.Token,
 	)
 
 	createBackupViaAPI(t, router, database.ID, user.Token)
@@ -754,7 +755,7 @@ func testBackupRestoreWithoutExcludeExtensionsForVersion(
 
 	enableBackupsViaAPI(
 		t, router, database.ID, storage.ID,
-		backups_config_logical.BackupEncryptionNone, user.Token,
+		backups_core_enums.BackupEncryptionNone, user.Token,
 	)
 
 	createBackupViaAPI(t, router, database.ID, user.Token)
@@ -898,7 +899,7 @@ func testBackupRestoreWithRestoreOwnershipForVersion(t *testing.T, pgVersion, po
 
 	enableBackupsViaAPI(
 		t, router, database.ID, storage.ID,
-		backups_config_logical.BackupEncryptionNone, user.Token,
+		backups_core_enums.BackupEncryptionNone, user.Token,
 	)
 
 	createBackupViaAPI(t, router, database.ID, user.Token)
@@ -1011,7 +1012,7 @@ func testBackupRestoreWithRestorePrivilegesForVersion(t *testing.T, pgVersion, p
 
 	enableBackupsViaAPI(
 		t, router, database.ID, storage.ID,
-		backups_config_logical.BackupEncryptionNone, user.Token,
+		backups_core_enums.BackupEncryptionNone, user.Token,
 	)
 
 	createBackupViaAPI(t, router, database.ID, user.Token)
@@ -1128,7 +1129,7 @@ func testBackupRestoreWithReadOnlyUserForVersion(t *testing.T, pgVersion, port s
 
 	enableBackupsViaAPI(
 		t, router, updatedDatabase.ID, storage.ID,
-		backups_config_logical.BackupEncryptionNone, user.Token,
+		backups_core_enums.BackupEncryptionNone, user.Token,
 	)
 
 	createBackupViaAPI(t, router, updatedDatabase.ID, user.Token)
@@ -1248,7 +1249,7 @@ func testSchemaSelectionOnlySpecifiedSchemasForVersion(
 
 	enableBackupsViaAPI(
 		t, router, database.ID, storage.ID,
-		backups_config_logical.BackupEncryptionNone, user.Token,
+		backups_core_enums.BackupEncryptionNone, user.Token,
 	)
 
 	createBackupViaAPI(t, router, database.ID, user.Token)
@@ -1381,7 +1382,7 @@ func testBackupRestoreWithExcludeTablesForVersion(t *testing.T, pgVersion, port 
 
 	enableBackupsViaAPI(
 		t, router, database.ID, storage.ID,
-		backups_config_logical.BackupEncryptionNone, user.Token,
+		backups_core_enums.BackupEncryptionNone, user.Token,
 	)
 
 	createBackupViaAPI(t, router, database.ID, user.Token)
@@ -1510,7 +1511,7 @@ func testSchemasWithExcludeTablesForVersion(t *testing.T, pgVersion, port string
 
 	enableBackupsViaAPI(
 		t, router, database.ID, storage.ID,
-		backups_config_logical.BackupEncryptionNone, user.Token,
+		backups_core_enums.BackupEncryptionNone, user.Token,
 	)
 
 	createBackupViaAPI(t, router, database.ID, user.Token)
@@ -1637,14 +1638,14 @@ func testBackupRestoreWithEncryptionForVersion(t *testing.T, pgVersion, port str
 
 	enableBackupsViaAPI(
 		t, router, database.ID, storage.ID,
-		backups_config_logical.BackupEncryptionEncrypted, user.Token,
+		backups_core_enums.BackupEncryptionEncrypted, user.Token,
 	)
 
 	createBackupViaAPI(t, router, database.ID, user.Token)
 
 	backup := waitForBackupCompletion(t, router, database.ID, user.Token, 5*time.Minute)
 	assert.Equal(t, backups_core_logical.BackupStatusCompleted, backup.Status)
-	assert.Equal(t, backups_config_logical.BackupEncryptionEncrypted, backup.Encryption)
+	assert.Equal(t, backups_core_enums.BackupEncryptionEncrypted, backup.Encryption)
 
 	newDBName := fmt.Sprintf("restoreddb_encrypted_%s", uuid.New().String()[:8])
 	_, err = container.DB.Exec(fmt.Sprintf("DROP DATABASE IF EXISTS %s;", newDBName))
@@ -1875,7 +1876,7 @@ func enableBackupsViaAPI(
 	router *gin.Engine,
 	databaseID uuid.UUID,
 	storageID uuid.UUID,
-	encryption backups_config_logical.BackupEncryption,
+	encryption backups_core_enums.BackupEncryption,
 	token string,
 ) {
 	var backupConfig backups_config_logical.LogicalBackupConfig
