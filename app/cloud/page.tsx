@@ -265,7 +265,7 @@ export default function Index() {
                       },
                       {
                         feature: "Price",
-                        self: "VPS + maintenance + S3",
+                        self: "VPS + maintenance + S3 + traffic",
                         cloud: "From $25/mo",
                       },
                       {
@@ -296,7 +296,13 @@ export default function Index() {
                         >
                           {row.feature}
                         </th>
-                        <td className="px-2 py-2.5 md:px-3 md:py-3 text-center align-middle text-gray-500 border-t border-[#ffffff0d]">
+                        <td
+                          className={`px-2 py-2.5 md:px-3 md:py-3 text-center align-middle border-t border-[#ffffff0d] ${
+                            row.feature === "Price"
+                              ? "text-red-500 font-medium"
+                              : "text-gray-500"
+                          }`}
+                        >
                           {row.self}
                         </td>
                         <td className="px-2 py-2.5 md:px-3 md:py-3 text-center align-middle text-white font-medium border-t border-[#ffffff0d] border-l border-[#0d6efd]/30">
