@@ -15,6 +15,7 @@ import (
 	physical_models "databasus-backend/internal/features/backups/backups/core/physical/models"
 	physical_repositories "databasus-backend/internal/features/backups/backups/core/physical/repositories"
 	physical_testing "databasus-backend/internal/features/backups/backups/core/physical/testing"
+	backups_config_physical "databasus-backend/internal/features/backups/config/physical"
 	postgresql_physical "databasus-backend/internal/features/databases/databases/postgresql/physical"
 	"databasus-backend/internal/features/intervals"
 	"databasus-backend/internal/storage"
@@ -136,8 +137,8 @@ func Test_DecideBackupKind_WhenLastIncrErroredAndChainExtendable_RetriesIncremen
 	require.True(t, ok)
 	assert.Equal(t, physical_enums.PhysicalBackupTypeIncremental, decision.kind,
 		"an ERROR incr keeps the chain extendable, so the retry stays an INCR")
-	assert.Equal(t, full.ID, decision.rootFullBackupID)
-	assert.Nil(t, decision.parentIncrID, "an errored incr is not a COMPLETED parent")
+	assert.Equal(t, full.ID, decision.incrRootFullBackupID)
+	assert.Nil(t, decision.incrParentIncrID, "an errored incr is not a COMPLETED parent")
 }
 
 func Test_DecideBackupKind_WhenChainBrokenAndFullCadenceDue_ReAnchorsWithFull(t *testing.T) {
@@ -226,8 +227,8 @@ func Test_DecideBackupKind_WhenExtendableChainAndIncrDue_ChoosesIncrementalWithF
 
 	require.True(t, ok)
 	assert.Equal(t, physical_enums.PhysicalBackupTypeIncremental, decision.kind)
-	assert.Equal(t, full.ID, decision.rootFullBackupID)
-	assert.Nil(t, decision.parentIncrID, "first INCR has no INCR parent — resolves to the FULL at read time")
+	assert.Equal(t, full.ID, decision.incrRootFullBackupID)
+	assert.Nil(t, decision.incrParentIncrID, "first INCR has no INCR parent — resolves to the FULL at read time")
 }
 
 func Test_DecideBackupKind_WhenChainHasCompletedIncr_ChoosesIncrementalWithIncrParent(t *testing.T) {
@@ -255,9 +256,9 @@ func Test_DecideBackupKind_WhenChainHasCompletedIncr_ChoosesIncrementalWithIncrP
 
 	require.True(t, ok)
 	assert.Equal(t, physical_enums.PhysicalBackupTypeIncremental, decision.kind)
-	assert.Equal(t, full.ID, decision.rootFullBackupID)
-	require.NotNil(t, decision.parentIncrID)
-	assert.Equal(t, incr.ID, *decision.parentIncrID)
+	assert.Equal(t, full.ID, decision.incrRootFullBackupID)
+	require.NotNil(t, decision.incrParentIncrID)
+	assert.Equal(t, incr.ID, *decision.incrParentIncrID)
 }
 
 func Test_DecideBackupKind_WhenFullOnlyConfig_NeverChoosesIncremental(t *testing.T) {
@@ -398,7 +399,7 @@ func Test_EvaluateConfig_WhenNotCloud_BypassesBillingAndSchedules(t *testing.T) 
 	require.NotNil(t, lastFull, "self-hosted must schedule regardless of subscription state")
 }
 
-func Test_EvaluateConfig_WhenCloudSubscriptionExpired_MarksRunningStreamerFailed(t *testing.T) {
+func Test_EvaluateConfig_WhenCloudSubscriptionExpired_DoesNotTouchWalStreamer(t *testing.T) {
 	prereqs := seedBackupPrereqs(t)
 	enableCloud(t) // after seeding: cloud-mode config save requires encryption
 	scheduler := CreateTestPhysicalScheduler(expiredBilling())
@@ -409,7 +410,47 @@ func Test_EvaluateConfig_WhenCloudSubscriptionExpired_MarksRunningStreamerFailed
 
 	streamer, _ := physical_repositories.GetWalStreamerRepository().FindByDatabaseID(prereqs.DB.ID)
 	require.NotNil(t, streamer)
-	assert.Equal(t, physical_enums.PhysicalWalStreamerStatusFailed, streamer.Status)
+	assert.Equal(t, physical_enums.PhysicalWalStreamerStatusRunning, streamer.Status)
+}
+
+func Test_DecideBackupKind_WhenFullRequested_ChoosesFullBeforeCadence(t *testing.T) {
+	prereqs := seedBackupPrereqs(t)
+	makeIncrementalDue(prereqs)
+	seedFullWithStatusAndAge(t, prereqs, physical_enums.PhysicalBackupStatusCompleted, 1, 0)
+
+	requestedAt := time.Now().UTC()
+	prereqs.Config.ForceFullRequestedAt = &requestedAt
+
+	scheduler := CreateTestPhysicalScheduler(activeBilling())
+
+	decision, ok := scheduler.decideBackupKind(logger.GetLogger(), time.Now().UTC(), prereqs.Config)
+
+	require.True(t, ok)
+	assert.Equal(t, physical_enums.PhysicalBackupTypeFull, decision.kind)
+	require.NotNil(t, decision.forceFullRequestedAt)
+	assert.Equal(t, requestedAt, *decision.forceFullRequestedAt)
+}
+
+func Test_ScheduleBackup_WhenForcedFullAssigned_ClearsFullRequest(t *testing.T) {
+	prereqs := seedBackupPrereqs(t)
+	nodeID := registerFakePhysicalNode(t)
+	scheduler := CreateTestPhysicalScheduler(activeBilling())
+	require.NoError(t, backups_config_physical.GetBackupConfigService().RequestFullBackupNow(prereqs.DB.ID))
+
+	config, err := backups_config_physical.GetBackupConfigService().GetBackupConfigByDbId(prereqs.DB.ID)
+	require.NoError(t, err)
+	require.NotNil(t, config.ForceFullRequestedAt)
+	requestedAt := *config.ForceFullRequestedAt
+
+	scheduler.scheduleBackup(logger.GetLogger(), prereqs.Config, backupDecision{
+		kind:                 physical_enums.PhysicalBackupTypeFull,
+		forceFullRequestedAt: &requestedAt,
+	})
+
+	config, err = backups_config_physical.GetBackupConfigService().GetBackupConfigByDbId(prereqs.DB.ID)
+	require.NoError(t, err)
+	assert.Nil(t, config.ForceFullRequestedAt)
+	assert.True(t, scheduler.assignmentCoordinator.IsNodeTrackedForTest(nodeID))
 }
 
 func Test_OnBackupCompleted_WhenNotPhysicalBackup_DoesNotPanic(t *testing.T) {
@@ -572,8 +613,15 @@ func Test_ClaimAndInsert_WhenConcurrentFullAndIncrSameDatabase_OnlyOneSucceeds(t
 		results[0] = claimed
 	})
 	waitGroup.Go(func() {
-		claimed, _ := scheduler.claimAndInsert(prereqs.Config, incrID,
-			backupDecision{kind: physical_enums.PhysicalBackupTypeIncremental, rootFullBackupID: rootFull.ID}, uuid.Nil)
+		claimed, _ := scheduler.claimAndInsert(
+			prereqs.Config,
+			incrID,
+			backupDecision{
+				kind:                 physical_enums.PhysicalBackupTypeIncremental,
+				incrRootFullBackupID: rootFull.ID,
+			},
+			uuid.Nil,
+		)
 		results[1] = claimed
 	})
 	waitGroup.Wait()

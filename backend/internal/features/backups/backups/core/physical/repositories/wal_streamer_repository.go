@@ -34,6 +34,48 @@ func (r *PhysicalWalStreamerRepository) Claim(databaseID uuid.UUID) error {
 		`, databaseID, physical_enums.PhysicalWalStreamerStatusRunning).Error
 }
 
+// ClaimIfClaimable atomically claims the streamer for databaseID only when it is
+// claimable: no row yet, the row is FAILED, or its heartbeat is older than
+// stalenessSeconds (the owning node died). Returns true when this caller won the
+// claim. The conditional ON CONFLICT ... WHERE is the cross-instance lock — a
+// fresh, RUNNING, recently-heartbeated row owned by a live node yields no
+// RETURNING row, so the claim fails without disturbing the incumbent.
+func (r *PhysicalWalStreamerRepository) ClaimIfClaimable(
+	databaseID uuid.UUID,
+	stalenessSeconds int,
+) (bool, error) {
+	if databaseID == uuid.Nil {
+		return false, errors.New("database ID is required")
+	}
+
+	var claimedIDs []uuid.UUID
+
+	err := storage.
+		GetDb().
+		Raw(`
+			INSERT INTO physical_wal_streamers (database_id, started_at, last_heartbeat_at, status)
+			VALUES (?, NOW(), NOW(), ?)
+			ON CONFLICT (database_id) DO UPDATE
+			    SET started_at        = NOW(),
+			        last_heartbeat_at = NOW(),
+			        status            = EXCLUDED.status
+			    WHERE physical_wal_streamers.last_heartbeat_at < NOW() - make_interval(secs => ?)
+			       OR physical_wal_streamers.status = ?
+			RETURNING database_id
+		`,
+			databaseID,
+			physical_enums.PhysicalWalStreamerStatusRunning,
+			float64(stalenessSeconds),
+			physical_enums.PhysicalWalStreamerStatusFailed,
+		).
+		Scan(&claimedIDs).Error
+	if err != nil {
+		return false, err
+	}
+
+	return len(claimedIDs) == 1, nil
+}
+
 func (r *PhysicalWalStreamerRepository) Heartbeat(databaseID uuid.UUID) error {
 	return storage.
 		GetDb().
@@ -48,6 +90,17 @@ func (r *PhysicalWalStreamerRepository) MarkFailed(databaseID uuid.UUID) error {
 		Model(&physical_models.PhysicalWalStreamer{}).
 		Where("database_id = ?", databaseID).
 		Update("status", physical_enums.PhysicalWalStreamerStatusFailed).Error
+}
+
+func (r *PhysicalWalStreamerRepository) MarkStaleRunningFailed(stalenessSeconds int) (int64, error) {
+	result := storage.
+		GetDb().
+		Model(&physical_models.PhysicalWalStreamer{}).
+		Where("status = ?", physical_enums.PhysicalWalStreamerStatusRunning).
+		Where("last_heartbeat_at < NOW() - make_interval(secs => ?)", float64(stalenessSeconds)).
+		Update("status", physical_enums.PhysicalWalStreamerStatusFailed)
+
+	return result.RowsAffected, result.Error
 }
 
 func (r *PhysicalWalStreamerRepository) FindByDatabaseID(

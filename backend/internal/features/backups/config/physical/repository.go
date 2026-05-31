@@ -2,6 +2,7 @@ package backups_config_physical
 
 import (
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -75,6 +76,26 @@ func (r *BackupConfigRepository) GetWithEnabledBackups() ([]*PhysicalBackupConfi
 	}
 
 	return backupConfigs, nil
+}
+
+func (r *BackupConfigRepository) RequestFullBackupNow(databaseID uuid.UUID) error {
+	return storage.
+		GetDb().
+		Model(&PhysicalBackupConfig{}).
+		Where("database_id = ?", databaseID).
+		Update("force_full_requested_at", time.Now().UTC()).Error
+}
+
+func (r *BackupConfigRepository) ClearFullBackupRequest(databaseID uuid.UUID, requestedAt *time.Time) error {
+	query := storage.
+		GetDb().
+		Model(&PhysicalBackupConfig{}).
+		Where("database_id = ?", databaseID)
+	if requestedAt != nil {
+		query = query.Where("force_full_requested_at = ?", *requestedAt)
+	}
+
+	return query.Update("force_full_requested_at", nil).Error
 }
 
 func (r *BackupConfigRepository) IsStorageUsing(storageID uuid.UUID) (bool, error) {

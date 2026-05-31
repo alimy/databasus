@@ -31,6 +31,8 @@ type PhysicalBackupConfig struct {
 
 	WalLagThresholdBytes int64 `json:"walLagThresholdBytes" gorm:"column:wal_lag_threshold_bytes;type:bigint;not null;default:0"`
 
+	ForceFullRequestedAt *time.Time `json:"-" gorm:"column:force_full_requested_at;type:timestamptz"`
+
 	Storage   *storages.Storage `json:"storage"   gorm:"foreignKey:StorageID"`
 	StorageID *uuid.UUID        `json:"storageId" gorm:"column:storage_id;type:uuid"`
 
@@ -205,6 +207,13 @@ func (b *PhysicalBackupConfig) validateFullAndIncremental() error {
 }
 
 func (b *PhysicalBackupConfig) validateFullIncrementalAndWalStream() error {
+	// WAL streaming is a self-hosted-only feature; the cloud plan covers FULL,
+	// INCREMENTAL and logical backups. Refuse the type at config-save time in
+	// cloud so the supervisor (which no-ops in cloud) never has a config to honor.
+	if config.GetEnv().IsCloud {
+		return errors.New("WAL streaming is not available in cloud mode; use FULL_INCREMENTAL instead")
+	}
+
 	if err := b.IncrementalBackupInterval.Validate(); err != nil {
 		return fmt.Errorf("incremental backup interval: %w", err)
 	}

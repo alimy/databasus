@@ -4,30 +4,22 @@ import (
 	"context"
 	"errors"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"databasus-backend/internal/util/walmath"
 )
 
-// ErrSlotRebuildNotImplemented gates the Rebuild call site. Full 7-step body
-// lands in PR 4 along with the WAL stream supervisor. PR 2 only ships the
-// loop-protection scaffold so PR 4's diff stays focused on the rebuild
-// sequence itself.
-var ErrSlotRebuildNotImplemented = errors.New(
-	"slot.Rebuild is implemented in PR 4 (WAL stream supervisor)",
-)
-
 // SlotState captures the snapshot of one physical replication slot. Sourced
 // from pg_replication_slots; lag_bytes is computed against pg_current_wal_lsn().
 type SlotState struct {
-	SlotName   string
-	Active     bool
-	ActivePID  *int
-	WalStatus  string
-	RestartLSN walmath.LSN
-	FlushLSN   walmath.LSN
-	LagBytes   int64
+	SlotName        string
+	Active          bool
+	ActivePID       *int
+	ApplicationName string
+	WalStatus       string
+	RestartLSN      walmath.LSN
+	FlushLSN        walmath.LSN
+	LagBytes        int64
 }
 
 // InspectSlot reads the row for slotName from pg_replication_slots and
@@ -43,15 +35,18 @@ func InspectSlot(ctx context.Context, conn *pgx.Conn, slotName string) (*SlotSta
 		SELECT
 			s.active,
 			s.active_pid,
+			COALESCE(r.application_name, ''),
 			COALESCE(s.wal_status, ''),
 			COALESCE(s.restart_lsn, '0/0'::pg_lsn),
 			COALESCE(s.confirmed_flush_lsn, '0/0'::pg_lsn),
 			COALESCE(pg_wal_lsn_diff(pg_current_wal_lsn(), s.restart_lsn), 0)::bigint
 		FROM pg_replication_slots s
+		LEFT JOIN pg_stat_replication r ON r.pid = s.active_pid
 		WHERE s.slot_name = $1
 	`, slotName).Scan(
 		&state.Active,
 		&state.ActivePID,
+		&state.ApplicationName,
 		&state.WalStatus,
 		&restartLSN,
 		&flushLSN,
@@ -71,21 +66,4 @@ func InspectSlot(ctx context.Context, conn *pgx.Conn, slotName string) (*SlotSta
 	state.FlushLSN = flushLSN
 
 	return state, nil
-}
-
-// SlotRebuilder is the entry point for the WAL stream supervisor's
-// slot-rebuild flow. The body of Rebuild() is intentionally a PR 4
-// fill-in (7-step sequence — stop supervisor → inspect → terminate stuck
-// PID → drop slot → recreate → pg_basebackup with --slot=persistent →
-// restart supervisor) plus the per-DB rebuild-attempt window for loop
-// protection.
-type SlotRebuilder struct{}
-
-func NewSlotRebuilder() *SlotRebuilder {
-	return &SlotRebuilder{}
-}
-
-// Rebuild is the stub: returns ErrSlotRebuildNotImplemented unconditionally.
-func (r *SlotRebuilder) Rebuild(_ context.Context, _ uuid.UUID) error {
-	return ErrSlotRebuildNotImplemented
 }

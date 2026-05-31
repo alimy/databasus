@@ -2,6 +2,7 @@ package backups_config_physical
 
 import (
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -207,6 +208,14 @@ func (s *BackupConfigService) GetBackupConfigsWithEnabledBackups() (
 	return s.backupConfigRepository.GetWithEnabledBackups()
 }
 
+func (s *BackupConfigService) RequestFullBackupNow(databaseID uuid.UUID) error {
+	return s.backupConfigRepository.RequestFullBackupNow(databaseID)
+}
+
+func (s *BackupConfigService) ClearFullBackupRequest(databaseID uuid.UUID, requestedAt *time.Time) error {
+	return s.backupConfigRepository.ClearFullBackupRequest(databaseID, requestedAt)
+}
+
 func (s *BackupConfigService) OnDatabaseCopied(originalDatabaseID, newDatabaseID uuid.UUID) {
 	originalConfig, err := s.backupConfigRepository.FindByDatabaseID(originalDatabaseID)
 	if err != nil || originalConfig == nil {
@@ -347,6 +356,7 @@ func (s *BackupConfigService) initializeDefaultConfig(databaseID uuid.UUID) erro
 			NotificationBackupFailed,
 			NotificationBackupSuccess,
 			NotificationChainBroken,
+			NotificationWalGap,
 		},
 		Encryption: "NONE",
 	})

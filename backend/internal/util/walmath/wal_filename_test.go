@@ -106,6 +106,19 @@ func Test_ParseWALFilename_WithCustomSegmentSize_HandlesBoundary(t *testing.T) {
 	}
 }
 
+func Test_ParseWALFilenameWithSize_CustomSegmentSize_DoesNotUseGlobal(t *testing.T) {
+	assert.Equal(t, uint64(16*1024*1024), walmath.WalSegmentSize)
+
+	timelineID, segmentNo, err := walmath.ParseWALFilenameWithSize(
+		"000000010000000200000003",
+		64*1024*1024,
+	)
+
+	assert.NoError(t, err)
+	assert.Equal(t, uint32(1), timelineID)
+	assert.Equal(t, uint64(2*64+3), segmentNo)
+}
+
 func Test_IsWalFilename_ValidName_ReturnsTrue(t *testing.T) {
 	assert.True(t, walmath.IsWalFilename("000000010000000100000001"))
 	assert.True(t, walmath.IsWalFilename("ffffffffffffffff000000ff"))

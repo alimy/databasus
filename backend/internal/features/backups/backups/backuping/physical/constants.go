@@ -3,55 +3,72 @@ package backuping_physical
 import "time"
 
 const (
-	// WHY: scheduler tick + failover sweep run on a 15 s cadence. User-configured
-	// FULL/INCR intervals are measured in hours-to-days, so sub-minute polling is
-	// ample; the tighter bound comes from failover, where 15 s keeps detect-to-fail
-	// under ~2 min after a node dies. Each tick is a handful of cheap indexed
-	// queries per enabled DB.
+	// Scheduler tick and failover sweep share this cadence. User-configured
+	// FULL/INCR intervals span hours to days, so sub-minute polling is ample; the
+	// tighter bound comes from failover, where 15 s keeps detect-to-fail under
+	// ~2 min after a node dies. Each tick is a handful of cheap indexed queries
+	// per enabled DB.
 	schedulerTickInterval = 15 * time.Second
 
-	// WHY: in many-nodes mode, wait for peer nodes to register in the backup
-	// registry before the first tick so node selection has candidates.
+	// In many-nodes mode, peer nodes need time to register in the backup registry
+	// before the first tick so node selection has candidates.
 	schedulerStartupDelay = 1 * time.Minute
 
-	// WHY: IsSchedulerRunning() reports unhealthy when no tick completed within
-	// this window — mirrors logical's healthcheck threshold.
+	// IsSchedulerRunning() reports unhealthy when no tick completed within this
+	// window. Mirrors logical's healthcheck threshold.
 	schedulerHealthcheckThreshold = 5 * time.Minute
 
-	// WHY: isolates the physical backup-node pool from the logical pool in the
-	// shared registry — without it, the logical scheduler could assign a logical
-	// backup to a physical node (which would drop it) and vice versa.
+	// Isolates the physical backup-node pool from the logical pool in the shared
+	// registry — without it, the logical scheduler could assign a logical backup
+	// to a physical node (which would drop it) and vice versa.
 	physicalNodePoolNamespace = "physical:"
 
-	// WHY: stable log job_name for the scheduler; never the struct type name (a
-	// rename would silently break log queries).
+	// Stable log job_name for the scheduler; never the struct type name, since a
+	// rename would silently break log queries.
 	schedulerJobName = "physical_backup_scheduler"
 
-	// WHY: cleaner ticks every 3 s so retention / storage-cap / billing
-	// decisions become visible almost immediately, while the per-tick WAL byte
-	// budget keeps a single tick bounded even at this cadence. Mirrors logical.
+	// Cleaner ticks every 3 s so retention / storage-cap / billing decisions
+	// become visible almost immediately, while the per-tick WAL byte budget keeps
+	// a single tick bounded even at this cadence. Mirrors logical.
 	cleanerTickInterval = 3 * time.Second
 
-	// WHY: never delete a chain whose end timestamp is younger than
+	// Never delete a chain whose end timestamp is younger than
 	// max(full, incr cadence) × 2 — protects a chain that just completed or is
 	// still being extended from premature retention/billing eviction.
 	chainGraceIntervalMultiplier = 2
 
-	// WHY: a WAL row with file_name still NULL past 1 h is an abandoned
-	// insert-first claim (the live owner finishes in seconds); reap it so the
+	// A WAL row with file_name still NULL past 1 h is an abandoned insert-first
+	// claim (the live owner finishes in seconds); reap it so the
 	// (database_id, timeline_id, start_lsn) slot is free to re-receive.
 	walClaimGracePeriod = 1 * time.Hour
 
-	// WHY: stable log job_name for the cleaner.
 	cleanerJobName = "physical_backup_retention_cleanup"
+
+	// The WAL-stream supervisor reconciles owned streamers on the same 15 s
+	// cadence as the scheduler — cadence-driven work is cheap, and the tighter
+	// bound comes from streamer reclaim, where 15 s + streamerHeartbeatStaleness
+	// keeps detect-to-reclaim under ~2 min after a node dies.
+	walStreamSupervisorTickInterval = 15 * time.Second
+
+	// A streamer row whose heartbeat is older than this is assumed dead and
+	// reclaimable by another process. Heartbeats fire every tick (15 s), so 90 s =
+	// 6 missed beats — tolerant of GC pauses without leaving a dead streamer
+	// unclaimed for long.
+	streamerHeartbeatStaleness = 90 * time.Second
+
+	// Bounds how long a reconcile waits for one streamer goroutine to drain on
+	// stop so a stuck pg_receivewal teardown can't stall the whole supervisor.
+	streamerStopTimeout = 30 * time.Second
+
+	walStreamSupervisorJobName = "physical_wal_stream_supervisor"
 )
 
-// WHY: per-tick WAL deletion budget anchors to the latest FULL's size (a cluster
+// Per-tick WAL deletion budget anchors to the latest FULL's size (a cluster
 // producing a 10 GB FULL produces O(10 GB) of WAL between FULLs, so "one FULL's
 // worth" is a self-scaling chunk), with a 256 MB floor so clusters with tiny
 // FULLs but heavy WAL don't crawl.
 const minWalDeleteBudgetMB float64 = 256
 
-// recentBackupGracePeriod mirrors logical's 60-minute floor on individual
-// backups — used as a conservative fallback in cleaner grace logic.
+// Conservative fallback floor in cleaner grace logic, mirroring logical's
+// 60-minute floor on individual backups.
 const recentBackupGracePeriod = 60 * time.Minute

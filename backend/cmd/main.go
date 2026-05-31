@@ -401,6 +401,10 @@ func runBackgroundTasks(log *slog.Logger) {
 			backuping_physical.GetPhysicalBackuperNode().Run(ctx)
 		})
 
+		go runWithPanicLogging(log, "physical wal stream supervisor background service", func() {
+			backuping_physical.GetPhysicalWalStreamSupervisor().Run(ctx)
+		})
+
 		go runWithPanicLogging(log, "restore node", func() {
 			restoring.GetRestorerNode().Run(ctx)
 		})

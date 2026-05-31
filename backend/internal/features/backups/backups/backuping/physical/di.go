@@ -63,7 +63,6 @@ var physicalBackupsScheduler = &PhysicalBackupsScheduler{
 	physical_repositories.GetFullBackupRepository(),
 	physical_repositories.GetIncrementalBackupRepository(),
 	physical_repositories.GetInFlightBackupRepository(),
-	physical_repositories.GetWalStreamerRepository(),
 	backups_config_physical.GetBackupConfigService(),
 	chain_view.GetChainViewService(),
 	tasks_cancellation.GetTaskCancelManager(),
@@ -91,6 +90,29 @@ var physicalBackupCleaner = &PhysicalBackupCleaner{
 }
 
 func GetPhysicalBackupCleaner() *PhysicalBackupCleaner { return physicalBackupCleaner }
+
+var physicalWalStreamSupervisor = &PhysicalWalStreamSupervisor{
+	databases.GetDatabaseService(),
+	backups_config_physical.GetBackupConfigService(),
+	storages.GetStorageService(),
+	physical_repositories.GetWalSegmentRepository(),
+	physical_repositories.GetWalHistoryRepository(),
+	physical_repositories.GetWalStreamerRepository(),
+	notifiers.GetNotifierService(),
+	tasks_cancellation.GetTaskCancelManager(),
+	encryption_secrets.GetSecretKeyService(),
+	encryption.GetFieldEncryptor(),
+	logger.GetLogger(),
+	sync.Mutex{},
+	make(map[uuid.UUID]*runningStreamer),
+	time.Time{},
+	atomic.Bool{},
+	atomic.Bool{},
+}
+
+func GetPhysicalWalStreamSupervisor() *PhysicalWalStreamSupervisor {
+	return physicalWalStreamSupervisor
+}
 
 var physicalSlotCleanupListener = postgresql_executor.NewPhysicalSlotCleanupListener(
 	databases.GetDatabaseService(),

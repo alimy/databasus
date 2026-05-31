@@ -189,7 +189,7 @@ services:
         echo "host replication all all scram-sha-256" >> "$$PGDATA/pg_hba.conf"
         EOF
     ports:
-      - "${TEST_PHYSICAL_POSTGRES_17_PORT}:5432"
+      - "${TEST_PHYSICAL_POSTGRES_17_PORT:-5007}:5432"
     environment:
       - POSTGRES_DB=testdb
       - POSTGRES_USER=testuser
@@ -209,6 +209,37 @@ services:
     container_name: test-physical-postgres-17
     shm_size: 1gb
 
+  # Replication-capable mTLS cluster: exercises pg_basebackup / pg_receivewal
+  # over client-cert TLS. Combines the physical replication flags with ssl=on +
+  # a replication-aware pg_hba (see testdata/mtls/pg_hba.conf). Reuses the
+  # committed certs (client CN=testuser matches the role).
+  test-physical-postgres-17-mtls:
+    build:
+      context: ./backend/internal/features/tests/physical/testdata/mtls
+      dockerfile_inline: |
+        FROM postgres:17
+        COPY server.key /etc/ssl-test/server.key
+        COPY server.crt /etc/ssl-test/server.crt
+        COPY ca.crt /etc/ssl-test/ca.crt
+        COPY pg_hba.conf /etc/ssl-test/pg_hba.conf
+        RUN chown postgres:postgres /etc/ssl-test/server.key /etc/ssl-test/server.crt /etc/ssl-test/ca.crt /etc/ssl-test/pg_hba.conf \
+         && chmod 600 /etc/ssl-test/server.key \
+         && chmod 644 /etc/ssl-test/server.crt /etc/ssl-test/ca.crt /etc/ssl-test/pg_hba.conf
+    ports:
+      - "${TEST_PHYSICAL_POSTGRES_17_MTLS_PORT:-5015}:5432"
+    environment:
+      - POSTGRES_DB=testdb
+      - POSTGRES_USER=testuser
+      - POSTGRES_PASSWORD=testpassword
+    command: postgres -c ssl=on -c ssl_cert_file=/etc/ssl-test/server.crt -c ssl_key_file=/etc/ssl-test/server.key -c ssl_ca_file=/etc/ssl-test/ca.crt -c hba_file=/etc/ssl-test/pg_hba.conf -c wal_level=logical -c summarize_wal=on -c max_wal_senders=10 -c max_replication_slots=10 -c wal_keep_size=512MB
+    container_name: test-physical-postgres-17-mtls
+    shm_size: 1gb
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U testuser -d testdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   test-physical-postgres-18:
     build:
       dockerfile_inline: |
@@ -219,7 +250,7 @@ services:
         echo "host replication all all scram-sha-256" >> "$$PGDATA/pg_hba.conf"
         EOF
     ports:
-      - "${TEST_PHYSICAL_POSTGRES_18_PORT}:5432"
+      - "${TEST_PHYSICAL_POSTGRES_18_PORT:-5008}:5432"
     environment:
       - POSTGRES_DB=testdb
       - POSTGRES_USER=testuser
@@ -253,7 +284,7 @@ services:
         echo "host replication all all scram-sha-256" >> "$$PGDATA/pg_hba.conf"
         EOF
     ports:
-      - "${TEST_PHYSICAL_POSTGRES_17_NO_SUMMARY_PORT}:5432"
+      - "${TEST_PHYSICAL_POSTGRES_17_NO_SUMMARY_PORT:-5009}:5432"
     environment:
       - POSTGRES_DB=testdb
       - POSTGRES_USER=testuser
@@ -271,7 +302,7 @@ services:
         echo "host replication all all scram-sha-256" >> "$$PGDATA/pg_hba.conf"
         EOF
     ports:
-      - "${TEST_PHYSICAL_POSTGRES_18_NO_SUMMARY_PORT}:5432"
+      - "${TEST_PHYSICAL_POSTGRES_18_NO_SUMMARY_PORT:-5010}:5432"
     environment:
       - POSTGRES_DB=testdb
       - POSTGRES_USER=testuser
@@ -300,7 +331,7 @@ services:
         echo "host replication all all scram-sha-256" >> "$$PGDATA/pg_hba.conf"
         EOF
     ports:
-      - "${TEST_PHYSICAL_POSTGRES_17_TABLESPACE_PORT}:5432"
+      - "${TEST_PHYSICAL_POSTGRES_17_TABLESPACE_PORT:-5011}:5432"
     environment:
       - POSTGRES_DB=testdb
       - POSTGRES_USER=testuser
@@ -338,7 +369,7 @@ services:
         echo "host replication all all scram-sha-256" >> "$$PGDATA/pg_hba.conf"
         EOF
     ports:
-      - "${TEST_PHYSICAL_POSTGRES_18_TABLESPACE_PORT}:5432"
+      - "${TEST_PHYSICAL_POSTGRES_18_TABLESPACE_PORT:-5012}:5432"
     environment:
       - POSTGRES_DB=testdb
       - POSTGRES_USER=testuser
@@ -372,7 +403,7 @@ services:
         RUN apt-get update && apt-get install -y --no-install-recommends zstd && rm -rf /var/lib/apt/lists/*
     entrypoint: ["sleep", "infinity"]
     ports:
-      - "${TEST_PHYSICAL_POSTGRES_17_RESTORE_TARGET_PORT}:5432"
+      - "${TEST_PHYSICAL_POSTGRES_17_RESTORE_TARGET_PORT:-5013}:5432"
     container_name: test-physical-postgres-17-restore-target
     shm_size: 1gb
 
@@ -389,7 +420,7 @@ services:
         RUN apt-get update && apt-get install -y --no-install-recommends zstd && rm -rf /var/lib/apt/lists/*
     entrypoint: ["sleep", "infinity"]
     ports:
-      - "${TEST_PHYSICAL_POSTGRES_18_RESTORE_TARGET_PORT}:5432"
+      - "${TEST_PHYSICAL_POSTGRES_18_RESTORE_TARGET_PORT:-5014}:5432"
     container_name: test-physical-postgres-18-restore-target
     shm_size: 1gb
 

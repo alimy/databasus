@@ -71,7 +71,16 @@ func (l *PhysicalBackupCancellationListener) cancelInFlightBackup(logger *slog.L
 	}
 }
 
+// deleteStreamerRow tears the WAL streamer down: it first cancels the
+// long-running streamer task (registered in TaskCancelManager keyed by
+// database_id) so the local pg_receivewal goroutine stops, then deletes the
+// heartbeat row so the supervisor cannot re-spawn it. Order matters — dropping
+// the row without cancelling would leave an orphaned receiver holding the slot.
 func (l *PhysicalBackupCancellationListener) deleteStreamerRow(logger *slog.Logger, databaseID uuid.UUID) {
+	if err := l.taskCancelManager.CancelTask(databaseID); err != nil {
+		logger.Error("failed to cancel wal streamer task", "error", err)
+	}
+
 	if err := l.walStreamerRepo.DeleteByDatabaseID(databaseID); err != nil {
 		logger.Error("failed to delete wal streamer row", "error", err)
 	}

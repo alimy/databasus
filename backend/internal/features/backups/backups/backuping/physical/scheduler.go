@@ -39,7 +39,6 @@ type PhysicalBackupsScheduler struct {
 	fullRepo              *physical_repositories.PhysicalFullBackupRepository
 	incrRepo              *physical_repositories.PhysicalIncrementalBackupRepository
 	inFlightRepo          *physical_repositories.PhysicalInFlightBackupRepository
-	walStreamerRepo       *physical_repositories.PhysicalWalStreamerRepository
 	backupConfigService   *backups_config_physical.BackupConfigService
 	chainViewService      *chain_view.ChainViewService
 	taskCancelManager     *tasks_cancellation.TaskCancelManager
@@ -67,6 +66,8 @@ func (s *PhysicalBackupsScheduler) Run(ctx context.Context) {
 	if s.hasRun.Swap(true) {
 		panic(fmt.Sprintf("%T.Run() called multiple times", s))
 	}
+
+	s.logger = s.logger.With("job_id", uuid.New(), "job_name", schedulerJobName)
 
 	s.lastTickTime = time.Now().UTC()
 
@@ -149,8 +150,6 @@ func (s *PhysicalBackupsScheduler) evaluateConfig(
 	}
 
 	if config.GetEnv().IsCloud && !s.canCreateBackups(logger, backupConfig.DatabaseID) {
-		s.cancelWalStreamerIfRunning(logger, backupConfig.DatabaseID)
-
 		return
 	}
 
@@ -182,9 +181,10 @@ func (s *PhysicalBackupsScheduler) canCreateBackups(logger *slog.Logger, databas
 
 // backupDecision is the outcome of the per-tick FULL-vs-INCR decision.
 type backupDecision struct {
-	kind             physical_enums.PhysicalBackupType
-	rootFullBackupID uuid.UUID  // INCR only — the chain root
-	parentIncrID     *uuid.UUID // INCR only — nil means the predecessor is the FULL
+	kind                 physical_enums.PhysicalBackupType
+	incrRootFullBackupID uuid.UUID
+	incrParentIncrID     *uuid.UUID
+	forceFullRequestedAt *time.Time
 }
 
 // decideBackupKind picks FULL or INCR purely from catalog state + cadence (no
@@ -203,6 +203,13 @@ func (s *PhysicalBackupsScheduler) decideBackupKind(
 		logger.Error("failed to find last full backup", "error", err)
 
 		return backupDecision{}, false
+	}
+
+	if backupConfig.ForceFullRequestedAt != nil {
+		return backupDecision{
+			kind:                 physical_enums.PhysicalBackupTypeFull,
+			forceFullRequestedAt: backupConfig.ForceFullRequestedAt,
+		}, true
 	}
 
 	lastIncr, err := s.incrRepo.FindLastByDatabase(backupConfig.DatabaseID)
@@ -242,9 +249,9 @@ func (s *PhysicalBackupsScheduler) decideBackupKind(
 	}
 
 	return backupDecision{
-		kind:             physical_enums.PhysicalBackupTypeIncremental,
-		rootFullBackupID: extendableChain.RootFull.ID,
-		parentIncrID:     parentIncrID,
+		kind:                 physical_enums.PhysicalBackupTypeIncremental,
+		incrRootFullBackupID: extendableChain.RootFull.ID,
+		incrParentIncrID:     parentIncrID,
 	}, true
 }
 
@@ -308,6 +315,15 @@ func (s *PhysicalBackupsScheduler) scheduleBackup(
 		return
 	}
 
+	if decision.forceFullRequestedAt != nil {
+		if err := s.backupConfigService.ClearFullBackupRequest(
+			backupConfig.DatabaseID,
+			decision.forceFullRequestedAt,
+		); err != nil {
+			logger.Error("failed to clear forced full request", "error", err)
+		}
+	}
+
 	logger.Info("scheduled physical backup", "node_id", nodeID)
 }
 
@@ -356,8 +372,8 @@ func (s *PhysicalBackupsScheduler) claimAndInsert(
 			ID:                        backupID,
 			DatabaseID:                backupConfig.DatabaseID,
 			StorageID:                 *backupConfig.StorageID,
-			RootFullBackupID:          decision.rootFullBackupID,
-			ParentIncrementalBackupID: decision.parentIncrID,
+			RootFullBackupID:          decision.incrRootFullBackupID,
+			ParentIncrementalBackupID: decision.incrParentIncrID,
 			Status:                    physical_enums.PhysicalBackupStatusInProgress,
 			CreatedAt:                 now,
 		}).Error
@@ -388,27 +404,6 @@ func (s *PhysicalBackupsScheduler) isPhysicalBackup(backupID uuid.UUID) bool {
 	incr, err := s.incrRepo.FindByID(backupID)
 
 	return err == nil && incr != nil
-}
-
-// cancelWalStreamerIfRunning stands the WAL streamer down when a cloud
-// subscription can no longer create backups. The long-running streamer task
-// lands in PR 4; for now this marks the row FAILED so a future supervisor stops
-// and the cleaner's billing pass stops counting its WAL. Idempotent.
-func (s *PhysicalBackupsScheduler) cancelWalStreamerIfRunning(logger *slog.Logger, databaseID uuid.UUID) {
-	streamer, err := s.walStreamerRepo.FindByDatabaseID(databaseID)
-	if err != nil {
-		logger.Error("failed to look up wal streamer for cancel", "error", err)
-
-		return
-	}
-
-	if streamer == nil || streamer.Status != physical_enums.PhysicalWalStreamerStatusRunning {
-		return
-	}
-
-	if err := s.walStreamerRepo.MarkFailed(databaseID); err != nil {
-		logger.Error("failed to mark wal streamer failed on subscription stop", "error", err)
-	}
 }
 
 // recoverInFlightBackupsOnRestart reconciles the IN_PROGRESS backups the DB still

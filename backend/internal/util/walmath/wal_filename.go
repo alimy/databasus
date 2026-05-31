@@ -12,8 +12,16 @@ import (
 var regexpTimelineAndLogSegNo = regexp.MustCompile(PatternTimelineAndLogSegNo)
 
 func ParseWALFilename(name string) (timelineID uint32, logSegNo uint64, err error) {
+	return ParseWALFilenameWithSize(name, WalSegmentSize)
+}
+
+func ParseWALFilenameWithSize(name string, segmentSize uint64) (timelineID uint32, logSegNo uint64, err error) {
 	if len(name) != 24 {
 		return 0, 0, NotWalFilenameError{Filename: name}
+	}
+
+	if segmentSize == 0 || 0x100000000%segmentSize != 0 {
+		return 0, 0, IncorrectLogSegNoError{Filename: name}
 	}
 
 	timelineID64, err := strconv.ParseUint(name[0:8], 0x10, hexUint32Bits)
@@ -31,12 +39,13 @@ func ParseWALFilename(name string) (timelineID uint32, logSegNo uint64, err erro
 		return 0, 0, NotWalFilenameError{Filename: name}
 	}
 
-	if logSegNoLo >= xLogSegmentsPerXLogID {
+	segmentsPerLogID := 0x100000000 / segmentSize
+	if logSegNoLo >= segmentsPerLogID {
 		return 0, 0, IncorrectLogSegNoError{Filename: name}
 	}
 
 	timelineID = uint32(timelineID64)
-	logSegNo = logSegNoHi*xLogSegmentsPerXLogID + logSegNoLo
+	logSegNo = logSegNoHi*segmentsPerLogID + logSegNoLo
 
 	return timelineID, logSegNo, nil
 }

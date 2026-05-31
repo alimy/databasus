@@ -402,7 +402,7 @@ func (p *PostgresqlPhysicalDatabase) VerifyWalSlot(
 	}
 
 	_, err = conn.Exec(ctx,
-		"SELECT pg_create_physical_replication_slot($1)",
+		"SELECT pg_create_physical_replication_slot($1, true)",
 		p.ReplicationSlotName,
 	)
 	if err != nil {

@@ -48,16 +48,44 @@ type PhysicalDBFixture struct {
 	BackupID  uuid.UUID
 }
 
-// SetupPhysicalDBForBackup builds a PG17 fixture. Skips the test if the PG17
-// container env var is unset.
+// SetupPhysicalDBForBackup builds a PG17 fixture against the test source
+// cluster. A missing container DSN fails the run loudly (see
+// SetupPhysicalDBForBackupVersion) — it never skips.
 func SetupPhysicalDBForBackup(t *testing.T) *PhysicalDBFixture {
 	return SetupPhysicalDBForBackupVersion(t, "17")
 }
 
-// SetupPhysicalDBForBackupVersion builds a fixture against a specific PG
-// major version. The container env vars are enforced by config validation at
-// startup, so this helper does not re-check them.
+// SetupPhysicalDBForBackupVersion builds a fixture against a specific PG major
+// version. The container DSN env vars are validated non-empty in config.go at
+// startup (it os.Exit(1)s when one is unset), so this helper does not re-check
+// them — physical backup tests fail, never skip, when the source DB is
+// unavailable.
 func SetupPhysicalDBForBackupVersion(t *testing.T, version string) *PhysicalDBFixture {
+	t.Helper()
+
+	return setupPhysicalFixture(t, func(workspaceID uuid.UUID, notifier *notifiers.Notifier) *databases.Database {
+		return databases.CreateTestPhysicalPostgresDatabase(workspaceID, notifier, version)
+	})
+}
+
+// SetupPhysicalDBForStreamMtls builds a fixture against the replication-capable
+// mTLS PG 17 cluster, with the DB's BackupType set to WAL_STREAM. Used by the
+// FULL- and WAL-stream-over-mTLS tests.
+func SetupPhysicalDBForStreamMtls(t *testing.T) *PhysicalDBFixture {
+	t.Helper()
+
+	return setupPhysicalFixture(t, func(workspaceID uuid.UUID, notifier *notifiers.Notifier) *databases.Database {
+		return databases.CreateTestPhysicalPostgresDatabaseMtls(workspaceID, notifier, "17")
+	})
+}
+
+// setupPhysicalFixture is the shared body behind the version / mTLS fixtures:
+// it wires workspace, storage, notifier, DB (via createDB), then populates DB
+// data, enables backups, and seeds an IN_PROGRESS FULL row + in-flight claim.
+func setupPhysicalFixture(
+	t *testing.T,
+	createDB func(workspaceID uuid.UUID, notifier *notifiers.Notifier) *databases.Database,
+) *PhysicalDBFixture {
 	t.Helper()
 
 	router := workspaces_testing.CreateTestRouter(
@@ -78,7 +106,7 @@ func SetupPhysicalDBForBackupVersion(t *testing.T, version string) *PhysicalDBFi
 	notifier := notifiers.CreateTestNotifier(workspace.ID)
 	t.Cleanup(func() { notifiers.RemoveTestNotifier(notifier) })
 
-	db := databases.CreateTestPhysicalPostgresDatabase(workspace.ID, notifier, version)
+	db := createDB(workspace.ID, notifier)
 	t.Cleanup(func() { databases.RemoveTestDatabase(db) })
 
 	encryptor := encryption.GetFieldEncryptor()
@@ -507,4 +535,54 @@ func ExpireWalSummaries(t *testing.T, conn *pgx.Conn) {
 
 		_, _ = conn.Exec(restoreCtx, "SELECT pg_reload_conf()")
 	})
+}
+
+// ForceWalRotation generates a little WAL then forces the current segment to
+// rotate (pg_switch_wal), so pg_receivewal finalizes a segment the uploader can
+// pick up. Returns the LSN after the switch. pg_receivewal only uploads fully
+// rotated segments, so a streamer test must rotate explicitly rather than wait
+// for the 16 MB boundary.
+func ForceWalRotation(ctx context.Context, conn *pgx.Conn) (walmath.LSN, error) {
+	if _, err := GenerateWalActivity(ctx, conn, 1); err != nil {
+		return 0, err
+	}
+
+	var switchLSN walmath.LSN
+	if err := conn.QueryRow(ctx, "SELECT pg_switch_wal()::text").Scan(&switchLSN); err != nil {
+		return 0, fmt.Errorf("pg_switch_wal: %w", err)
+	}
+
+	return switchLSN, nil
+}
+
+// WaitForCommittedWalSegmentCount polls the catalog until at least minCount
+// committed (file_name NOT NULL) WAL segments exist for the database, or the
+// timeout expires. Committed segments are the ones the uploader durably archived.
+func WaitForCommittedWalSegmentCount(
+	t *testing.T,
+	databaseID uuid.UUID,
+	minCount int,
+	timeout time.Duration,
+) {
+	t.Helper()
+
+	deadline := time.Now().UTC().Add(timeout)
+
+	for time.Now().UTC().Before(deadline) {
+		var count int64
+
+		err := storage.GetDb().
+			Model(&physical_models.PhysicalWalSegment{}).
+			Where("database_id = ? AND file_name IS NOT NULL", databaseID).
+			Count(&count).Error
+		require.NoError(t, err)
+
+		if count >= int64(minCount) {
+			return
+		}
+
+		time.Sleep(250 * time.Millisecond)
+	}
+
+	t.Fatalf("did not observe %d committed wal segments for %s within %s", minCount, databaseID, timeout)
 }

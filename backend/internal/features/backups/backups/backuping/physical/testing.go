@@ -2,6 +2,7 @@ package backuping_physical
 
 import (
 	"context"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -79,7 +80,6 @@ func CreateTestPhysicalSchedulerWithCoordinator(
 		physical_repositories.GetFullBackupRepository(),
 		physical_repositories.GetIncrementalBackupRepository(),
 		physical_repositories.GetInFlightBackupRepository(),
-		physical_repositories.GetWalStreamerRepository(),
 		backups_config_physical.GetBackupConfigService(),
 		chain_view.GetChainViewService(),
 		tasks_cancellation.GetTaskCancelManager(),
@@ -87,6 +87,31 @@ func CreateTestPhysicalSchedulerWithCoordinator(
 		billingService,
 		time.Now().UTC(),
 		logger.GetLogger(),
+		atomic.Bool{},
+		atomic.Bool{},
+	}
+}
+
+// CreateTestWalStreamSupervisor returns a fresh WAL stream supervisor wired to
+// the production repos and services. A fresh instance (not a copy of the DI
+// singleton) keeps each test's hasRun/running state isolated and avoids copying
+// the embedded mutex.
+func CreateTestWalStreamSupervisor() *PhysicalWalStreamSupervisor {
+	return &PhysicalWalStreamSupervisor{
+		databases.GetDatabaseService(),
+		backups_config_physical.GetBackupConfigService(),
+		storages.GetStorageService(),
+		physical_repositories.GetWalSegmentRepository(),
+		physical_repositories.GetWalHistoryRepository(),
+		physical_repositories.GetWalStreamerRepository(),
+		notifiers.GetNotifierService(),
+		tasks_cancellation.GetTaskCancelManager(),
+		encryption_secrets.GetSecretKeyService(),
+		encryption.GetFieldEncryptor(),
+		logger.GetLogger(),
+		sync.Mutex{},
+		make(map[uuid.UUID]*runningStreamer),
+		time.Time{},
 		atomic.Bool{},
 		atomic.Bool{},
 	}
