@@ -130,11 +130,11 @@ func SetupPhysicalDBForBackupVersion(t *testing.T, version string) *PhysicalDBFi
 	})
 
 	claimed, err := physical_repositories.GetInFlightBackupRepository().Claim(
-		storage.GetDb(),
-		db.ID,
-		physical_enums.PhysicalBackupTypeFull,
-		backupID,
-	)
+		storage.GetDb(), physical_repositories.ClaimSpec{
+			DatabaseID: db.ID,
+			BackupType: physical_enums.PhysicalBackupTypeFull,
+			BackupID:   backupID,
+		})
 	require.NoError(t, err)
 	require.True(t, claimed)
 	t.Cleanup(func() {

@@ -7,10 +7,13 @@ import (
 
 	"github.com/google/uuid"
 
-	backuping_logical "databasus-backend/internal/features/backups/backups/backuping/logical"
+	"databasus-backend/internal/features/backups/backups/backuping/nodes"
+	"databasus-backend/internal/features/backups/backups/core/physical/chain_view"
 	physical_repositories "databasus-backend/internal/features/backups/backups/core/physical/repositories"
+	physical_service "databasus-backend/internal/features/backups/backups/core/physical/service"
 	postgresql_executor "databasus-backend/internal/features/backups/backups/usecases/physical/postgresql"
 	backups_config_physical "databasus-backend/internal/features/backups/config/physical"
+	"databasus-backend/internal/features/billing"
 	"databasus-backend/internal/features/databases"
 	encryption_secrets "databasus-backend/internal/features/encryption/secrets"
 	"databasus-backend/internal/features/notifiers"
@@ -25,6 +28,13 @@ func getNodeID() uuid.UUID {
 	return uuid.New()
 }
 
+// physicalBackupNodesRegistry is a SEPARATE registry instance from the logical
+// pool, namespaced so physical nodes/backups never mix with logical ones in the
+// shared Redis keyspace.
+var physicalBackupNodesRegistry = nodes.NewDefaultBackupNodesRegistry(physicalNodePoolNamespace)
+
+func GetPhysicalBackupNodesRegistry() *nodes.BackupNodesRegistry { return physicalBackupNodesRegistry }
+
 var physicalBackuperNode = &PhysicalBackuperNode{
 	databases.GetDatabaseService(),
 	encryption.GetFieldEncryptor(),
@@ -37,7 +47,7 @@ var physicalBackuperNode = &PhysicalBackuperNode{
 	storages.GetStorageService(),
 	notifiers.GetNotifierService(),
 	tasks_cancellation.GetTaskCancelManager(),
-	backuping_logical.GetBackupNodesRegistry(),
+	physicalBackupNodesRegistry,
 	encryption_secrets.GetSecretKeyService(),
 	logger.GetLogger(),
 	postgresql_executor.NewCreateFullBackupUsecase(),
@@ -49,12 +59,54 @@ var physicalBackuperNode = &PhysicalBackuperNode{
 
 func GetPhysicalBackuperNode() *PhysicalBackuperNode { return physicalBackuperNode }
 
+var physicalBackupsScheduler = &PhysicalBackupsScheduler{
+	physical_repositories.GetFullBackupRepository(),
+	physical_repositories.GetIncrementalBackupRepository(),
+	physical_repositories.GetInFlightBackupRepository(),
+	physical_repositories.GetWalStreamerRepository(),
+	backups_config_physical.GetBackupConfigService(),
+	chain_view.GetChainViewService(),
+	tasks_cancellation.GetTaskCancelManager(),
+	nodes.NewNodeAssignmentCoordinator(physicalBackupNodesRegistry, logger.GetLogger()),
+	billing.GetBillingService(),
+	time.Now().UTC(),
+	logger.GetLogger(),
+	atomic.Bool{},
+	atomic.Bool{},
+}
+
+func GetPhysicalBackupsScheduler() *PhysicalBackupsScheduler { return physicalBackupsScheduler }
+
+var physicalBackupCleaner = &PhysicalBackupCleaner{
+	physical_service.GetPhysicalBackupService(),
+	chain_view.GetChainViewService(),
+	backups_config_physical.GetBackupConfigService(),
+	physical_repositories.GetFullBackupRepository(),
+	physical_repositories.GetWalSegmentRepository(),
+	physical_repositories.GetInFlightBackupRepository(),
+	physicalBackupNodesRegistry,
+	billing.GetBillingService(),
+	logger.GetLogger(),
+	atomic.Bool{},
+}
+
+func GetPhysicalBackupCleaner() *PhysicalBackupCleaner { return physicalBackupCleaner }
+
 var physicalSlotCleanupListener = postgresql_executor.NewPhysicalSlotCleanupListener(
 	databases.GetDatabaseService(),
 	encryption.GetFieldEncryptor(),
 	logger.GetLogger(),
 )
 
+var physicalBackupCancellationListener = &PhysicalBackupCancellationListener{
+	physical_repositories.GetInFlightBackupRepository(),
+	physical_repositories.GetWalStreamerRepository(),
+	tasks_cancellation.GetTaskCancelManager(),
+	logger.GetLogger(),
+}
+
 var SetupDependencies = sync.OnceFunc(func() {
 	databases.GetDatabaseService().AddDbRemoveListener(physicalSlotCleanupListener)
+	databases.GetDatabaseService().AddDbRemoveListener(physicalBackupCancellationListener)
+	backups_config_physical.GetBackupConfigService().SetBackupConfigChangeListener(physicalBackupCancellationListener)
 })

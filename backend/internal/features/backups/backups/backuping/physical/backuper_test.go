@@ -258,6 +258,31 @@ func Test_FinalizeIncrementalAsError_SetsErrorStatusReasonAndReleasesInFlight(t 
 
 	node.finalizeIncrAsError(
 		incrBackup,
+		physical_enums.PhysicalBackupErrorPgBasebackupFailed,
+		"transient executor failure",
+	)
+
+	persisted, err := physical_repositories.GetIncrementalBackupRepository().FindByID(incrBackup.ID)
+	require.NoError(t, err)
+	require.NotNil(t, persisted)
+
+	assert.Equal(t, physical_enums.PhysicalBackupStatusError, persisted.Status)
+	require.NotNil(t, persisted.ErrorReason)
+	assert.Equal(t, physical_enums.PhysicalBackupErrorPgBasebackupFailed, *persisted.ErrorReason)
+
+	assertInFlightReleased(t, prereqs.DB.ID)
+}
+
+func Test_FinalizeIncrementalAsChainBroken_SetsChainBrokenStatusReasonAndReleasesInFlight(t *testing.T) {
+	prereqs := seedBackupPrereqs(t)
+	node := CreateTestPhysicalBackuper(nil)
+
+	rootFull := seedCompletedRootFull(t, prereqs)
+	incrBackup := seedInProgressIncr(t, prereqs, rootFull.ID)
+	claimInFlight(t, prereqs.DB.ID, physical_enums.PhysicalBackupTypeIncremental, incrBackup.ID)
+
+	node.finalizeIncrAsChainBroken(
+		incrBackup,
 		physical_enums.PhysicalBackupErrorParentManifestMissing,
 		"parent manifest missing",
 	)
@@ -266,7 +291,7 @@ func Test_FinalizeIncrementalAsError_SetsErrorStatusReasonAndReleasesInFlight(t 
 	require.NoError(t, err)
 	require.NotNil(t, persisted)
 
-	assert.Equal(t, physical_enums.PhysicalBackupStatusError, persisted.Status)
+	assert.Equal(t, physical_enums.PhysicalBackupStatusChainBroken, persisted.Status)
 	require.NotNil(t, persisted.ErrorReason)
 	assert.Equal(t, physical_enums.PhysicalBackupErrorParentManifestMissing, *persisted.ErrorReason)
 
@@ -551,7 +576,7 @@ func Test_RunFullBackup_WhenExecutorResultChainBroken_PersistsChainBrokenAndSend
 	assert.Contains(t, sender.sentNotifications[0].Title, "chain-broken")
 }
 
-func Test_RunIncrementalBackup_WhenParentManifestMissing_FlipsToErrorBeforeExecutor(t *testing.T) {
+func Test_RunIncrementalBackup_WhenParentManifestMissing_FlipsToChainBrokenBeforeExecutor(t *testing.T) {
 	prereqs := seedBackupPrereqs(t)
 	sender := &recordingNotificationSender{}
 	node := CreateTestPhysicalBackuper(sender)
@@ -569,11 +594,13 @@ func Test_RunIncrementalBackup_WhenParentManifestMissing_FlipsToErrorBeforeExecu
 
 	persisted, err := physical_repositories.GetIncrementalBackupRepository().FindByID(incrBackup.ID)
 	require.NoError(t, err)
-	assert.Equal(t, physical_enums.PhysicalBackupStatusError, persisted.Status)
+	assert.Equal(t, physical_enums.PhysicalBackupStatusChainBroken, persisted.Status,
+		"a missing parent manifest is irreversible, so the chain must break (not retry as ERROR)")
 	require.NotNil(t, persisted.ErrorReason)
 	assert.Equal(t, physical_enums.PhysicalBackupErrorParentManifestMissing, *persisted.ErrorReason)
 
-	assert.Empty(t, sender.sentNotifications)
+	assert.Empty(t, sender.sentNotifications,
+		"pre-executor finalize paths are silent, matching the full-backup path")
 }
 
 func Test_RunIncrementalBackup_WhenExecutorResultErrorStatus_PersistsErrorAndSendsFailedNotification(t *testing.T) {
@@ -596,6 +623,58 @@ func Test_RunIncrementalBackup_WhenExecutorResultErrorStatus_PersistsErrorAndSen
 
 	require.Len(t, sender.sentNotifications, 1)
 	assert.Contains(t, sender.sentNotifications[0].Title, "INCR failed")
+}
+
+func Test_ReleaseOwned_WhenForeignBackupHoldsClaim_LeavesItIntact(t *testing.T) {
+	prereqs := seedBackupPrereqs(t)
+	inFlightRepo := physical_repositories.GetInFlightBackupRepository()
+
+	liveBackupID := uuid.New()
+	claimInFlight(t, prereqs.DB.ID, physical_enums.PhysicalBackupTypeFull, liveBackupID)
+
+	staleBackupID := uuid.New()
+	require.NoError(t, inFlightRepo.ReleaseOwned(prereqs.DB.ID, staleBackupID))
+
+	claim, err := inFlightRepo.FindByDatabaseID(prereqs.DB.ID)
+	require.NoError(t, err)
+	require.NotNil(t, claim, "a stale backup's release must not delete the live claim")
+	assert.Equal(t, liveBackupID, claim.BackupID)
+
+	require.NoError(t, inFlightRepo.ReleaseOwned(prereqs.DB.ID, liveBackupID))
+	assertInFlightReleased(t, prereqs.DB.ID)
+}
+
+func Test_PersistFullResult_WhenRowNoLongerInProgress_DoesNotResurrect(t *testing.T) {
+	prereqs := seedBackupPrereqs(t)
+	node := CreateTestPhysicalBackuper(nil)
+	fullRepo := physical_repositories.GetFullBackupRepository()
+	inFlightRepo := physical_repositories.GetInFlightBackupRepository()
+
+	full := seedInProgressFull(t, prereqs)
+	claimInFlight(t, prereqs.DB.ID, physical_enums.PhysicalBackupTypeFull, full.ID)
+
+	// A restart recovery / dead-node sweep already failed this backup, released
+	// its claim, and a fresh backup took the database's in-flight slot.
+	require.NoError(t, fullRepo.UpdateStatus(full.ID, physical_enums.PhysicalBackupStatusError, nil))
+	require.NoError(t, inFlightRepo.ReleaseOwned(prereqs.DB.ID, full.ID))
+
+	newBackupID := uuid.New()
+	claimInFlight(t, prereqs.DB.ID, physical_enums.PhysicalBackupTypeFull, newBackupID)
+
+	err := node.persistFullResult(full, postgresql_executor.PhysicalBackupResult{
+		Status: physical_enums.PhysicalBackupStatusCompleted,
+	})
+	require.NoError(t, err)
+
+	reloaded, err := fullRepo.FindByID(full.ID)
+	require.NoError(t, err)
+	assert.Equal(t, physical_enums.PhysicalBackupStatusError, reloaded.Status,
+		"a superseded backup must not be resurrected to COMPLETED")
+
+	claim, err := inFlightRepo.FindByDatabaseID(prereqs.DB.ID)
+	require.NoError(t, err)
+	require.NotNil(t, claim, "the newer backup's claim must survive")
+	assert.Equal(t, newBackupID, claim.BackupID)
 }
 
 func installFakeExecutors(node *PhysicalBackuperNode) (*fakeFullExecutor, *fakeIncrementalExecutor) {
@@ -666,7 +745,11 @@ func claimInFlight(
 	t.Helper()
 
 	claimed, err := physical_repositories.GetInFlightBackupRepository().Claim(
-		storage.GetDb(), databaseID, backupType, backupID)
+		storage.GetDb(), physical_repositories.ClaimSpec{
+			DatabaseID: databaseID,
+			BackupType: backupType,
+			BackupID:   backupID,
+		})
 	require.NoError(t, err)
 	require.True(t, claimed)
 }

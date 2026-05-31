@@ -13,6 +13,7 @@ import (
 	"github.com/valkey-io/valkey-go"
 
 	cache_utils "databasus-backend/internal/util/cache"
+	"databasus-backend/internal/util/logger"
 )
 
 const (
@@ -49,6 +50,12 @@ type BackupNodesRegistry struct {
 	pubsubBackups     *cache_utils.PubSubManager
 	pubsubCompletions *cache_utils.PubSubManager
 
+	// namespace isolates one logical pool of backup nodes from another by
+	// prefixing every Redis key and pub/sub channel. The logical pool uses ""
+	// (the bare legacy keys); the physical pool uses its own prefix so a
+	// physical backup is never assigned to a logical node and vice versa.
+	namespace string
+
 	hasRun atomic.Bool
 }
 
@@ -58,6 +65,7 @@ func NewBackupNodesRegistry(
 	timeout time.Duration,
 	pubsubBackups *cache_utils.PubSubManager,
 	pubsubCompletions *cache_utils.PubSubManager,
+	namespace string,
 ) *BackupNodesRegistry {
 	return &BackupNodesRegistry{
 		client:            client,
@@ -65,7 +73,24 @@ func NewBackupNodesRegistry(
 		timeout:           timeout,
 		pubsubBackups:     pubsubBackups,
 		pubsubCompletions: pubsubCompletions,
+		namespace:         namespace,
 	}
+}
+
+// NewDefaultBackupNodesRegistry builds a registry wired to the shared Valkey
+// client, the default cache timeout, and two fresh pub/sub managers (one for
+// assignments, one for completions). namespace isolates this node pool (logical
+// "" vs physical) from others in the shared Redis keyspace. Both schedulers' DI
+// wiring goes through here so the construction boilerplate lives in one place.
+func NewDefaultBackupNodesRegistry(namespace string) *BackupNodesRegistry {
+	return NewBackupNodesRegistry(
+		cache_utils.GetValkeyClient(),
+		logger.GetLogger(),
+		cache_utils.DefaultCacheTimeout,
+		cache_utils.NewPubSubManager(),
+		cache_utils.NewPubSubManager(),
+		namespace,
+	)
 }
 
 func (r *BackupNodesRegistry) Run(ctx context.Context) {
@@ -98,7 +123,7 @@ func (r *BackupNodesRegistry) GetAvailableNodes() ([]BackupNode, error) {
 
 	var allKeys []string
 	cursor := uint64(0)
-	pattern := nodeInfoKeyPrefix + "*" + nodeInfoKeySuffix
+	pattern := r.nodeInfoPattern()
 
 	for {
 		result := r.client.Do(
@@ -162,13 +187,29 @@ func (r *BackupNodesRegistry) GetAvailableNodes() ([]BackupNode, error) {
 	return nodes, nil
 }
 
+// GetAvailableNodeIDs returns the set of live node IDs (those past the dead-node
+// heartbeat threshold are excluded), for callers that need O(1) liveness checks.
+func (r *BackupNodesRegistry) GetAvailableNodeIDs() (map[uuid.UUID]bool, error) {
+	availableNodes, err := r.GetAvailableNodes()
+	if err != nil {
+		return nil, err
+	}
+
+	aliveNodeIDs := make(map[uuid.UUID]bool, len(availableNodes))
+	for _, node := range availableNodes {
+		aliveNodeIDs[node.ID] = true
+	}
+
+	return aliveNodeIDs, nil
+}
+
 func (r *BackupNodesRegistry) GetBackupNodesStats() ([]BackupNodeStats, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), r.timeout)
 	defer cancel()
 
 	var allKeys []string
 	cursor := uint64(0)
-	pattern := nodeActiveBackupsPrefix + "*" + nodeActiveBackupsSuffix
+	pattern := r.activeBackupsPattern()
 
 	for {
 		result := r.client.Do(
@@ -205,9 +246,9 @@ func (r *BackupNodesRegistry) GetBackupNodesStats() ([]BackupNodeStats, error) {
 	var nodeInfoKeys []string
 	nodeIDToStatsKey := make(map[string]string)
 	for key := range keyDataMap {
-		nodeID := r.extractNodeIDFromKey(key, nodeActiveBackupsPrefix, nodeActiveBackupsSuffix)
+		nodeID := r.extractNodeIDFromKey(key, r.namespace+nodeActiveBackupsPrefix, nodeActiveBackupsSuffix)
 		nodeIDStr := nodeID.String()
-		infoKey := fmt.Sprintf("%s%s%s", nodeInfoKeyPrefix, nodeIDStr, nodeInfoKeySuffix)
+		infoKey := r.nodeInfoKey(nodeIDStr)
 		nodeInfoKeys = append(nodeInfoKeys, infoKey)
 		nodeIDToStatsKey[infoKey] = key
 	}
@@ -262,7 +303,7 @@ func (r *BackupNodesRegistry) IncrementBackupsInProgress(nodeID uuid.UUID) error
 	ctx, cancel := context.WithTimeout(context.Background(), r.timeout)
 	defer cancel()
 
-	key := fmt.Sprintf("%s%s%s", nodeActiveBackupsPrefix, nodeID.String(), nodeActiveBackupsSuffix)
+	key := r.activeBackupsKey(nodeID.String())
 	result := r.client.Do(ctx, r.client.B().Incr().Key(key).Build())
 
 	if result.Error() != nil {
@@ -280,7 +321,7 @@ func (r *BackupNodesRegistry) DecrementBackupsInProgress(nodeID uuid.UUID) error
 	ctx, cancel := context.WithTimeout(context.Background(), r.timeout)
 	defer cancel()
 
-	key := fmt.Sprintf("%s%s%s", nodeActiveBackupsPrefix, nodeID.String(), nodeActiveBackupsSuffix)
+	key := r.activeBackupsKey(nodeID.String())
 	result := r.client.Do(ctx, r.client.B().Decr().Key(key).Build())
 
 	if result.Error() != nil {
@@ -321,7 +362,7 @@ func (r *BackupNodesRegistry) HearthbeatNodeInRegistry(now time.Time, backupNode
 		return fmt.Errorf("failed to marshal backup node: %w", err)
 	}
 
-	key := fmt.Sprintf("%s%s%s", nodeInfoKeyPrefix, backupNode.ID.String(), nodeInfoKeySuffix)
+	key := r.nodeInfoKey(backupNode.ID.String())
 	result := r.client.Do(
 		ctx,
 		r.client.B().Set().Key(key).Value(string(data)).Build(),
@@ -338,13 +379,8 @@ func (r *BackupNodesRegistry) UnregisterNodeFromRegistry(backupNode BackupNode) 
 	ctx, cancel := context.WithTimeout(context.Background(), r.timeout)
 	defer cancel()
 
-	infoKey := fmt.Sprintf("%s%s%s", nodeInfoKeyPrefix, backupNode.ID.String(), nodeInfoKeySuffix)
-	counterKey := fmt.Sprintf(
-		"%s%s%s",
-		nodeActiveBackupsPrefix,
-		backupNode.ID.String(),
-		nodeActiveBackupsSuffix,
-	)
+	infoKey := r.nodeInfoKey(backupNode.ID.String())
+	counterKey := r.activeBackupsKey(backupNode.ID.String())
 
 	result := r.client.Do(
 		ctx,
@@ -366,7 +402,7 @@ func (r *BackupNodesRegistry) AssignBackupToNode(
 ) error {
 	ctx := context.Background()
 
-	message := BackupSubmitMessage{
+	message := backupSubmitMessage{
 		NodeID:         targetNodeID,
 		BackupID:       backupID,
 		IsCallNotifier: isCallNotifier,
@@ -377,7 +413,7 @@ func (r *BackupNodesRegistry) AssignBackupToNode(
 		return fmt.Errorf("failed to marshal backup submit message: %w", err)
 	}
 
-	err = r.pubsubBackups.Publish(ctx, backupSubmitChannel, string(messageJSON))
+	err = r.pubsubBackups.Publish(ctx, r.submitChannel(), string(messageJSON))
 	if err != nil {
 		return fmt.Errorf("failed to publish backup submit message: %w", err)
 	}
@@ -392,7 +428,7 @@ func (r *BackupNodesRegistry) SubscribeNodeForBackupsAssignment(
 	ctx := context.Background()
 
 	wrappedHandler := func(message string) {
-		var msg BackupSubmitMessage
+		var msg backupSubmitMessage
 		if err := json.Unmarshal([]byte(message), &msg); err != nil {
 			r.logger.Warn("Failed to unmarshal backup submit message", "error", err)
 			return
@@ -405,7 +441,7 @@ func (r *BackupNodesRegistry) SubscribeNodeForBackupsAssignment(
 		handler(msg.BackupID, msg.IsCallNotifier)
 	}
 
-	err := r.pubsubBackups.Subscribe(ctx, backupSubmitChannel, wrappedHandler)
+	err := r.pubsubBackups.Subscribe(ctx, r.submitChannel(), wrappedHandler)
 	if err != nil {
 		return fmt.Errorf("failed to subscribe to backup submit channel: %w", err)
 	}
@@ -427,7 +463,7 @@ func (r *BackupNodesRegistry) UnsubscribeNodeForBackupsAssignments() error {
 func (r *BackupNodesRegistry) PublishBackupCompletion(nodeID, backupID uuid.UUID) error {
 	ctx := context.Background()
 
-	message := BackupCompletionMessage{
+	message := backupCompletionMessage{
 		NodeID:   nodeID,
 		BackupID: backupID,
 	}
@@ -437,7 +473,7 @@ func (r *BackupNodesRegistry) PublishBackupCompletion(nodeID, backupID uuid.UUID
 		return fmt.Errorf("failed to marshal backup completion message: %w", err)
 	}
 
-	err = r.pubsubCompletions.Publish(ctx, backupCompletionChannel, string(messageJSON))
+	err = r.pubsubCompletions.Publish(ctx, r.completionChannel(), string(messageJSON))
 	if err != nil {
 		return fmt.Errorf("failed to publish backup completion message: %w", err)
 	}
@@ -451,7 +487,7 @@ func (r *BackupNodesRegistry) SubscribeForBackupsCompletions(
 	ctx := context.Background()
 
 	wrappedHandler := func(message string) {
-		var msg BackupCompletionMessage
+		var msg backupCompletionMessage
 		if err := json.Unmarshal([]byte(message), &msg); err != nil {
 			r.logger.Warn("Failed to unmarshal backup completion message", "error", err)
 			return
@@ -460,7 +496,7 @@ func (r *BackupNodesRegistry) SubscribeForBackupsCompletions(
 		handler(msg.NodeID, msg.BackupID)
 	}
 
-	err := r.pubsubCompletions.Subscribe(ctx, backupCompletionChannel, wrappedHandler)
+	err := r.pubsubCompletions.Subscribe(ctx, r.completionChannel(), wrappedHandler)
 	if err != nil {
 		return fmt.Errorf("failed to subscribe to backup completion channel: %w", err)
 	}
@@ -542,7 +578,7 @@ func (r *BackupNodesRegistry) cleanupDeadNodes() error {
 
 	var allKeys []string
 	cursor := uint64(0)
-	pattern := nodeInfoKeyPrefix + "*" + nodeInfoKeySuffix
+	pattern := r.nodeInfoPattern()
 
 	for {
 		result := r.client.Do(
@@ -598,13 +634,8 @@ func (r *BackupNodesRegistry) cleanupDeadNodes() error {
 
 		if node.LastHeartbeat.Before(threshold) {
 			nodeID := node.ID.String()
-			infoKey := fmt.Sprintf("%s%s%s", nodeInfoKeyPrefix, nodeID, nodeInfoKeySuffix)
-			statsKey := fmt.Sprintf(
-				"%s%s%s",
-				nodeActiveBackupsPrefix,
-				nodeID,
-				nodeActiveBackupsSuffix,
-			)
+			infoKey := r.nodeInfoKey(nodeID)
+			statsKey := r.activeBackupsKey(nodeID)
 
 			deadNodeKeys = append(deadNodeKeys, infoKey, statsKey)
 			r.logger.Info(
@@ -639,4 +670,31 @@ func (r *BackupNodesRegistry) cleanupDeadNodes() error {
 
 	r.logger.Info("Cleaned up dead nodes", "deletedKeysCount", deletedCount)
 	return nil
+}
+
+// Namespaced Redis key / channel helpers. The namespace prefix isolates one
+// backup-node pool (logical vs physical) from another in the shared keyspace.
+
+func (r *BackupNodesRegistry) nodeInfoKey(nodeID string) string {
+	return r.namespace + nodeInfoKeyPrefix + nodeID + nodeInfoKeySuffix
+}
+
+func (r *BackupNodesRegistry) activeBackupsKey(nodeID string) string {
+	return r.namespace + nodeActiveBackupsPrefix + nodeID + nodeActiveBackupsSuffix
+}
+
+func (r *BackupNodesRegistry) nodeInfoPattern() string {
+	return r.namespace + nodeInfoKeyPrefix + "*" + nodeInfoKeySuffix
+}
+
+func (r *BackupNodesRegistry) activeBackupsPattern() string {
+	return r.namespace + nodeActiveBackupsPrefix + "*" + nodeActiveBackupsSuffix
+}
+
+func (r *BackupNodesRegistry) submitChannel() string {
+	return r.namespace + backupSubmitChannel
+}
+
+func (r *BackupNodesRegistry) completionChannel() string {
+	return r.namespace + backupCompletionChannel
 }

@@ -104,3 +104,19 @@ func (r *PhysicalWalSegmentRepository) FindOrphans(
 func (r *PhysicalWalSegmentRepository) DeleteByID(id uuid.UUID) error {
 	return storage.GetDb().Delete(&physical_models.PhysicalWalSegment{}, "id = ?", id).Error
 }
+
+// DeleteAbandonedClaims removes insert-first WAL claim rows whose upload never
+// finished (file_name still NULL) and that have aged past the grace period. A
+// NULL file_name is proof no bytes were ever written under any name, so there
+// is no storage object to delete. Returns the number of rows removed.
+func (r *PhysicalWalSegmentRepository) DeleteAbandonedClaims(
+	databaseID uuid.UUID,
+	olderThan time.Time,
+) (int64, error) {
+	result := storage.
+		GetDb().
+		Where("database_id = ? AND file_name IS NULL AND claimed_at < ?", databaseID, olderThan).
+		Delete(&physical_models.PhysicalWalSegment{})
+
+	return result.RowsAffected, result.Error
+}

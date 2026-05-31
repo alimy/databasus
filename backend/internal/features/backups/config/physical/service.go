@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 
 	"databasus-backend/internal/features/databases"
+	postgresql_physical "databasus-backend/internal/features/databases/databases/postgresql/physical"
 	"databasus-backend/internal/features/intervals"
 	"databasus-backend/internal/features/notifiers"
 	"databasus-backend/internal/features/storages"
@@ -21,12 +22,19 @@ type BackupConfigService struct {
 	workspaceService       *workspaces_services.WorkspaceService
 
 	dbStorageChangeListener BackupConfigStorageChangeListener
+	configChangeListener    BackupConfigChangeListener
 }
 
 func (s *BackupConfigService) SetDatabaseStorageChangeListener(
 	dbStorageChangeListener BackupConfigStorageChangeListener,
 ) {
 	s.dbStorageChangeListener = dbStorageChangeListener
+}
+
+func (s *BackupConfigService) SetBackupConfigChangeListener(
+	configChangeListener BackupConfigChangeListener,
+) {
+	s.configChangeListener = configChangeListener
 }
 
 func (s *BackupConfigService) GetStorageAttachedDatabasesIDs(
@@ -125,7 +133,16 @@ func (s *BackupConfigService) SaveBackupConfig(
 		}
 	}
 
-	return s.backupConfigRepository.Save(backupConfig)
+	savedConfig, err := s.backupConfigRepository.Save(backupConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	if existingConfig != nil && s.configChangeListener != nil {
+		s.notifyConfigChangeIfNeeded(existingConfig, backupConfig)
+	}
+
+	return savedConfig, nil
 }
 
 func (s *BackupConfigService) GetBackupConfigByDbIdWithAuth(
@@ -383,6 +400,23 @@ func (s *BackupConfigService) assignTargetNotifiers(
 	}
 
 	return s.databaseService.UpdateDatabaseNotifiers(databaseID, targetNotifiers)
+}
+
+// notifyConfigChangeIfNeeded fires the config-change listener only on the two
+// transitions that must stand work down: backups disabled or BackupType
+// demoted away from WAL_STREAM.
+func (s *BackupConfigService) notifyConfigChangeIfNeeded(oldConfig, newConfig *PhysicalBackupConfig) {
+	disabled := oldConfig.IsBackupsEnabled && !newConfig.IsBackupsEnabled
+	demotedFromWalStream := isWalStream(oldConfig) && !isWalStream(newConfig)
+
+	if disabled || demotedFromWalStream {
+		s.configChangeListener.OnBackupConfigChanged(oldConfig, newConfig)
+	}
+}
+
+func isWalStream(backupConfig *PhysicalBackupConfig) bool {
+	return backupConfig.PostgresqlPhysical != nil &&
+		backupConfig.PostgresqlPhysical.BackupType == postgresql_physical.BackupTypeFullIncrementalAndWalStream
 }
 
 func storageIDsEqual(id1, id2 *uuid.UUID) bool {

@@ -65,3 +65,9 @@ func (r *PhysicalWalStreamerRepository) FindByDatabaseID(
 
 	return &row, nil
 }
+
+func (r *PhysicalWalStreamerRepository) DeleteByDatabaseID(databaseID uuid.UUID) error {
+	return storage.
+		GetDb().
+		Delete(&physical_models.PhysicalWalStreamer{}, "database_id = ?", databaseID).Error
+}

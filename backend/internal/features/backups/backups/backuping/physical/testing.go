@@ -8,8 +8,10 @@ import (
 
 	"github.com/google/uuid"
 
-	backuping_logical "databasus-backend/internal/features/backups/backups/backuping/logical"
+	"databasus-backend/internal/features/backups/backups/backuping/nodes"
+	"databasus-backend/internal/features/backups/backups/core/physical/chain_view"
 	physical_repositories "databasus-backend/internal/features/backups/backups/core/physical/repositories"
+	physical_service "databasus-backend/internal/features/backups/backups/core/physical/service"
 	postgresql_executor "databasus-backend/internal/features/backups/backups/usecases/physical/postgresql"
 	backups_config_physical "databasus-backend/internal/features/backups/config/physical"
 	"databasus-backend/internal/features/databases"
@@ -44,13 +46,65 @@ func CreateTestPhysicalBackuper(notificationSender NotificationSender) *Physical
 		storages.GetStorageService(),
 		sender,
 		tasks_cancellation.GetTaskCancelManager(),
-		backuping_logical.GetBackupNodesRegistry(),
+		physicalBackupNodesRegistry,
 		encryption_secrets.GetSecretKeyService(),
 		logger.GetLogger(),
 		postgresql_executor.NewCreateFullBackupUsecase(),
 		postgresql_executor.NewCreateIncrementalBackupUsecase(),
 		uuid.New(),
 		time.Time{},
+		atomic.Bool{},
+	}
+}
+
+// CreateTestPhysicalScheduler returns a scheduler wired to the production repos
+// and the physical node pool, with the billing seam injected so cloud-mode
+// tests can pin subscription state.
+func CreateTestPhysicalScheduler(billingService BillingService) *PhysicalBackupsScheduler {
+	return CreateTestPhysicalSchedulerWithCoordinator(
+		billingService,
+		nodes.NewNodeAssignmentCoordinator(physicalBackupNodesRegistry, logger.GetLogger()),
+	)
+}
+
+// CreateTestPhysicalSchedulerWithCoordinator is CreateTestPhysicalScheduler with
+// the assignment coordinator injected, so a test can hand the scheduler an
+// isolated registry (its own namespace) and avoid touching the shared physical
+// pool's completion subscription.
+func CreateTestPhysicalSchedulerWithCoordinator(
+	billingService BillingService,
+	assignmentCoordinator *nodes.NodeAssignmentCoordinator,
+) *PhysicalBackupsScheduler {
+	return &PhysicalBackupsScheduler{
+		physical_repositories.GetFullBackupRepository(),
+		physical_repositories.GetIncrementalBackupRepository(),
+		physical_repositories.GetInFlightBackupRepository(),
+		physical_repositories.GetWalStreamerRepository(),
+		backups_config_physical.GetBackupConfigService(),
+		chain_view.GetChainViewService(),
+		tasks_cancellation.GetTaskCancelManager(),
+		assignmentCoordinator,
+		billingService,
+		time.Now().UTC(),
+		logger.GetLogger(),
+		atomic.Bool{},
+		atomic.Bool{},
+	}
+}
+
+// CreateTestPhysicalCleaner returns a cleaner wired to the production service +
+// repos with the billing seam injected for cloud-mode storage-cap tests.
+func CreateTestPhysicalCleaner(billingService BillingService) *PhysicalBackupCleaner {
+	return &PhysicalBackupCleaner{
+		physical_service.GetPhysicalBackupService(),
+		chain_view.GetChainViewService(),
+		backups_config_physical.GetBackupConfigService(),
+		physical_repositories.GetFullBackupRepository(),
+		physical_repositories.GetWalSegmentRepository(),
+		physical_repositories.GetInFlightBackupRepository(),
+		physicalBackupNodesRegistry,
+		billingService,
+		logger.GetLogger(),
 		atomic.Bool{},
 	}
 }

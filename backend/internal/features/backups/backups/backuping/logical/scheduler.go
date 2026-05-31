@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"maps"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -26,19 +24,17 @@ const (
 )
 
 type BackupsScheduler struct {
-	backupRepository    *backups_core_logical.BackupRepository
-	backupConfigService *backups_config_logical.BackupConfigService
-	taskCancelManager   *task_cancellation.TaskCancelManager
-	backupNodesRegistry *nodes.BackupNodesRegistry
-	databaseService     *databases.DatabaseService
-	billingService      BillingService
+	backupRepository      *backups_core_logical.BackupRepository
+	backupConfigService   *backups_config_logical.BackupConfigService
+	taskCancelManager     *task_cancellation.TaskCancelManager
+	assignmentCoordinator *nodes.NodeAssignmentCoordinator
+	databaseService       *databases.DatabaseService
+	billingService        BillingService
 
 	lastBackupTime time.Time
 	logger         *slog.Logger
 
-	backupToNodeRelations    map[uuid.UUID]nodes.BackupToNodeRelation
-	backupToNodeRelationsMtx sync.Mutex
-	backuperNode             *BackuperNode
+	backuperNode *BackuperNode
 
 	backupCompletionListeners []backups_core_logical.BackupCompletionListener
 
@@ -76,7 +72,7 @@ func (s *BackupsScheduler) Run(ctx context.Context) {
 		panic(err)
 	}
 
-	err := s.backupNodesRegistry.SubscribeForBackupsCompletions(s.onBackupCompleted)
+	err := s.assignmentCoordinator.SubscribeForBackupsCompletions(s.onBackupCompleted)
 	if err != nil {
 		s.logger.Error("Failed to subscribe to backup completions", "error", err)
 		panic(err)
@@ -87,7 +83,7 @@ func (s *BackupsScheduler) Run(ctx context.Context) {
 	defer func() {
 		s.isReady.Store(false)
 
-		if err := s.backupNodesRegistry.UnsubscribeForBackupsCompletions(); err != nil {
+		if err := s.assignmentCoordinator.UnsubscribeForBackupsCompletions(); err != nil {
 			s.logger.Error("Failed to unsubscribe from backup completions", "error", err)
 		}
 	}()
@@ -123,13 +119,13 @@ func (s *BackupsScheduler) IsSchedulerRunning() bool {
 }
 
 func (s *BackupsScheduler) IsBackupNodesAvailable() bool {
-	availableNodes, err := s.backupNodesRegistry.GetAvailableNodes()
+	hasNodes, err := s.assignmentCoordinator.HasAvailableNodes()
 	if err != nil {
 		s.logger.Error("Failed to get available nodes for health check", "error", err)
 		return false
 	}
 
-	return len(availableNodes) > 0
+	return hasNodes
 }
 
 func (s *BackupsScheduler) StartBackup(database *databases.Database, isCallNotifier bool) {
@@ -199,7 +195,9 @@ func (s *BackupsScheduler) StartBackup(database *databases.Database, isCallNotif
 		return
 	}
 
-	leastBusyNodeID, err := s.calculateLeastBusyNode()
+	// Pick the node BEFORE persisting the row so a "no nodes available" outcome
+	// leaves no orphaned IN_PROGRESS backup behind.
+	leastBusyNodeID, err := s.assignmentCoordinator.PickLeastBusyNode()
 	if err != nil {
 		s.logger.Error(
 			"Failed to calculate least busy node",
@@ -236,62 +234,16 @@ func (s *BackupsScheduler) StartBackup(database *databases.Database, isCallNotif
 		return
 	}
 
-	// Populate the relation map BEFORE publishing the assignment. The
-	// backuper can complete a tiny backup in <1ms and the completion
-	// message can race ahead of relation registration — onBackupCompleted
-	// then sees "unknown node" and skips the decrement, leaving the active
-	// counter stuck. With the map populated first, the race is gone.
-	s.backupToNodeRelationsMtx.Lock()
-	if relation, exists := s.backupToNodeRelations[*leastBusyNodeID]; exists {
-		relation.BackupsIDs = append(relation.BackupsIDs, backup.ID)
-		s.backupToNodeRelations[*leastBusyNodeID] = relation
-	} else {
-		s.backupToNodeRelations[*leastBusyNodeID] = nodes.BackupToNodeRelation{
-			NodeID:     *leastBusyNodeID,
-			BackupsIDs: []uuid.UUID{backup.ID},
-		}
-	}
-	s.backupToNodeRelationsMtx.Unlock()
-
-	if err := s.backupNodesRegistry.IncrementBackupsInProgress(*leastBusyNodeID); err != nil {
+	if err := s.assignmentCoordinator.Assign(leastBusyNodeID, backup.ID, isCallNotifier); err != nil {
 		s.logger.Error(
-			"Failed to increment backups in progress",
-			"nodeId",
-			leastBusyNodeID,
+			"Failed to assign backup to node",
+			"databaseId",
+			backupConfig.DatabaseID,
 			"backupId",
 			backup.ID,
 			"error",
 			err,
 		)
-
-		s.removeBackupFromRelation(*leastBusyNodeID, backup.ID)
-
-		return
-	}
-
-	if err := s.backupNodesRegistry.AssignBackupToNode(*leastBusyNodeID, backup.ID, isCallNotifier); err != nil {
-		s.logger.Error(
-			"Failed to submit backup",
-			"nodeId",
-			leastBusyNodeID,
-			"backupId",
-			backup.ID,
-			"error",
-			err,
-		)
-
-		if decrementErr := s.backupNodesRegistry.DecrementBackupsInProgress(*leastBusyNodeID); decrementErr != nil {
-			s.logger.Error(
-				"Failed to decrement backups in progress after submit failure",
-				"nodeId",
-				leastBusyNodeID,
-				"error",
-				decrementErr,
-			)
-		}
-
-		s.removeBackupFromRelation(*leastBusyNodeID, backup.ID)
-
 		return
 	}
 
@@ -469,54 +421,6 @@ func (s *BackupsScheduler) failBackupsInProgress() error {
 	return nil
 }
 
-func (s *BackupsScheduler) calculateLeastBusyNode() (*uuid.UUID, error) {
-	availableNodes, err := s.backupNodesRegistry.GetAvailableNodes()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get available nodes: %w", err)
-	}
-
-	if len(availableNodes) == 0 {
-		return nil, fmt.Errorf("no nodes available")
-	}
-
-	stats, err := s.backupNodesRegistry.GetBackupNodesStats()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get backup nodes stats: %w", err)
-	}
-
-	statsMap := make(map[uuid.UUID]int)
-	for _, stat := range stats {
-		statsMap[stat.ID] = stat.ActiveBackups
-	}
-
-	var bestNode *nodes.BackupNode
-	var bestScore float64 = -1
-
-	for i := range availableNodes {
-		node := &availableNodes[i]
-
-		activeBackups := statsMap[node.ID]
-
-		var score float64
-		if node.ThroughputMBs > 0 {
-			score = float64(activeBackups) / float64(node.ThroughputMBs)
-		} else {
-			score = float64(activeBackups) * 1000
-		}
-
-		if bestNode == nil || score < bestScore {
-			bestNode = node
-			bestScore = score
-		}
-	}
-
-	if bestNode == nil {
-		return nil, fmt.Errorf("no suitable nodes available")
-	}
-
-	return &bestNode.ID, nil
-}
-
 func (s *BackupsScheduler) onBackupCompleted(nodeID, backupID uuid.UUID) {
 	// Verify this task is actually a backup (registry contains multiple task types)
 	_, err := s.backupRepository.FindByID(backupID)
@@ -529,178 +433,43 @@ func (s *BackupsScheduler) onBackupCompleted(nodeID, backupID uuid.UUID) {
 		go listener.OnBackupCompleted(backupID)
 	}
 
-	s.backupToNodeRelationsMtx.Lock()
-	relation, exists := s.backupToNodeRelations[nodeID]
-	if !exists {
-		s.backupToNodeRelationsMtx.Unlock()
-		s.logger.Warn(
-			"Received completion for unknown node",
-			"nodeId",
-			nodeID,
-			"backupId",
-			backupID,
-		)
-		return
-	}
-
-	newBackupIDs := make([]uuid.UUID, 0)
-	found := false
-	for _, id := range relation.BackupsIDs {
-		if id == backupID {
-			found = true
-			continue
-		}
-		newBackupIDs = append(newBackupIDs, id)
-	}
-
-	if !found {
-		s.backupToNodeRelationsMtx.Unlock()
-		s.logger.Warn(
-			"Backup not found in node's backup list",
-			"nodeId",
-			nodeID,
-			"backupId",
-			backupID,
-		)
-		return
-	}
-
-	if len(newBackupIDs) == 0 {
-		delete(s.backupToNodeRelations, nodeID)
-	} else {
-		relation.BackupsIDs = newBackupIDs
-		s.backupToNodeRelations[nodeID] = relation
-	}
-	s.backupToNodeRelationsMtx.Unlock()
-
-	if err := s.backupNodesRegistry.DecrementBackupsInProgress(nodeID); err != nil {
-		s.logger.Error(
-			"Failed to decrement backups in progress",
-			"nodeId",
-			nodeID,
-			"backupId",
-			backupID,
-			"error",
-			err,
-		)
-	}
+	s.assignmentCoordinator.Release(nodeID, backupID)
 }
 
 func (s *BackupsScheduler) checkDeadNodesAndFailBackups() error {
-	availableNodes, err := s.backupNodesRegistry.GetAvailableNodes()
-	if err != nil {
-		return fmt.Errorf("failed to get available nodes: %w", err)
-	}
-
-	aliveNodeIDs := make(map[uuid.UUID]bool)
-	for _, node := range availableNodes {
-		aliveNodeIDs[node.ID] = true
-	}
-
-	s.backupToNodeRelationsMtx.Lock()
-	relationsSnapshot := make(map[uuid.UUID]nodes.BackupToNodeRelation, len(s.backupToNodeRelations))
-	maps.Copy(relationsSnapshot, s.backupToNodeRelations)
-	s.backupToNodeRelationsMtx.Unlock()
-
-	for nodeID, relation := range relationsSnapshot {
-		if aliveNodeIDs[nodeID] {
-			continue
-		}
-
-		s.logger.Warn(
-			"Node is dead, failing its backups",
-			"nodeId",
-			nodeID,
-			"backupCount",
-			len(relation.BackupsIDs),
-		)
-
-		for _, backupID := range relation.BackupsIDs {
-			backup, err := s.backupRepository.FindByID(backupID)
-			if err != nil {
-				s.logger.Error(
-					"Failed to find backup for dead node",
-					"nodeId",
-					nodeID,
-					"backupId",
-					backupID,
-					"error",
-					err,
-				)
-				continue
-			}
-
-			failMessage := "Backup failed due to node unavailability"
-			backup.FailMessage = &failMessage
-			backup.Status = backups_core_logical.BackupStatusFailed
-			backup.BackupSizeMb = 0
-
-			if err := s.backupRepository.Save(backup); err != nil {
-				s.logger.Error(
-					"Failed to save failed backup for dead node",
-					"nodeId",
-					nodeID,
-					"backupId",
-					backupID,
-					"error",
-					err,
-				)
-				continue
-			}
-
-			if err := s.backupNodesRegistry.DecrementBackupsInProgress(nodeID); err != nil {
-				s.logger.Error(
-					"Failed to decrement backups in progress for dead node",
-					"nodeId",
-					nodeID,
-					"backupId",
-					backupID,
-					"error",
-					err,
-				)
-			}
-
-			s.logger.Info(
-				"Failed backup due to dead node",
-				"nodeId",
-				nodeID,
-				"backupId",
-				backupID,
-			)
-		}
-
-		s.backupToNodeRelationsMtx.Lock()
-		delete(s.backupToNodeRelations, nodeID)
-		s.backupToNodeRelationsMtx.Unlock()
-	}
-
-	return nil
+	return s.assignmentCoordinator.HandleDeadNodes(s.failDeadNodeBackup)
 }
 
-// removeBackupFromRelation rolls back a relation map insert when a later
-// step in StartBackup (Increment / Assign) fails. Matches the cleanup that
-// onBackupCompleted performs on the happy path.
-func (s *BackupsScheduler) removeBackupFromRelation(nodeID, backupID uuid.UUID) {
-	s.backupToNodeRelationsMtx.Lock()
-	defer s.backupToNodeRelationsMtx.Unlock()
+func (s *BackupsScheduler) failDeadNodeBackup(nodeID, backupID uuid.UUID) bool {
+	backup, err := s.backupRepository.FindByID(backupID)
+	if err != nil {
+		s.logger.Error(
+			"Failed to find backup for dead node",
+			"nodeId", nodeID,
+			"backupId", backupID,
+			"error", err,
+		)
 
-	relation, exists := s.backupToNodeRelations[nodeID]
-	if !exists {
-		return
+		return false
 	}
 
-	remaining := relation.BackupsIDs[:0]
-	for _, id := range relation.BackupsIDs {
-		if id != backupID {
-			remaining = append(remaining, id)
-		}
+	failMessage := "Backup failed due to node unavailability"
+	backup.FailMessage = &failMessage
+	backup.Status = backups_core_logical.BackupStatusFailed
+	backup.BackupSizeMb = 0
+
+	if err := s.backupRepository.Save(backup); err != nil {
+		s.logger.Error(
+			"Failed to save failed backup for dead node",
+			"nodeId", nodeID,
+			"backupId", backupID,
+			"error", err,
+		)
+
+		return false
 	}
 
-	if len(remaining) == 0 {
-		delete(s.backupToNodeRelations, nodeID)
-		return
-	}
+	s.logger.Info("Failed backup due to dead node", "nodeId", nodeID, "backupId", backupID)
 
-	relation.BackupsIDs = remaining
-	s.backupToNodeRelations[nodeID] = relation
+	return true
 }

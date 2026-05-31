@@ -341,6 +341,18 @@ func runBackgroundTasks(log *slog.Logger) {
 			backuping_logical.GetBackupCleaner().Run(ctx)
 		})
 
+		go runWithPanicLogging(log, "physical backup scheduler background service", func() {
+			backuping_physical.GetPhysicalBackupsScheduler().Run(ctx)
+		})
+
+		go runWithPanicLogging(log, "physical backup cleaner background service", func() {
+			backuping_physical.GetPhysicalBackupCleaner().Run(ctx)
+		})
+
+		go runWithPanicLogging(log, "physical backup nodes registry background service", func() {
+			backuping_physical.GetPhysicalBackupNodesRegistry().Run(ctx)
+		})
+
 		go runWithPanicLogging(log, "restore background service", func() {
 			restoring.GetRestoresScheduler().Run(ctx)
 		})
@@ -383,6 +395,10 @@ func runBackgroundTasks(log *slog.Logger) {
 
 		go runWithPanicLogging(log, "backup node", func() {
 			backuping_logical.GetBackuperNode().Run(ctx)
+		})
+
+		go runWithPanicLogging(log, "physical backup node", func() {
+			backuping_physical.GetPhysicalBackuperNode().Run(ctx)
 		})
 
 		go runWithPanicLogging(log, "restore node", func() {

@@ -18,6 +18,7 @@ var (
 		notifiers.GetNotifierService(),
 		workspaces_services.GetWorkspaceService(),
 		nil,
+		nil,
 	}
 )
 

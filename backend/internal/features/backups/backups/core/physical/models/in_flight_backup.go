@@ -16,6 +16,7 @@ type PhysicalInFlightBackup struct {
 	DatabaseID uuid.UUID                         `json:"databaseId" gorm:"column:database_id;type:uuid;primaryKey"`
 	BackupType physical_enums.PhysicalBackupType `json:"backupType" gorm:"column:backup_type;type:text;not null"`
 	BackupID   uuid.UUID                         `json:"backupId"   gorm:"column:backup_id;type:uuid;not null"`
+	NodeID     *uuid.UUID                        `json:"nodeId"     gorm:"column:node_id;type:uuid"`
 	ClaimedAt  time.Time                         `json:"claimedAt"  gorm:"column:claimed_at"`
 }
 

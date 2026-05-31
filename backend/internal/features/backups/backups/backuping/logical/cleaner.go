@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"databasus-backend/internal/config"
+	"databasus-backend/internal/features/backups/backups/backuping/shared/gfs"
 	backups_core_logical "databasus-backend/internal/features/backups/backups/core/logical"
 	backups_config_logical "databasus-backend/internal/features/backups/config/logical"
 	"databasus-backend/internal/features/storages"
@@ -345,123 +346,16 @@ func isRecentBackup(backup *backups_core_logical.LogicalBackup) bool {
 	return time.Since(backup.CreatedAt) < recentBackupGracePeriod
 }
 
-// buildGFSKeepSet determines which backups to retain under the GFS rotation scheme.
-// Backups must be sorted newest-first. A backup can fill multiple slots simultaneously
-// (e.g. the newest backup of a year also fills the monthly, weekly, daily, and hourly slot).
+// buildGFSKeepSet projects logical backups onto the shared GFS keep-set
+// algorithm. Backups must be sorted newest-first.
 func buildGFSKeepSet(
 	backups []*backups_core_logical.LogicalBackup,
 	hours, days, weeks, months, years int,
 ) map[uuid.UUID]bool {
-	keep := make(map[uuid.UUID]bool)
-
-	if len(backups) == 0 {
-		return keep
+	items := make([]gfs.Item, len(backups))
+	for i, backup := range backups {
+		items[i] = gfs.Item{ID: backup.ID, CreatedAt: backup.CreatedAt}
 	}
 
-	hoursSeen := make(map[string]bool)
-	daysSeen := make(map[string]bool)
-	weeksSeen := make(map[string]bool)
-	monthsSeen := make(map[string]bool)
-	yearsSeen := make(map[string]bool)
-
-	hoursKept, daysKept, weeksKept, monthsKept, yearsKept := 0, 0, 0, 0, 0
-
-	// Compute per-level time-window cutoffs so higher-frequency slots
-	// cannot absorb backups that belong to lower-frequency levels.
-	ref := backups[0].CreatedAt
-
-	rawHourlyCutoff := ref.Add(-time.Duration(hours) * time.Hour)
-	rawDailyCutoff := ref.Add(-time.Duration(days) * 24 * time.Hour)
-	rawWeeklyCutoff := ref.Add(-time.Duration(weeks) * 7 * 24 * time.Hour)
-	rawMonthlyCutoff := ref.AddDate(0, -months, 0)
-	rawYearlyCutoff := ref.AddDate(-years, 0, 0)
-
-	// Hierarchical capping: each level's window cannot extend further back
-	// than the nearest active lower-frequency level's window.
-	yearlyCutoff := rawYearlyCutoff
-
-	monthlyCutoff := rawMonthlyCutoff
-	if years > 0 {
-		monthlyCutoff = laterOf(monthlyCutoff, yearlyCutoff)
-	}
-
-	weeklyCutoff := rawWeeklyCutoff
-	if months > 0 {
-		weeklyCutoff = laterOf(weeklyCutoff, monthlyCutoff)
-	} else if years > 0 {
-		weeklyCutoff = laterOf(weeklyCutoff, yearlyCutoff)
-	}
-
-	dailyCutoff := rawDailyCutoff
-	switch {
-	case weeks > 0:
-		dailyCutoff = laterOf(dailyCutoff, weeklyCutoff)
-	case months > 0:
-		dailyCutoff = laterOf(dailyCutoff, monthlyCutoff)
-	case years > 0:
-		dailyCutoff = laterOf(dailyCutoff, yearlyCutoff)
-	}
-
-	hourlyCutoff := rawHourlyCutoff
-	switch {
-	case days > 0:
-		hourlyCutoff = laterOf(hourlyCutoff, dailyCutoff)
-	case weeks > 0:
-		hourlyCutoff = laterOf(hourlyCutoff, weeklyCutoff)
-	case months > 0:
-		hourlyCutoff = laterOf(hourlyCutoff, monthlyCutoff)
-	case years > 0:
-		hourlyCutoff = laterOf(hourlyCutoff, yearlyCutoff)
-	}
-
-	for _, backup := range backups {
-		t := backup.CreatedAt
-
-		hourKey := t.Format("2006-01-02-15")
-		dayKey := t.Format("2006-01-02")
-		weekYear, week := t.ISOWeek()
-		weekKey := fmt.Sprintf("%d-%02d", weekYear, week)
-		monthKey := t.Format("2006-01")
-		yearKey := t.Format("2006")
-
-		if hours > 0 && hoursKept < hours && !hoursSeen[hourKey] && t.After(hourlyCutoff) {
-			keep[backup.ID] = true
-			hoursSeen[hourKey] = true
-			hoursKept++
-		}
-
-		if days > 0 && daysKept < days && !daysSeen[dayKey] && t.After(dailyCutoff) {
-			keep[backup.ID] = true
-			daysSeen[dayKey] = true
-			daysKept++
-		}
-
-		if weeks > 0 && weeksKept < weeks && !weeksSeen[weekKey] && t.After(weeklyCutoff) {
-			keep[backup.ID] = true
-			weeksSeen[weekKey] = true
-			weeksKept++
-		}
-
-		if months > 0 && monthsKept < months && !monthsSeen[monthKey] && t.After(monthlyCutoff) {
-			keep[backup.ID] = true
-			monthsSeen[monthKey] = true
-			monthsKept++
-		}
-
-		if years > 0 && yearsKept < years && !yearsSeen[yearKey] && t.After(yearlyCutoff) {
-			keep[backup.ID] = true
-			yearsSeen[yearKey] = true
-			yearsKept++
-		}
-	}
-
-	return keep
-}
-
-func laterOf(a, b time.Time) time.Time {
-	if a.After(b) {
-		return a
-	}
-
-	return b
+	return gfs.GetItemsToRetain(items, hours, days, weeks, months, years)
 }

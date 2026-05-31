@@ -1,7 +1,6 @@
 package backuping_logical
 
 import (
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -17,7 +16,6 @@ import (
 	"databasus-backend/internal/features/storages"
 	tasks_cancellation "databasus-backend/internal/features/tasks/cancellation"
 	workspaces_services "databasus-backend/internal/features/workspaces/services"
-	cache_utils "databasus-backend/internal/util/cache"
 	"databasus-backend/internal/util/encryption"
 	"databasus-backend/internal/util/logger"
 )
@@ -37,13 +35,7 @@ var backupCleaner = &BackupCleaner{
 	atomic.Bool{},
 }
 
-var backupNodesRegistry = nodes.NewBackupNodesRegistry(
-	cache_utils.GetValkeyClient(),
-	logger.GetLogger(),
-	cache_utils.DefaultCacheTimeout,
-	cache_utils.NewPubSubManager(),
-	cache_utils.NewPubSubManager(),
-)
+var backupNodesRegistry = nodes.NewDefaultBackupNodesRegistry("")
 
 func getNodeID() uuid.UUID {
 	return uuid.New()
@@ -70,13 +62,11 @@ var backupsScheduler = &BackupsScheduler{
 	backupRepository,
 	backups_config_logical.GetBackupConfigService(),
 	taskCancelManager,
-	backupNodesRegistry,
+	nodes.NewNodeAssignmentCoordinator(backupNodesRegistry, logger.GetLogger()),
 	databases.GetDatabaseService(),
 	billing.GetBillingService(),
 	time.Now().UTC(),
 	logger.GetLogger(),
-	make(map[uuid.UUID]nodes.BackupToNodeRelation),
-	sync.Mutex{},
 	backuperNode,
 	[]backups_core_logical.BackupCompletionListener{},
 	atomic.Bool{},

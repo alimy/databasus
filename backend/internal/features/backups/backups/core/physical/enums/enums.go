@@ -35,6 +35,7 @@ const (
 	PhysicalBackupErrorStorageUploadFailed      PhysicalBackupErrorReason = "STORAGE_UPLOAD_FAILED"
 	PhysicalBackupErrorNetworkFailure           PhysicalBackupErrorReason = "NETWORK_FAILURE"
 	PhysicalBackupErrorNetworkStallTimeout      PhysicalBackupErrorReason = "NETWORK_STALL_TIMEOUT"
+	PhysicalBackupErrorNoNodeAvailable          PhysicalBackupErrorReason = "NO_NODE_AVAILABLE"
 	PhysicalBackupErrorApplicationRestart       PhysicalBackupErrorReason = "APPLICATION_RESTART"
 	PhysicalBackupErrorSystemIdentifierMismatch PhysicalBackupErrorReason = "SYSTEM_IDENTIFIER_MISMATCH"
 	PhysicalBackupErrorTimelineRegression       PhysicalBackupErrorReason = "TIMELINE_REGRESSION"

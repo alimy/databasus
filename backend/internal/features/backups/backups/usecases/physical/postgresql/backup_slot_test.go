@@ -198,6 +198,36 @@ func Test_BackupSlot_OrphanFromPriorCrash_DropIfExistsRecovers(t *testing.T) {
 		"slot must be cleaned up after backup completes (orphan recovered + new slot dropped)")
 }
 
+// neverProtected and alwaysProtected pin the two slot-cleanup outcomes:
+// neverProtected expects every orphan slot dropped (no backup in flight);
+// alwaysProtected simulates a backup still running on a live node, whose slot
+// must be preserved.
+func neverProtected(uuid.UUID) (bool, error) { return false, nil }
+
+func alwaysProtected(uuid.UUID) (bool, error) { return true, nil }
+
+func Test_RunStartupCleanup_WhenSlotProtected_PreservesSlot(t *testing.T) {
+	fixture := postgresql_executor.SetupPhysicalDBForBackup(t)
+
+	slotName := postgresql_executor.SlotName(fixture.DB.PostgresqlPhysical.ID)
+	adminConn := postgresql_executor.OpenAdminConn(t, fixture)
+
+	_, err := adminConn.Exec(context.Background(),
+		"SELECT pg_create_physical_replication_slot($1, true)", slotName)
+	require.NoError(t, err, "pre-create the slot a running backup would hold")
+	t.Cleanup(func() {
+		_, _ = adminConn.Exec(context.Background(),
+			`SELECT pg_drop_replication_slot(slot_name)
+			   FROM pg_replication_slots WHERE slot_name = $1`,
+			slotName)
+	})
+
+	require.NoError(t, postgresql_executor.RunStartupCleanup(t.Context(), logger.GetLogger(), alwaysProtected))
+
+	assert.True(t, postgresql_executor.SlotExists(t, adminConn, slotName),
+		"a protected slot (backup running on a live node) must NOT be dropped")
+}
+
 func Test_RunStartupCleanup_DropsOrphanSlots(t *testing.T) {
 	fixture := postgresql_executor.SetupPhysicalDBForBackup(t)
 
@@ -211,7 +241,7 @@ func Test_RunStartupCleanup_DropsOrphanSlots(t *testing.T) {
 	require.True(t, postgresql_executor.SlotExists(t, adminConn, slotName),
 		"orphan slot must exist before cleanup")
 
-	require.NoError(t, postgresql_executor.RunStartupCleanup(t.Context(), logger.GetLogger()))
+	require.NoError(t, postgresql_executor.RunStartupCleanup(t.Context(), logger.GetLogger(), neverProtected))
 
 	assert.False(t, postgresql_executor.SlotExists(t, adminConn, slotName),
 		"RunStartupCleanup must drop the per-backup orphan slot")
@@ -237,7 +267,7 @@ func Test_RunStartupCleanup_PreservesStreamerSlot(t *testing.T) {
 	require.True(t, postgresql_executor.SlotExists(t, adminConn, streamerSlot),
 		"streamer slot must exist before cleanup")
 
-	require.NoError(t, postgresql_executor.RunStartupCleanup(t.Context(), logger.GetLogger()))
+	require.NoError(t, postgresql_executor.RunStartupCleanup(t.Context(), logger.GetLogger(), neverProtected))
 
 	assert.True(t, postgresql_executor.SlotExists(t, adminConn, streamerSlot),
 		"RunStartupCleanup must NOT drop the streamer slot (different prefix)")
@@ -262,7 +292,7 @@ func Test_RunStartupCleanup_PreservesUnrelatedSlots(t *testing.T) {
 	require.True(t, postgresql_executor.SlotExists(t, adminConn, unrelatedSlot),
 		"unrelated slot must exist before cleanup")
 
-	require.NoError(t, postgresql_executor.RunStartupCleanup(t.Context(), logger.GetLogger()))
+	require.NoError(t, postgresql_executor.RunStartupCleanup(t.Context(), logger.GetLogger(), neverProtected))
 
 	assert.True(t, postgresql_executor.SlotExists(t, adminConn, unrelatedSlot),
 		"RunStartupCleanup must NOT drop slots that don't match the per-backup prefix")
@@ -275,7 +305,7 @@ func Test_RunStartupCleanup_SkipsUnreachableSource_DoesNotFail(t *testing.T) {
 	fixture.DB.PostgresqlPhysical.Port = 1
 	require.NoError(t, storage.GetDb().Save(fixture.DB.PostgresqlPhysical).Error)
 
-	err := postgresql_executor.RunStartupCleanup(t.Context(), logger.GetLogger())
+	err := postgresql_executor.RunStartupCleanup(t.Context(), logger.GetLogger(), neverProtected)
 
 	assert.NoError(t, err,
 		"unreachable source must be logged + skipped, not surfaced as a failure")
@@ -323,11 +353,11 @@ func Test_BackupSlot_PresentDuringIncrementalRun_GoneAfterFinish(t *testing.T) {
 	})
 
 	claimed, err := physical_repositories.GetInFlightBackupRepository().Claim(
-		storage.GetDb(),
-		fixture.DB.ID,
-		physical_enums.PhysicalBackupTypeIncremental,
-		incrID,
-	)
+		storage.GetDb(), physical_repositories.ClaimSpec{
+			DatabaseID: fixture.DB.ID,
+			BackupType: physical_enums.PhysicalBackupTypeIncremental,
+			BackupID:   incrID,
+		})
 	require.NoError(t, err)
 	require.True(t, claimed, "INCR in-flight claim must succeed after FULL completes")
 	t.Cleanup(func() {
@@ -508,7 +538,7 @@ func Test_RunStartupCleanup_OrphanFromDeletedDB_NotCleaned(t *testing.T) {
 		"delete the PostgresqlPhysical row — simulates a crashed OnBeforeDatabaseRemove hook "+
 			"that removed the physical-DB record but didn't drop the slot on source")
 
-	require.NoError(t, postgresql_executor.RunStartupCleanup(t.Context(), logger.GetLogger()))
+	require.NoError(t, postgresql_executor.RunStartupCleanup(t.Context(), logger.GetLogger(), neverProtected))
 
 	assert.True(t, postgresql_executor.SlotExists(t, adminConn, slotName),
 		"RunStartupCleanup iterates registered physical DBs only (Preload returns nil for the deleted "+
@@ -546,11 +576,11 @@ func Test_BackupSlot_TwoBackupsInRow_SecondReusesNameOk(t *testing.T) {
 	})
 
 	claimed, err := physical_repositories.GetInFlightBackupRepository().Claim(
-		storage.GetDb(),
-		fixture.DB.ID,
-		physical_enums.PhysicalBackupTypeFull,
-		secondID,
-	)
+		storage.GetDb(), physical_repositories.ClaimSpec{
+			DatabaseID: fixture.DB.ID,
+			BackupType: physical_enums.PhysicalBackupTypeFull,
+			BackupID:   secondID,
+		})
 	require.NoError(t, err)
 	require.True(t, claimed, "second in-flight claim must succeed (first one was released on COMPLETED)")
 	t.Cleanup(func() {
@@ -639,8 +669,11 @@ func Test_BackupSlot_RetryAfterFailure_ReusesName(t *testing.T) {
 	})
 
 	claimed, err := physical_repositories.GetInFlightBackupRepository().Claim(
-		storage.GetDb(), fixture.DB.ID, physical_enums.PhysicalBackupTypeFull, retryID,
-	)
+		storage.GetDb(), physical_repositories.ClaimSpec{
+			DatabaseID: fixture.DB.ID,
+			BackupType: physical_enums.PhysicalBackupTypeFull,
+			BackupID:   retryID,
+		})
 	require.NoError(t, err)
 	require.True(t, claimed)
 	t.Cleanup(func() {

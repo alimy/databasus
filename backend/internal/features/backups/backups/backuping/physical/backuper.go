@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"databasus-backend/internal/config"
 	"databasus-backend/internal/features/backups/backups/backuping/nodes"
@@ -24,6 +26,7 @@ import (
 	"databasus-backend/internal/features/storages"
 	tasks_cancellation "databasus-backend/internal/features/tasks/cancellation"
 	workspaces_services "databasus-backend/internal/features/workspaces/services"
+	"databasus-backend/internal/storage"
 	util_encryption "databasus-backend/internal/util/encryption"
 	"databasus-backend/internal/util/walmath"
 )
@@ -236,7 +239,7 @@ func (n *PhysicalBackuperNode) runIncrementalBackup(
 	if err != nil {
 		logger.Error("failed to resolve parent manifest", "error", err)
 
-		n.finalizeIncrAsError(incrBackup,
+		n.finalizeIncrAsChainBroken(incrBackup,
 			physical_enums.PhysicalBackupErrorParentManifestMissing, err.Error())
 
 		return
@@ -415,17 +418,23 @@ func (n *PhysicalBackuperNode) persistFullResult(
 		fullBackup.CompletedAt = &completed
 	}
 
-	if err := n.fullRepo.Save(fullBackup); err != nil {
-		return err
-	}
+	return n.saveTerminalResultIfInProgress(
+		fullBackup.DatabaseID,
+		fullBackup.ID,
+		func(tx *gorm.DB) (physical_enums.PhysicalBackupStatus, error) {
+			var current physical_models.PhysicalFullBackup
 
-	if err := n.inFlightRepo.Release(fullBackup.DatabaseID); err != nil {
-		n.logger.Warn("failed to release in-flight claim after full backup",
-			"backup_id", fullBackup.ID,
-			"error", err)
-	}
+			if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+				Select("status").
+				Where("id = ?", fullBackup.ID).
+				First(&current).Error; err != nil {
+				return "", err
+			}
 
-	return nil
+			return current.Status, nil
+		},
+		func(tx *gorm.DB) error { return tx.Save(fullBackup).Error },
+	)
 }
 
 func (n *PhysicalBackuperNode) persistIncrResult(
@@ -458,14 +467,69 @@ func (n *PhysicalBackuperNode) persistIncrResult(
 		incrBackup.CompletedAt = &completed
 	}
 
-	if err := n.incrRepo.Save(incrBackup); err != nil {
+	return n.saveTerminalResultIfInProgress(
+		incrBackup.DatabaseID,
+		incrBackup.ID,
+		func(tx *gorm.DB) (physical_enums.PhysicalBackupStatus, error) {
+			var current physical_models.PhysicalIncrementalBackup
+
+			if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+				Select("status").
+				Where("id = ?", incrBackup.ID).
+				First(&current).Error; err != nil {
+				return "", err
+			}
+
+			return current.Status, nil
+		},
+		func(tx *gorm.DB) error { return tx.Save(incrBackup).Error },
+	)
+}
+
+// saveTerminalResultIfInProgress writes the mutated backup row and releases its
+// in-flight claim in one transaction, but only while the row is still
+// IN_PROGRESS. A backuper can return after a restart recovery or a dead-node
+// sweep already moved the row to a terminal status — and possibly handed the
+// database to a fresh backup. Persisting then would resurrect a superseded
+// backup, so the guarded read (locked FOR UPDATE to serialize against the
+// sweep's conditional update) skips the write instead. The claim delete is
+// scoped to backupID so it can never remove the newer backup's claim.
+func (n *PhysicalBackuperNode) saveTerminalResultIfInProgress(
+	databaseID, backupID uuid.UUID,
+	loadStatus func(tx *gorm.DB) (physical_enums.PhysicalBackupStatus, error),
+	save func(tx *gorm.DB) error,
+) error {
+	superseded := false
+
+	err := storage.GetDb().Transaction(func(tx *gorm.DB) error {
+		status, err := loadStatus(tx)
+		if err != nil {
+			return err
+		}
+
+		if status != physical_enums.PhysicalBackupStatusInProgress {
+			superseded = true
+
+			return nil
+		}
+
+		if err := save(tx); err != nil {
+			return err
+		}
+
+		return tx.Delete(
+			&physical_models.PhysicalInFlightBackup{},
+			"database_id = ? AND backup_id = ?",
+			databaseID,
+			backupID,
+		).Error
+	})
+	if err != nil {
 		return err
 	}
 
-	if err := n.inFlightRepo.Release(incrBackup.DatabaseID); err != nil {
-		n.logger.Warn("failed to release in-flight claim after incremental backup",
-			"backup_id", incrBackup.ID,
-			"error", err)
+	if superseded {
+		n.logger.Warn("backup row no longer in progress; skipping terminal persist", "backup_id", backupID)
 	}
 
 	return nil
@@ -485,7 +549,7 @@ func (n *PhysicalBackuperNode) finalizeFullAsError(
 		n.logger.Error("failed to flip full row to ERROR", "backup_id", fullBackup.ID, "error", err)
 	}
 
-	_ = n.inFlightRepo.Release(fullBackup.DatabaseID)
+	_ = n.inFlightRepo.ReleaseOwned(fullBackup.DatabaseID, fullBackup.ID)
 }
 
 func (n *PhysicalBackuperNode) finalizeIncrAsError(
@@ -493,16 +557,38 @@ func (n *PhysicalBackuperNode) finalizeIncrAsError(
 	reason physical_enums.PhysicalBackupErrorReason,
 	_ string,
 ) {
+	n.finalizeIncrWithStatus(incrBackup, physical_enums.PhysicalBackupStatusError, reason)
+}
+
+// finalizeIncrAsChainBroken closes the chain instead of marking a transient
+// failure. Use it only for irreversible conditions (a missing parent manifest,
+// expired summaries) where retrying the same INCR is futile: CHAIN_BROKEN forces
+// the next scheduler tick to open a fresh FULL, whereas ERROR would keep the
+// chain extendable and retry the doomed INCR forever.
+func (n *PhysicalBackuperNode) finalizeIncrAsChainBroken(
+	incrBackup *physical_models.PhysicalIncrementalBackup,
+	reason physical_enums.PhysicalBackupErrorReason,
+	_ string,
+) {
+	n.finalizeIncrWithStatus(incrBackup, physical_enums.PhysicalBackupStatusChainBroken, reason)
+}
+
+func (n *PhysicalBackuperNode) finalizeIncrWithStatus(
+	incrBackup *physical_models.PhysicalIncrementalBackup,
+	status physical_enums.PhysicalBackupStatus,
+	reason physical_enums.PhysicalBackupErrorReason,
+) {
 	r := reason
 
-	incrBackup.Status = physical_enums.PhysicalBackupStatusError
+	incrBackup.Status = status
 	incrBackup.ErrorReason = &r
 
 	if err := n.incrRepo.Save(incrBackup); err != nil {
-		n.logger.Error("failed to flip incr row to ERROR", "backup_id", incrBackup.ID, "error", err)
+		n.logger.Error("failed to flip incr row to terminal status",
+			"status", status, "backup_id", incrBackup.ID, "error", err)
 	}
 
-	_ = n.inFlightRepo.Release(incrBackup.DatabaseID)
+	_ = n.inFlightRepo.ReleaseOwned(incrBackup.DatabaseID, incrBackup.ID)
 }
 
 func (n *PhysicalBackuperNode) sendFullBackupNotification(

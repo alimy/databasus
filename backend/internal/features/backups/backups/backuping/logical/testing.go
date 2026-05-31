@@ -3,7 +3,6 @@ package backuping_logical
 import (
 	"context"
 	"fmt"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -144,13 +143,11 @@ func CreateTestScheduler(billingService BillingService) *BackupsScheduler {
 		backupRepository,
 		backups_config_logical.GetBackupConfigService(),
 		taskCancelManager,
-		backupNodesRegistry,
+		nodes.NewNodeAssignmentCoordinator(backupNodesRegistry, logger.GetLogger()),
 		databases.GetDatabaseService(),
 		billingService,
 		time.Now().UTC(),
 		logger.GetLogger(),
-		make(map[uuid.UUID]nodes.BackupToNodeRelation),
-		sync.Mutex{},
 		CreateTestBackuperNode(),
 		[]backups_core_logical.BackupCompletionListener{},
 		atomic.Bool{},

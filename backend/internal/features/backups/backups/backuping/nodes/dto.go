@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 )
 
-type BackupToNodeRelation struct {
+type backupToNodeRelation struct {
 	NodeID     uuid.UUID   `json:"nodeId"`
 	BackupsIDs []uuid.UUID `json:"backupsIds"`
 }
@@ -22,13 +22,13 @@ type BackupNodeStats struct {
 	ActiveBackups int       `json:"activeBackups"`
 }
 
-type BackupSubmitMessage struct {
+type backupSubmitMessage struct {
 	NodeID         uuid.UUID `json:"nodeId"`
 	BackupID       uuid.UUID `json:"backupId"`
 	IsCallNotifier bool      `json:"isCallNotifier"`
 }
 
-type BackupCompletionMessage struct {
+type backupCompletionMessage struct {
 	NodeID   uuid.UUID `json:"nodeId"`
 	BackupID uuid.UUID `json:"backupId"`
 }

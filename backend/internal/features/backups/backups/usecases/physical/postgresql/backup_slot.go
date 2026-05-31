@@ -95,14 +95,21 @@ func dropBackupSlotIfExists(ctx context.Context, conn *pgx.Conn, slotName string
 	return err
 }
 
-// RunStartupCleanup iterates every physical PG database and drops any
-// per-backup slot that survived a Databasus crash. Runs synchronously at
-// boot, before the physical backuper begins subscribing to assignments —
-// guarantees no live backup races a cleanup-in-progress.
+// RunStartupCleanup iterates every physical PG database and drops the per-backup
+// replication slot left behind by a crash, EXCEPT where isSlotProtected reports
+// the slot belongs to a backup still running on a live node. In many-nodes mode
+// the cleaner runs on the primary while backups run on other processes, so a
+// blind drop would unpin the WAL a running pg_basebackup still needs; the
+// protection check (in-flight claim owner liveness) is what prevents that. Runs
+// once at boot.
 //
-// Cleanup never blocks boot beyond startupCleanupTimeout per DB; connection
-// failures are logged and skipped.
-func RunStartupCleanup(ctx context.Context, logger *slog.Logger) error {
+// Cleanup never blocks boot beyond startupCleanupTimeout per DB; unreachable
+// sources and protected slots are logged and skipped.
+func RunStartupCleanup(
+	ctx context.Context,
+	logger *slog.Logger,
+	isSlotProtected func(databaseID uuid.UUID) (bool, error),
+) error {
 	dbs, err := databases.GetDatabaseService().GetAllDatabases()
 	if err != nil {
 		return fmt.Errorf("list databases for slot cleanup: %w", err)
@@ -131,32 +138,50 @@ func RunStartupCleanup(ctx context.Context, logger *slog.Logger) error {
 		wg.Add(1)
 		sem <- struct{}{}
 
-		go func(d *postgresql_physical.PostgresqlPhysicalDatabase) {
+		// The slot is keyed by the PostgresqlPhysical ID; the in-flight claim is
+		// keyed by the Database ID — both are threaded in so the protection check
+		// looks up the right claim.
+		go func(d *postgresql_physical.PostgresqlPhysicalDatabase, databaseID uuid.UUID) {
 			defer wg.Done()
 			defer func() { <-sem }()
+
+			slotName := SlotName(d.ID)
+			scopedLogger := logger.With("database_id", databaseID, "slot_name", slotName)
+
+			// Decided from the claim + registry, not the source PG, so it runs
+			// before we open a connection.
+			protected, protErr := isSlotProtected(databaseID)
+			if protErr != nil {
+				scopedLogger.Warn("startup slot cleanup: skip, cannot determine owner liveness", "error", protErr)
+				skippedCount.Store(databaseID, struct{}{})
+				return
+			}
+
+			if protected {
+				scopedLogger.Info("startup slot cleanup: skip, backup still owned by a live node")
+				skippedCount.Store(databaseID, struct{}{})
+				return
+			}
 
 			cleanupCtx, cancel := context.WithTimeout(ctx, startupCleanupTimeout)
 			defer cancel()
 
-			slotName := SlotName(d.ID)
-			scopedLogger := logger.With("database_id", d.ID, "slot_name", slotName)
-
 			conn, err := d.OpenInspectionConn(cleanupCtx, encryptor)
 			if err != nil {
 				scopedLogger.Warn("startup slot cleanup: skip unreachable source", "error", err)
-				skippedCount.Store(d.ID, struct{}{})
+				skippedCount.Store(databaseID, struct{}{})
 				return
 			}
 			defer func() { _ = conn.Close(context.Background()) }()
 
 			if err := dropBackupSlotIfExists(cleanupCtx, conn, slotName); err != nil {
 				scopedLogger.Warn("startup slot cleanup: drop failed", "error", err)
-				failureCount.Store(d.ID, struct{}{})
+				failureCount.Store(databaseID, struct{}{})
 				return
 			}
 
-			droppedCount.Store(d.ID, struct{}{})
-		}(db.PostgresqlPhysical)
+			droppedCount.Store(databaseID, struct{}{})
+		}(db.PostgresqlPhysical, db.ID)
 	}
 
 	wg.Wait()

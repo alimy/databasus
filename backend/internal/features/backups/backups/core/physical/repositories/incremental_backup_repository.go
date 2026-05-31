@@ -127,3 +127,39 @@ func (r *PhysicalIncrementalBackupRepository) UpdateStatus(
 func (r *PhysicalIncrementalBackupRepository) DeleteByID(id uuid.UUID) error {
 	return storage.GetDb().Delete(&physical_models.PhysicalIncrementalBackup{}, "id = ?", id).Error
 }
+
+func (r *PhysicalIncrementalBackupRepository) FindLastByDatabase(
+	databaseID uuid.UUID,
+) (*physical_models.PhysicalIncrementalBackup, error) {
+	var backup physical_models.PhysicalIncrementalBackup
+
+	err := storage.
+		GetDb().
+		Where("database_id = ?", databaseID).
+		Order("created_at DESC").
+		First(&backup).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+
+		return nil, err
+	}
+
+	return &backup, nil
+}
+
+// FindAllInProgress returns every INCR still marked IN_PROGRESS across all
+// databases — the INCR counterpart to the FULL restart sweep.
+func (r *PhysicalIncrementalBackupRepository) FindAllInProgress() ([]*physical_models.PhysicalIncrementalBackup, error) {
+	var backups []*physical_models.PhysicalIncrementalBackup
+
+	if err := storage.
+		GetDb().
+		Where("status = ?", physical_enums.PhysicalBackupStatusInProgress).
+		Find(&backups).Error; err != nil {
+		return nil, err
+	}
+
+	return backups, nil
+}

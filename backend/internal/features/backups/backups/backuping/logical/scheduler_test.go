@@ -762,10 +762,10 @@ func Test_OnBackupCompleted_WhenTaskIsNotBackup_SkipsProcessing(t *testing.T) {
 	assert.Equal(t, backups_core_logical.BackupStatusInProgress, backups[0].Status,
 		"Backup status should not change for non-backup task completion")
 
-	// Verify: backupToNodeRelations should still contain the node
+	// Verify: the node relation should still be tracked
 	scheduler := GetBackupsScheduler()
-	_, exists := scheduler.backupToNodeRelations[mockNodeID]
-	assert.True(t, exists, "Node should still be in backupToNodeRelations")
+	exists := scheduler.assignmentCoordinator.IsNodeTrackedForTest(mockNodeID)
+	assert.True(t, exists, "Node should still be tracked by the assignment coordinator")
 
 	time.Sleep(200 * time.Millisecond)
 }
@@ -809,10 +809,10 @@ func Test_CalculateLeastBusyNode_SelectsNodeWithBestScore(t *testing.T) {
 			assert.NoError(t, err)
 		}
 
-		leastBusyNodeID, err := GetBackupsScheduler().calculateLeastBusyNode()
+		leastBusyNodeID, err := GetBackupsScheduler().assignmentCoordinator.PickLeastBusyNode()
 		assert.NoError(t, err)
-		assert.NotNil(t, leastBusyNodeID)
-		assert.Equal(t, node2ID, *leastBusyNodeID)
+		assert.NotEqual(t, uuid.Nil, leastBusyNodeID)
+		assert.Equal(t, node2ID, leastBusyNodeID)
 	})
 
 	t.Run("Nodes with different throughput", func(t *testing.T) {
@@ -842,10 +842,10 @@ func Test_CalculateLeastBusyNode_SelectsNodeWithBestScore(t *testing.T) {
 		err = backupNodesRegistry.IncrementBackupsInProgress(node50MBsID)
 		assert.NoError(t, err)
 
-		leastBusyNodeID, err := GetBackupsScheduler().calculateLeastBusyNode()
+		leastBusyNodeID, err := GetBackupsScheduler().assignmentCoordinator.PickLeastBusyNode()
 		assert.NoError(t, err)
-		assert.NotNil(t, leastBusyNodeID)
-		assert.Equal(t, node50MBsID, *leastBusyNodeID)
+		assert.NotEqual(t, uuid.Nil, leastBusyNodeID)
+		assert.Equal(t, node50MBsID, leastBusyNodeID)
 	})
 }
 

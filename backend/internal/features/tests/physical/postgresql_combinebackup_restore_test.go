@@ -264,11 +264,11 @@ func buildAndClaimIncrementalBackup(
 	})
 
 	claimed, err := physical_repositories.GetInFlightBackupRepository().Claim(
-		storage.GetDb(),
-		fixture.DB.ID,
-		physical_enums.PhysicalBackupTypeIncremental,
-		incrID,
-	)
+		storage.GetDb(), physical_repositories.ClaimSpec{
+			DatabaseID: fixture.DB.ID,
+			BackupType: physical_enums.PhysicalBackupTypeIncremental,
+			BackupID:   incrID,
+		})
 	require.NoError(t, err)
 	require.True(t, claimed, "INCR in-flight claim must succeed after the previous backup released the slot")
 	t.Cleanup(func() {
