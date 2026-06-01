@@ -2,7 +2,6 @@ package physical_repositories
 
 import (
 	"errors"
-	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -76,12 +75,17 @@ func (r *PhysicalWalStreamerRepository) ClaimIfClaimable(
 	return len(claimedIDs) == 1, nil
 }
 
+// Heartbeat bumps last_heartbeat_at using the source-of-truth PG clock (NOW()),
+// NOT a Go-side time.Now(): the staleness comparisons in ClaimIfClaimable /
+// MarkStaleRunningFailed are also PG-side, so writing the heartbeat with a
+// streaming node's local clock would let clock skew falsely reclaim a live
+// streamer or keep a dead one alive.
 func (r *PhysicalWalStreamerRepository) Heartbeat(databaseID uuid.UUID) error {
 	return storage.
 		GetDb().
 		Model(&physical_models.PhysicalWalStreamer{}).
 		Where("database_id = ?", databaseID).
-		Update("last_heartbeat_at", time.Now().UTC()).Error
+		Update("last_heartbeat_at", gorm.Expr("NOW()")).Error
 }
 
 func (r *PhysicalWalStreamerRepository) MarkFailed(databaseID uuid.UUID) error {

@@ -85,7 +85,7 @@ func CreateTestPhysicalSchedulerWithCoordinator(
 		tasks_cancellation.GetTaskCancelManager(),
 		assignmentCoordinator,
 		billingService,
-		time.Now().UTC(),
+		atomicTime{},
 		logger.GetLogger(),
 		atomic.Bool{},
 		atomic.Bool{},
@@ -111,7 +111,7 @@ func CreateTestWalStreamSupervisor() *PhysicalWalStreamSupervisor {
 		logger.GetLogger(),
 		sync.Mutex{},
 		make(map[uuid.UUID]*runningStreamer),
-		time.Time{},
+		atomicTime{},
 		atomic.Bool{},
 		atomic.Bool{},
 	}

@@ -54,7 +54,7 @@ type PhysicalWalStreamSupervisor struct {
 	mu      sync.Mutex
 	running map[uuid.UUID]*runningStreamer
 
-	lastTickTime time.Time
+	lastTickTime atomicTime
 
 	hasRun  atomic.Bool
 	isReady atomic.Bool
@@ -73,7 +73,7 @@ func (s *PhysicalWalStreamSupervisor) IsRunning() bool {
 }
 
 func (s *PhysicalWalStreamSupervisor) IsSupervisorHealthy() bool {
-	return s.lastTickTime.After(time.Now().UTC().Add(-schedulerHealthcheckThreshold))
+	return s.lastTickTime.Load().After(time.Now().UTC().Add(-schedulerHealthcheckThreshold))
 }
 
 func (s *PhysicalWalStreamSupervisor) Run(ctx context.Context) {
@@ -91,7 +91,7 @@ func (s *PhysicalWalStreamSupervisor) Run(ctx context.Context) {
 		return
 	}
 
-	s.lastTickTime = time.Now().UTC()
+	s.lastTickTime.Store(time.Now().UTC())
 
 	if config.GetEnv().IsManyNodesMode {
 		time.Sleep(schedulerStartupDelay)
@@ -129,7 +129,7 @@ func (s *PhysicalWalStreamSupervisor) Run(ctx context.Context) {
 		case <-ticker.C:
 			s.reconcile(ctx)
 
-			s.lastTickTime = time.Now().UTC()
+			s.lastTickTime.Store(time.Now().UTC())
 		}
 	}
 }

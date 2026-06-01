@@ -54,6 +54,28 @@ const (
 	receivewalRespawnBackoff = 2 * time.Second
 
 	receivewalRespawnMaxBackoff = 30 * time.Minute
+
+	// receivewalMinHealthyUptime — a receiver that streamed at least this long
+	// before exiting counts as a transient blip (network drop, slot resend) and
+	// resets the crash-loop counter; a shorter run counts toward escalation.
+	receivewalMinHealthyUptime = 15 * time.Second
+
+	// receivewalMaxRapidFailures — this many back-to-back sub-uptime exits escalate
+	// to a fatal supervisor error so the streamer row is marked FAILED and another
+	// node can reclaim, instead of crash-looping locally forever on a condition a
+	// local respawn can never fix (ENOSPC, bad creds, a slot held by a thief).
+	receivewalMaxRapidFailures = 5
+)
+
+// receiverExit is the disposition of one pg_receivewal run, decided by
+// spawnAndSupervise and acted on by runReceivewalSupervision.
+type receiverExit int
+
+const (
+	receiverCtxCancelled    receiverExit = iota // ctx cancelled — stop the loop, no error
+	receiverInternalRestart                     // our own SIGTERM (back pressure / slot stall) — respawn promptly
+	receiverRetryable                           // non-zero exit that a local respawn may fix (network)
+	receiverFatal                               // non-retryable exit — escalate so another node takes over
 )
 
 // WalStreamSpec is the immutable configuration of one database's WAL streamer.
@@ -99,6 +121,11 @@ type WalStreamSupervisor struct {
 	watchDir string
 	slotName string
 
+	// Back-pressure watermarks derived once from the source's (immutable)
+	// wal_segment_size; recomputing them on every poll tick would be wasted work.
+	highWatermarkBytes int64
+	lowWatermarkBytes  int64
+
 	// restartSignal asks the supervision loop to SIGTERM the current
 	// pg_receivewal and respawn (sent by the back-pressure monitor and the
 	// slot-LSN watcher). Buffered size 1; sends are non-blocking and coalesced.
@@ -131,12 +158,19 @@ func NewWalStreamSupervisor(spec WalStreamSpec) *WalStreamSupervisor {
 		OnGapDetected:       spec.OnGapDetected,
 	})
 
+	// HIGH scales up for clusters with a non-default wal_segment_size so one
+	// segment can never single-handedly stop the receiver; LOW is HIGH/5 for the
+	// 5x hysteresis that prevents flapping on the boundary.
+	highWatermarkBytes := max(walLocalMinHighWatermarkBytes, 4*walSegmentSizeBytes(spec.SourceDB))
+
 	return &WalStreamSupervisor{
-		spec:          spec,
-		uploader:      uploader,
-		watchDir:      watchDir,
-		slotName:      spec.SourceDB.ReplicationSlotName,
-		restartSignal: make(chan struct{}, 1),
+		spec:               spec,
+		uploader:           uploader,
+		watchDir:           watchDir,
+		slotName:           spec.SourceDB.ReplicationSlotName,
+		highWatermarkBytes: highWatermarkBytes,
+		lowWatermarkBytes:  highWatermarkBytes / 5,
+		restartSignal:      make(chan struct{}, 1),
 	}
 }
 
@@ -158,6 +192,20 @@ func (s *WalStreamSupervisor) Run(ctx context.Context) error {
 		return fmt.Errorf("verify persistent replication slot: %w", err)
 	}
 
+	// Crash recovery: clear torn *.partial files (the slot resends them) and take
+	// over any finalized-but-not-uploaded segments left by a previous crash, so
+	// recovery does not wait on the cleaner's grace sweep. Runs before the receiver
+	// spawns, so there is no concurrent writer in watch_dir.
+	s.removePartials(logger)
+	s.recoverLocalSegmentsOnStartup(ctx, logger)
+
+	// A fatal pg_receivewal exit (disk full, auth, stolen slot, crash loop) must
+	// tear down the whole supervisor — not just the receiver — so the scheduler
+	// marks the streamer FAILED and another node reclaims it. Derive a cancelable
+	// ctx the auxiliary loops share and cancel it when supervision returns fatal.
+	runCtx, cancelRun := context.WithCancel(ctx)
+	defer cancelRun()
+
 	var wg sync.WaitGroup
 
 	for _, loop := range []func(context.Context, *slog.Logger){
@@ -166,12 +214,19 @@ func (s *WalStreamSupervisor) Run(ctx context.Context) error {
 		s.runSlotLsnWatcher,
 		s.runLagMonitor,
 	} {
-		wg.Go(func() { loop(ctx, logger) })
+		wg.Go(func() { loop(runCtx, logger) })
 	}
 
-	s.runReceivewalSupervision(ctx, logger)
+	fatalErr := s.runReceivewalSupervision(runCtx, logger)
 
+	cancelRun()
 	wg.Wait()
+
+	if fatalErr != nil {
+		logger.Error("wal stream supervisor stopping with fatal error", "error", fatalErr)
+
+		return fatalErr
+	}
 
 	logger.Info("wal stream supervisor stopped")
 
@@ -179,22 +234,25 @@ func (s *WalStreamSupervisor) Run(ctx context.Context) error {
 }
 
 // runReceivewalSupervision is the pg_receivewal lifecycle loop: drain back
-// pressure, clear partials, spawn, and wait for exit / restart-signal / ctx.
-func (s *WalStreamSupervisor) runReceivewalSupervision(ctx context.Context, logger *slog.Logger) {
+// pressure, clear partials, spawn, and react to the run's disposition. It returns
+// a non-nil error only when the receiver is unrecoverable here (fatal exit or a
+// crash loop), so Run can mark the streamer FAILED and hand it to another node.
+func (s *WalStreamSupervisor) runReceivewalSupervision(ctx context.Context, logger *slog.Logger) error {
 	pgBin := tools.GetPostgresqlExecutable(s.spec.SourceDB.Version, tools.PostgresqlExecutablePgReceivewal)
 	respawnBackoff := receivewalRespawnBackoff
+	rapidFailures := 0
 
 	for {
 		if ctx.Err() != nil {
-			return
+			return nil
 		}
 
 		if !s.waitWhilePaused(ctx) {
-			return
+			return nil
 		}
 
 		if !s.waitForBacklogBelowLow(ctx, logger) {
-			return
+			return nil
 		}
 
 		// Clear any stale restart signal so a spawn does not get cancelled by a
@@ -202,12 +260,42 @@ func (s *WalStreamSupervisor) runReceivewalSupervision(ctx context.Context, logg
 		s.drainRestartSignal()
 		s.removePartials(logger)
 
-		if exitedNormally := s.spawnAndSupervise(ctx, logger, pgBin); !exitedNormally {
-			return
+		outcome, ranFor, fatalErr := s.spawnAndSupervise(ctx, logger, pgBin)
+
+		switch outcome {
+		case receiverCtxCancelled:
+			return nil
+
+		case receiverFatal:
+			return fatalErr
+
+		case receiverInternalRestart:
+			// Our own SIGTERM (back pressure or slot stall): respawn promptly; the
+			// top-of-loop backlog/pause gates already throttle the cause.
+			respawnBackoff = receivewalRespawnBackoff
+			rapidFailures = 0
+
+			continue
+		}
+
+		// receiverRetryable: a run that streamed for a healthy span is a transient
+		// blip (network) — reset the crash-loop counter; a string of sub-uptime
+		// exits is a crash loop a local respawn cannot fix, so escalate.
+		if ranFor >= receivewalMinHealthyUptime {
+			rapidFailures = 0
+			respawnBackoff = receivewalRespawnBackoff
+		} else {
+			rapidFailures++
+		}
+
+		if rapidFailures >= receivewalMaxRapidFailures {
+			return fmt.Errorf(
+				"pg_receivewal crash-looped: %d rapid failures, escalating for reassignment", rapidFailures,
+			)
 		}
 
 		if !sleepCtx(ctx, respawnBackoff) {
-			return
+			return nil
 		}
 
 		respawnBackoff = min(respawnBackoff*2, receivewalRespawnMaxBackoff)
@@ -215,14 +303,18 @@ func (s *WalStreamSupervisor) runReceivewalSupervision(ctx context.Context, logg
 }
 
 // spawnAndSupervise starts one pg_receivewal process and blocks until it exits,
-// the restart signal fires, or ctx is cancelled. Returns false only when ctx was
-// cancelled (the caller should stop the loop).
-func (s *WalStreamSupervisor) spawnAndSupervise(ctx context.Context, logger *slog.Logger, pgBin string) bool {
+// the restart signal fires, or ctx is cancelled. It reports the run's
+// disposition, how long the process streamed, and (for receiverFatal) the error.
+func (s *WalStreamSupervisor) spawnAndSupervise(
+	ctx context.Context,
+	logger *slog.Logger,
+	pgBin string,
+) (receiverExit, time.Duration, error) {
 	password, err := postgresql_shared.DecryptFieldIfNeeded(s.spec.SourceDB.Password, s.spec.FieldEncryptor)
 	if err != nil {
 		logger.Error("decrypt source password for pg_receivewal", "error", err)
 
-		return sleepCtx(ctx, receivewalRespawnBackoff)
+		return receiverRetryable, 0, nil
 	}
 
 	creds, err := postgresql_shared.WriteCredentialFilesToTempDir(
@@ -231,7 +323,7 @@ func (s *WalStreamSupervisor) spawnAndSupervise(ctx context.Context, logger *slo
 	if err != nil {
 		logger.Error("write pg_receivewal credentials", "error", err)
 
-		return sleepCtx(ctx, receivewalRespawnBackoff)
+		return receiverRetryable, 0, nil
 	}
 	defer creds.Remove()
 
@@ -242,23 +334,24 @@ func (s *WalStreamSupervisor) spawnAndSupervise(ctx context.Context, logger *slo
 	if err != nil {
 		logger.Error("build pg_receivewal command", "error", err)
 
-		return sleepCtx(ctx, receivewalRespawnBackoff)
+		return receiverRetryable, 0, nil
 	}
 
 	stderrPipe, err := cmd.StderrPipe()
 	if err != nil {
 		logger.Error("pg_receivewal stderr pipe", "error", err)
 
-		return sleepCtx(ctx, receivewalRespawnBackoff)
+		return receiverRetryable, 0, nil
 	}
 
 	if err := cmd.Start(); err != nil {
 		logger.Error("start pg_receivewal", "error", err)
 
-		return sleepCtx(ctx, receivewalRespawnBackoff)
+		return receiverRetryable, 0, nil
 	}
 
 	stderr := newStderrCapture(stderrPipe)
+	startedAt := time.Now().UTC()
 
 	logger.Info("pg_receivewal started", "watch_dir", s.watchDir)
 
@@ -272,7 +365,7 @@ func (s *WalStreamSupervisor) spawnAndSupervise(ctx context.Context, logger *slo
 		<-exited
 		stderr.stop()
 
-		return false
+		return receiverCtxCancelled, 0, nil
 
 	case <-s.restartSignal:
 		logger.Info("restarting pg_receivewal on internal signal (back pressure or slot stall)")
@@ -280,18 +373,58 @@ func (s *WalStreamSupervisor) spawnAndSupervise(ctx context.Context, logger *slo
 		<-exited
 		stderr.stop()
 
-		return true
+		return receiverInternalRestart, time.Since(startedAt), nil
 
 	case waitErr := <-exited:
 		stderr.stop()
+		ranFor := time.Since(startedAt)
 
-		if waitErr != nil && procCtx.Err() == nil {
-			logger.Warn("pg_receivewal exited; will respawn",
-				"error", waitErr, "stderr", truncateStderr(stderr.contents()))
+		if waitErr == nil || procCtx.Err() != nil {
+			return receiverRetryable, ranFor, nil
 		}
 
-		return true
+		stderrText := stderr.contents()
+
+		if isFatalReceivewalError(stderrText) {
+			logger.Error("pg_receivewal exited with a non-retryable error; marking streamer for reassignment",
+				"error", waitErr, "stderr", truncateStderr(stderrText))
+
+			return receiverFatal, ranFor, fmt.Errorf(
+				"pg_receivewal fatal error: %w; stderr: %s", waitErr, truncateStderr(stderrText),
+			)
+		}
+
+		logger.Warn("pg_receivewal exited; will respawn",
+			"error", waitErr, "stderr", truncateStderr(stderrText))
+
+		return receiverRetryable, ranFor, nil
 	}
+}
+
+// isFatalReceivewalError reports whether a pg_receivewal stderr indicates a
+// condition a local respawn can never clear — a full / unwritable local disk,
+// rejected credentials, or the replication slot being held by another consumer.
+// These escalate to streamer-FAILED so a different node can take over instead of
+// the same node crash-looping on an unfixable cause.
+func isFatalReceivewalError(stderr []byte) bool {
+	// Lower-case both sides: OS errno strings vary in case ("Permission denied")
+	// while PG messages are lower-case, and we want to match either.
+	text := strings.ToLower(string(stderr))
+
+	for _, needle := range []string{
+		"no space left on device",
+		"could not write",
+		"authentication failed",
+		"no pg_hba.conf entry",
+		"permission denied",
+		"is active for", // replication slot "<name>" is active for PID <n>
+	} {
+		if strings.Contains(text, needle) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // runUploaderLoop scans the watch dir on a tight interval and hands each
@@ -307,6 +440,35 @@ func (s *WalStreamSupervisor) runUploaderLoop(ctx context.Context, logger *slog.
 
 		case <-ticker.C:
 			s.scanAndUpload(ctx, logger)
+		}
+	}
+}
+
+// recoverLocalSegmentsOnStartup sweeps watch_dir once at startup, taking over any
+// finalized segment / .history left by a crash. Uses the uploader's takeover path
+// so a segment whose pre-crash claim row is still file_name NULL gets finished
+// rather than left for the cleaner.
+func (s *WalStreamSupervisor) recoverLocalSegmentsOnStartup(ctx context.Context, logger *slog.Logger) {
+	entries, err := os.ReadDir(s.watchDir)
+	if err != nil {
+		return
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+
+		name := entry.Name()
+
+		switch {
+		case walmath.IsWalFilename(name):
+			if err := s.uploader.RecoverSegment(ctx, filepath.Join(s.watchDir, name), name); err != nil {
+				logger.Warn("startup wal recovery failed; live loop will retry", "wal_filename", name, "error", err)
+			}
+
+		case strings.HasSuffix(name, ".history"):
+			s.handleHistoryFile(ctx, logger, name)
 		}
 	}
 }
@@ -467,15 +629,13 @@ func (s *WalStreamSupervisor) runBackpressureMonitor(ctx context.Context, _ *slo
 	ticker := time.NewTicker(uploaderPollInterval)
 	defer ticker.Stop()
 
-	highBytes := s.walBacklogHighWatermarkBytes()
-
 	for {
 		select {
 		case <-ctx.Done():
 			return
 
 		case <-ticker.C:
-			if s.backlogBytes() >= highBytes {
+			if s.backlogBytes() >= s.highWatermarkBytes {
 				s.signalRestart()
 			}
 		}
@@ -486,10 +646,7 @@ func (s *WalStreamSupervisor) runBackpressureMonitor(ctx context.Context, _ *slo
 // returning once it drains below the low watermark. Returns false if ctx is
 // cancelled while waiting.
 func (s *WalStreamSupervisor) waitForBacklogBelowLow(ctx context.Context, logger *slog.Logger) bool {
-	highBytes := s.walBacklogHighWatermarkBytes()
-	lowBytes := s.walBacklogLowWatermarkBytes()
-
-	if s.backlogBytes() < highBytes {
+	if s.backlogBytes() < s.highWatermarkBytes {
 		return true
 	}
 
@@ -504,7 +661,7 @@ func (s *WalStreamSupervisor) waitForBacklogBelowLow(ctx context.Context, logger
 			return false
 
 		case <-ticker.C:
-			if s.backlogBytes() < lowBytes {
+			if s.backlogBytes() < s.lowWatermarkBytes {
 				logger.Info("wal backlog drained below low watermark; resuming pg_receivewal")
 
 				return true
@@ -538,14 +695,6 @@ func (s *WalStreamSupervisor) backlogBytes() int64 {
 	}
 
 	return total
-}
-
-func (s *WalStreamSupervisor) walBacklogHighWatermarkBytes() int64 {
-	return max(walLocalMinHighWatermarkBytes, 4*walSegmentSizeBytes(s.spec.SourceDB))
-}
-
-func (s *WalStreamSupervisor) walBacklogLowWatermarkBytes() int64 {
-	return s.walBacklogHighWatermarkBytes() / 5
 }
 
 func (s *WalStreamSupervisor) removePartials(logger *slog.Logger) {

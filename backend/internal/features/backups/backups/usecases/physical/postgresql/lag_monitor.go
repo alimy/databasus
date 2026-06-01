@@ -15,10 +15,11 @@ const (
 	// long before we treat it as a real lag (vs a transient write burst).
 	extendedSlotStatusHoldPeriod = 5 * time.Minute
 
-	// slotRebuildMaxFailuresPerHour — beyond this many rebuilds in a sliding hour,
-	// mechanical retry won't help (creds rotated, pg_hba changed, source dead);
-	// stop and surface the condition instead of dropping+recreating in a loop.
-	slotRebuildMaxFailuresPerHour = 3
+	// slotRebuildMaxAttemptsPerHour — beyond this many rebuild ATTEMPTS in a
+	// sliding hour (counted regardless of outcome), mechanical retry won't help
+	// (creds rotated, pg_hba changed, source dead); stop and surface the
+	// condition instead of dropping+recreating in a loop.
+	slotRebuildMaxAttemptsPerHour = 3
 
 	// rebuildReceiverStopTimeout — how long to wait for our own pg_receivewal to
 	// release the slot during a rebuild before concluding another consumer holds it.
@@ -32,8 +33,9 @@ const (
 type walBreakReason string
 
 const (
-	breakReasonSlotLost walBreakReason = "SLOT_LOST"
-	breakReasonWalLag   walBreakReason = "WAL_LAG_THRESHOLD"
+	breakReasonSlotLost   walBreakReason = "SLOT_LOST"
+	breakReasonWalLag     walBreakReason = "WAL_LAG_THRESHOLD"
+	breakReasonSlotStolen walBreakReason = "SLOT_STOLEN"
 )
 
 // runLagMonitor polls the source slot and triggers a rebuild on slot loss /
@@ -95,6 +97,15 @@ func classifySlotBreak(
 ) (walBreakReason, bool) {
 	if state == nil {
 		return "", false
+	}
+
+	// A foreign backend holding our slot (active, but not one of our own
+	// pg_receivewal processes) blocks our receiver from ever attaching. Surface
+	// it as SLOT_STOLEN and let the rebuild path decide — terminateOwnedSlotBackend
+	// refuses to drop a slot held by a consumer we cannot attribute, so a genuine
+	// third party trips loop-protection rather than getting force-dropped.
+	if state.Active && !isOwnedReceiverBackend(state) {
+		return breakReasonSlotStolen, true
 	}
 
 	switch state.WalStatus {

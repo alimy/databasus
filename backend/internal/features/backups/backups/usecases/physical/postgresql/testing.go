@@ -15,6 +15,7 @@ import (
 	"gorm.io/gorm"
 
 	backups_core_enums "databasus-backend/internal/features/backups/backups/core/enums"
+	"databasus-backend/internal/features/backups/backups/core/physical/chain_view"
 	physical_enums "databasus-backend/internal/features/backups/backups/core/physical/enums"
 	physical_models "databasus-backend/internal/features/backups/backups/core/physical/models"
 	physical_repositories "databasus-backend/internal/features/backups/backups/core/physical/repositories"
@@ -643,6 +644,22 @@ func WaitForCommittedWalSegmentCount(
 	t.Fatalf("did not observe %d committed wal segments for %s within %s", minCount, databaseID, timeout)
 }
 
+// CountCommittedWalSegments returns the number of committed (file_name NOT NULL)
+// WAL segments archived for the database — used to assert progress past a known
+// baseline (e.g. that a post-rebuild segment landed, not just pre-rebuild ones).
+func CountCommittedWalSegments(t *testing.T, databaseID uuid.UUID) int64 {
+	t.Helper()
+
+	var count int64
+	err := storage.GetDb().
+		Model(&physical_models.PhysicalWalSegment{}).
+		Where("database_id = ? AND file_name IS NOT NULL", databaseID).
+		Count(&count).Error
+	require.NoError(t, err)
+
+	return count
+}
+
 // StartWalStreamerForTest runs a WalStreamSupervisor against the fixture's
 // source PG in a goroutine, archiving rotated segments into store, and returns a
 // stop func that cancels and waits for a clean drain (so pg_receivewal releases
@@ -683,4 +700,162 @@ func StartWalStreamerForTest(t *testing.T, fixture *PhysicalDBFixture, store sto
 			t.Log("streamer did not stop within timeout")
 		}
 	}
+}
+
+// MarkFullCompleted promotes the fixture's IN_PROGRESS FULL to COMPLETED with the
+// given LSN bounds, so chain_view treats it as a real chain anchor whose span
+// (GetChainSpan / FindWalGapsInChain) covers the streamed WAL segments. Streamer
+// tests that assert on chain shape need a COMPLETED FULL to anchor against.
+func MarkFullCompleted(t *testing.T, fullID uuid.UUID, timelineID int, startLSN, stopLSN walmath.LSN) {
+	t.Helper()
+
+	fileName := "full-" + fullID.String()
+
+	err := storage.GetDb().
+		Model(&physical_models.PhysicalFullBackup{}).
+		Where("id = ?", fullID).
+		Updates(map[string]any{
+			"status":         physical_enums.PhysicalBackupStatusCompleted,
+			"timeline_id":    timelineID,
+			"start_lsn":      startLSN.String(),
+			"stop_lsn":       stopLSN.String(),
+			"file_name":      fileName,
+			"backup_size_mb": 1.0,
+			"completed_at":   time.Now().UTC(),
+		}).Error
+	require.NoError(t, err)
+}
+
+// SlotLagBytes returns the source slot's lag in bytes (distance from the slot's
+// restart_lsn to the cluster's current WAL LSN). Zero when the slot is absent.
+func SlotLagBytes(t *testing.T, conn *pgx.Conn, slotName string) int64 {
+	t.Helper()
+
+	var lag int64
+	err := conn.QueryRow(context.Background(), `
+		SELECT COALESCE(pg_wal_lsn_diff(pg_current_wal_lsn(), restart_lsn), 0)::bigint
+		FROM pg_replication_slots
+		WHERE slot_name = $1
+	`, slotName).Scan(&lag)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0
+	}
+	require.NoError(t, err)
+
+	return lag
+}
+
+// ForceReplicationLag advances the source WAL by at least minBytes (rotating a
+// segment so the change is durable). With no consumer attached — or a consumer
+// that cannot drain — this grows the slot's restart_lsn distance, the signal the
+// lag monitor reads.
+func ForceReplicationLag(t *testing.T, conn *pgx.Conn, minBytes int64) {
+	t.Helper()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	_, err := GenerateWalActivity(ctx, conn, minBytes)
+	require.NoError(t, err)
+
+	if _, err := conn.Exec(ctx, "SELECT pg_switch_wal()"); err != nil {
+		t.Fatalf("pg_switch_wal: %v", err)
+	}
+}
+
+// WaitUntilSlotLag polls until the slot's lag reaches at least minLagBytes or the
+// timeout expires.
+func WaitUntilSlotLag(t *testing.T, conn *pgx.Conn, slotName string, minLagBytes int64, timeout time.Duration) {
+	t.Helper()
+
+	deadline := time.Now().UTC().Add(timeout)
+	for time.Now().UTC().Before(deadline) {
+		if SlotLagBytes(t, conn, slotName) >= minLagBytes {
+			return
+		}
+
+		time.Sleep(250 * time.Millisecond)
+	}
+
+	t.Fatalf("slot %s did not reach lag %d bytes within %s", slotName, minLagBytes, timeout)
+}
+
+// WaitForWalGap polls FindWalGapsInChain for the chain rooted at fullID until at
+// least one gap appears (or the timeout expires) and returns the gaps. A gap is
+// the derived record of a WAL discontinuity — no catalog marker row exists.
+func WaitForWalGap(t *testing.T, fullID uuid.UUID, timeout time.Duration) []chain_view.LSNRange {
+	t.Helper()
+
+	deadline := time.Now().UTC().Add(timeout)
+	for time.Now().UTC().Before(deadline) {
+		gaps, err := chain_view.GetChainViewService().FindWalGapsInChain(fullID)
+		require.NoError(t, err)
+
+		if len(gaps) > 0 {
+			return gaps
+		}
+
+		time.Sleep(250 * time.Millisecond)
+	}
+
+	t.Fatalf("no wal gap appeared in chain %s within %s", fullID, timeout)
+
+	return nil
+}
+
+// WaitForExtendableChain polls until the database has an extendable chain (newest
+// COMPLETED FULL with no downstream CHAIN_BROKEN INCR) and returns it. A lossy
+// chain (internal WAL gap) is still extendable, so this also covers the
+// gap-then-still-extendable assertion.
+func WaitForExtendableChain(t *testing.T, databaseID uuid.UUID, timeout time.Duration) *chain_view.ChainView {
+	t.Helper()
+
+	deadline := time.Now().UTC().Add(timeout)
+	for time.Now().UTC().Before(deadline) {
+		chain, err := chain_view.GetChainViewService().FindLastExtendableChainByDatabase(databaseID)
+		require.NoError(t, err)
+
+		if chain != nil {
+			return chain
+		}
+
+		time.Sleep(250 * time.Millisecond)
+	}
+
+	t.Fatalf("no extendable chain for database %s within %s", databaseID, timeout)
+
+	return nil
+}
+
+// DropReplicationSlotExternally simulates slot loss: it terminates any active
+// consumer backend on the slot, then drops it. Used to force the post-rebuild
+// WAL gap that a real slot loss produces. The caller must stop our own streamer
+// first so the slot is not re-acquired between terminate and drop.
+func DropReplicationSlotExternally(t *testing.T, conn *pgx.Conn, slotName string) {
+	t.Helper()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	_, _ = conn.Exec(ctx, `
+		SELECT pg_terminate_backend(active_pid)
+		FROM pg_replication_slots
+		WHERE slot_name = $1 AND active_pid IS NOT NULL
+	`, slotName)
+
+	deadline := time.Now().UTC().Add(10 * time.Second)
+	for time.Now().UTC().Before(deadline) {
+		_, err := conn.Exec(ctx, "SELECT pg_drop_replication_slot($1)", slotName)
+		if err == nil {
+			return
+		}
+
+		if !SlotExists(t, conn, slotName) {
+			return
+		}
+
+		time.Sleep(200 * time.Millisecond)
+	}
+
+	t.Fatalf("could not drop replication slot %s", slotName)
 }

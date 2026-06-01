@@ -5,9 +5,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	backups_core_enums "databasus-backend/internal/features/backups/backups/core/enums"
+	"databasus-backend/internal/features/backups/backups/core/physical/chain_view"
 	physical_models "databasus-backend/internal/features/backups/backups/core/physical/models"
 	physical_repositories "databasus-backend/internal/features/backups/backups/core/physical/repositories"
 	"databasus-backend/internal/features/storages"
@@ -107,6 +109,183 @@ func Test_WalStream_FullIncrementalAndWalStream_StreamerArchivesSegments(t *test
 	require.GreaterOrEqual(t, committed, 1, "at least one rotated segment must be archived")
 }
 
+// assertDbSegmentsArchivedOnlyIn asserts every committed segment of databaseID
+// is present in ownStore and absent from otherStore — per-DB streamer isolation.
+func assertDbSegmentsArchivedOnlyIn(
+	t *testing.T,
+	databaseID uuid.UUID,
+	ownStore, otherStore *mockWalStorage,
+) {
+	t.Helper()
+
+	segments, err := physical_repositories.GetWalSegmentRepository().FindByChainSpan(
+		databaseID, 1, walmath.LSN(0), lsnSpanUpperBoundForTests,
+	)
+	require.NoError(t, err)
+
+	committed := 0
+	for _, seg := range segments {
+		if seg.FileName == nil {
+			continue
+		}
+
+		committed++
+
+		require.True(t, ownStore.hasObject(*seg.FileName), "own store must hold %s", *seg.FileName)
+		require.False(t, otherStore.hasObject(*seg.FileName), "other DB's store must not hold %s", *seg.FileName)
+	}
+
+	require.GreaterOrEqual(t, committed, 1, "database %s must archive at least one segment", databaseID)
+}
+
+// committedSegmentsInOrder returns the database's committed (file_name NOT NULL)
+// WAL segments ordered by start_lsn (FindByChainSpan already sorts ascending).
+func committedSegmentsInOrder(t *testing.T, databaseID uuid.UUID) []*physical_models.PhysicalWalSegment {
+	t.Helper()
+
+	all, err := physical_repositories.GetWalSegmentRepository().FindByChainSpan(
+		databaseID, 1, walmath.LSN(0), lsnSpanUpperBoundForTests,
+	)
+	require.NoError(t, err)
+
+	committed := make([]*physical_models.PhysicalWalSegment, 0, len(all))
+	for _, seg := range all {
+		if seg.FileName != nil {
+			committed = append(committed, seg)
+		}
+	}
+
+	return committed
+}
+
+func Test_WalStream_MultipleDbs_EachArchivesSegmentsIndependently(t *testing.T) {
+	if testing.Short() {
+		t.Skip("streamer integration test runs pg_receivewal; skipped in -short")
+	}
+
+	fixtureA := SetupPhysicalDBForBackup(t)
+	fixtureB := SetupPhysicalDBForBackup(t)
+	t.Cleanup(func() {
+		_ = physical_repositories.GetWalStreamerRepository().DeleteByDatabaseID(fixtureA.DB.ID)
+		_ = physical_repositories.GetWalStreamerRepository().DeleteByDatabaseID(fixtureB.DB.ID)
+	})
+
+	storeA := newMockWalStorage()
+	storeB := newMockWalStorage()
+
+	t.Cleanup(startStreamerForTest(t, fixtureA, storeA))
+	t.Cleanup(startStreamerForTest(t, fixtureB, storeB))
+
+	connA := OpenAdminConn(t, fixtureA)
+
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Minute)
+	defer cancel()
+
+	// One shared physical cluster: rotating WAL feeds both DBs' independent slots.
+	for range 4 {
+		_, err := ForceWalRotation(ctx, connA)
+		require.NoError(t, err)
+	}
+
+	WaitForCommittedWalSegmentCount(t, fixtureA.DB.ID, 1, 90*time.Second)
+	WaitForCommittedWalSegmentCount(t, fixtureB.DB.ID, 1, 90*time.Second)
+
+	assertDbSegmentsArchivedOnlyIn(t, fixtureA.DB.ID, storeA, storeB)
+	assertDbSegmentsArchivedOnlyIn(t, fixtureB.DB.ID, storeB, storeA)
+}
+
+func Test_WalStream_MissingSegmentInStreamedChain_SurfacesAsGapChainStaysExtendable(t *testing.T) {
+	if testing.Short() {
+		t.Skip("streamer integration test runs pg_receivewal; skipped in -short")
+	}
+
+	fixture := SetupPhysicalDBForBackup(t)
+	t.Cleanup(func() {
+		_ = physical_repositories.GetWalStreamerRepository().DeleteByDatabaseID(fixture.DB.ID)
+	})
+
+	// Anchor a COMPLETED FULL at LSN 0 so every streamed segment falls in its span.
+	MarkFullCompleted(t, fixture.BackupID, 1, walmath.LSN(0), walmath.LSN(0))
+
+	store := newMockWalStorage()
+	adminConn := OpenAdminConn(t, fixture)
+
+	t.Cleanup(startStreamerForTest(t, fixture, store))
+
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Minute)
+	defer cancel()
+
+	for range 5 {
+		_, err := ForceWalRotation(ctx, adminConn)
+		require.NoError(t, err)
+	}
+
+	WaitForCommittedWalSegmentCount(t, fixture.DB.ID, 3, 90*time.Second)
+
+	// A real streamed chain is contiguous, so no gap yet.
+	gapsBefore, err := chain_view.GetChainViewService().FindWalGapsInChain(fixture.BackupID)
+	require.NoError(t, err)
+	require.Empty(t, gapsBefore, "a contiguous streamed chain has no gaps")
+
+	// Drop a middle committed segment to model a lost / retention-trimmed segment.
+	// The gap is derived from the surviving rows' LSN math — no marker row exists.
+	committed := committedSegmentsInOrder(t, fixture.DB.ID)
+	require.GreaterOrEqual(t, len(committed), 3)
+	removed := committed[1]
+	require.NoError(t, physical_repositories.GetWalSegmentRepository().DeleteByID(removed.ID))
+
+	gaps := WaitForWalGap(t, fixture.BackupID, 30*time.Second)
+	require.Len(t, gaps, 1, "exactly the removed segment's range must surface as a gap")
+	require.Equal(t, removed.StartLSN, gaps[0].Start)
+	require.Equal(t, removed.EndLSN, gaps[0].End)
+
+	// The chain remains extendable despite the internal gap (lossy chain).
+	chain := WaitForExtendableChain(t, fixture.DB.ID, 10*time.Second)
+	require.Equal(t, fixture.BackupID, chain.RootFull.ID)
+}
+
+func Test_WalStream_SlotLagGrowsWithoutConsumer_DrainsOnceStreaming(t *testing.T) {
+	if testing.Short() {
+		t.Skip("streamer integration test runs pg_receivewal; skipped in -short")
+	}
+
+	fixture := SetupPhysicalDBForBackup(t)
+	t.Cleanup(func() {
+		_ = physical_repositories.GetWalStreamerRepository().DeleteByDatabaseID(fixture.DB.ID)
+	})
+
+	adminConn := OpenAdminConn(t, fixture)
+	slotName := fixture.DB.PostgresqlPhysical.ReplicationSlotName
+
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Minute)
+	defer cancel()
+
+	// Create the persistent slot with no consumer attached, then burn WAL so the
+	// slot's restart_lsn falls behind — the signal the lag monitor reads.
+	require.NoError(
+		t,
+		fixture.DB.PostgresqlPhysical.VerifyWalSlot(ctx, logger.GetLogger(), encryption.GetFieldEncryptor()),
+	)
+
+	const lagTarget = 8 * 1024 * 1024
+	ForceReplicationLag(t, adminConn, lagTarget)
+	WaitUntilSlotLag(t, adminConn, slotName, lagTarget, 30*time.Second)
+
+	// Once our streamer attaches, it consumes the backlog and the lag drains.
+	t.Cleanup(startStreamerForTest(t, fixture, newMockWalStorage()))
+
+	deadline := time.Now().UTC().Add(60 * time.Second)
+	for time.Now().UTC().Before(deadline) {
+		if SlotLagBytes(t, adminConn, slotName) < lagTarget {
+			return
+		}
+
+		time.Sleep(250 * time.Millisecond)
+	}
+
+	t.Fatalf("slot lag did not drain below %d within 60s after streaming started", lagTarget)
+}
+
 func Test_WalStream_BackpressureWatermarks_ScaleWithWalSegmentSize(t *testing.T) {
 	fixture := SetupPhysicalDBForBackup(t)
 	customSegSize := int64(512 * 1024 * 1024)
@@ -119,8 +298,8 @@ func Test_WalStream_BackpressureWatermarks_ScaleWithWalSegmentSize(t *testing.T)
 		Logger:       logger.GetLogger(),
 	})
 
-	require.Equal(t, 4*customSegSize, supervisor.walBacklogHighWatermarkBytes())
-	require.Equal(t, 4*customSegSize/5, supervisor.walBacklogLowWatermarkBytes())
+	require.Equal(t, 4*customSegSize, supervisor.highWatermarkBytes)
+	require.Equal(t, 4*customSegSize/5, supervisor.lowWatermarkBytes)
 }
 
 func Test_WalStream_RebuildAttemptCap_StopsFourthAttemptInHour(t *testing.T) {

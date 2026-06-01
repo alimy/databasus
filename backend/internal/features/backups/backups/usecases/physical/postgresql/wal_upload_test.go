@@ -356,6 +356,87 @@ func Test_WalUpload_ContiguousSegments_NoGapNotification(t *testing.T) {
 	require.Zero(t, gapCount.Load(), "contiguous segments must not report a gap")
 }
 
+func Test_SegmentBounds_AtLogIdBoundary_ComputesContiguousLSNs(t *testing.T) {
+	// The last segment in logid 0 (FF) and the first in logid 1 must yield
+	// contiguous LSNs across the boundary — the invariant the post-upload gap
+	// probe (prev.end_lsn == this.start_lsn) relies on.
+	timelineID, start, end, err := segmentBounds("0000000100000000000000FF", testWalSegmentSize)
+	require.NoError(t, err)
+	require.Equal(t, 1, timelineID)
+	require.Equal(t, walmath.LSN(0xFF)*walmath.LSN(testWalSegmentSize), start)
+	require.Equal(t, start+walmath.LSN(testWalSegmentSize), end)
+
+	_, nextStart, _, err := segmentBounds("000000010000000100000000", testWalSegmentSize)
+	require.NoError(t, err)
+	require.Equal(t, end, nextStart, "segment LSNs must be contiguous across the logid boundary")
+}
+
+func Test_WalUpload_RecoverSegment_TakesOverOwnNullClaim_CommitsExistingRow(t *testing.T) {
+	fixture := SetupPhysicalDBForBackup(t)
+
+	store := newMockWalStorage()
+	uploader := newTestUploader(fixture, store, nil)
+
+	name := walName(1, 23)
+	startLSN := walmath.LSN(23 * uint64(testWalSegmentSize))
+	endLSN := startLSN + walmath.LSN(testWalSegmentSize)
+
+	// Seed a pre-crash NULL-file_name claim row, as the restart sweep would find.
+	repo := physical_repositories.GetWalSegmentRepository()
+	inserted, err := repo.ClaimInsert(&physical_models.PhysicalWalSegment{
+		DatabaseID:  fixture.DB.ID,
+		StorageID:   fixture.Storage.ID,
+		TimelineID:  1,
+		WalFilename: name,
+		StartLSN:    startLSN,
+		EndLSN:      endLSN,
+		Encryption:  backups_core_enums.BackupEncryptionNone,
+	})
+	require.NoError(t, err)
+	require.True(t, inserted)
+
+	claim := findWalSegment(t, fixture.DB.ID, 1, startLSN)
+	require.NotNil(t, claim)
+	require.Nil(t, claim.FileName)
+
+	dir := t.TempDir()
+	local := writeWalFile(t, dir, name)
+
+	require.NoError(t, uploader.RecoverSegment(context.Background(), local, name))
+
+	committed := findWalSegment(t, fixture.DB.ID, 1, startLSN)
+	require.NotNil(t, committed)
+	require.Equal(t, claim.ID, committed.ID, "takeover must reuse the pre-crash row, not insert a duplicate")
+	require.NotNil(t, committed.FileName, "own pre-crash NULL claim must be taken over and committed")
+	require.True(t, store.hasObject(*committed.FileName))
+	require.True(t, store.hasObject(*committed.FileName+metadataSuffix))
+	require.NoFileExists(t, local)
+}
+
+func Test_WalUpload_RecoverSegment_WhenAlreadyCommitted_DropsLocalNoReupload(t *testing.T) {
+	fixture := SetupPhysicalDBForBackup(t)
+
+	store := newMockWalStorage()
+	uploader := newTestUploader(fixture, store, nil)
+
+	name := walName(1, 29)
+
+	// A normal upload commits the segment (crash happened after MarkUploaded).
+	dir1 := t.TempDir()
+	require.NoError(t, uploader.ProcessSegment(context.Background(), writeWalFile(t, dir1, name), name))
+
+	savesAfterCommit := store.saveCount.Load()
+
+	// The restart sweep finds a leftover local copy whose row is already committed.
+	dir2 := t.TempDir()
+	local := writeWalFile(t, dir2, name)
+
+	require.NoError(t, uploader.RecoverSegment(context.Background(), local, name))
+
+	require.Equal(t, savesAfterCommit, store.saveCount.Load(), "already-committed segment must not be re-uploaded")
+	require.NoFileExists(t, local, "redundant local copy must be removed on recovery")
+}
+
 func Test_BuildWalSegmentArtifactReader_WhenLargeSegment_StreamsAndCountsArtifact(t *testing.T) {
 	dir := t.TempDir()
 	localPath := filepath.Join(dir, "000000010000000000000001")

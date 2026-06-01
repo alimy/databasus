@@ -15,7 +15,7 @@ func (s *WalStreamSupervisor) rebuildSlot(ctx context.Context, logger *slog.Logg
 
 	if !s.recordRebuildAttemptWithinCap() {
 		return fmt.Errorf(
-			"rebuild loop-protection tripped: more than %d rebuilds in the last hour", slotRebuildMaxFailuresPerHour,
+			"rebuild loop-protection tripped: more than %d rebuilds in the last hour", slotRebuildMaxAttemptsPerHour,
 		)
 	}
 
@@ -163,7 +163,7 @@ func (s *WalStreamSupervisor) recordRebuildAttemptWithinCap() bool {
 
 	s.rebuildTimestamps = kept
 
-	if len(s.rebuildTimestamps) >= slotRebuildMaxFailuresPerHour {
+	if len(s.rebuildTimestamps) >= slotRebuildMaxAttemptsPerHour {
 		return false
 	}
 

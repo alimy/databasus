@@ -45,7 +45,7 @@ type PhysicalBackupsScheduler struct {
 	assignmentCoordinator *nodes.NodeAssignmentCoordinator
 	billingService        BillingService
 
-	lastTickTime time.Time
+	lastTickTime atomicTime
 	logger       *slog.Logger
 
 	hasRun  atomic.Bool
@@ -59,7 +59,7 @@ func (s *PhysicalBackupsScheduler) IsRunning() bool {
 }
 
 func (s *PhysicalBackupsScheduler) IsSchedulerRunning() bool {
-	return s.lastTickTime.After(time.Now().UTC().Add(-schedulerHealthcheckThreshold))
+	return s.lastTickTime.Load().After(time.Now().UTC().Add(-schedulerHealthcheckThreshold))
 }
 
 func (s *PhysicalBackupsScheduler) Run(ctx context.Context) {
@@ -69,7 +69,7 @@ func (s *PhysicalBackupsScheduler) Run(ctx context.Context) {
 
 	s.logger = s.logger.With("job_id", uuid.New(), "job_name", schedulerJobName)
 
-	s.lastTickTime = time.Now().UTC()
+	s.lastTickTime.Store(time.Now().UTC())
 
 	if config.GetEnv().IsManyNodesMode {
 		time.Sleep(schedulerStartupDelay)
@@ -117,7 +117,7 @@ func (s *PhysicalBackupsScheduler) Run(ctx context.Context) {
 				s.logger.Error("failed to run pending physical backups", "error", err)
 			}
 
-			s.lastTickTime = time.Now().UTC()
+			s.lastTickTime.Store(time.Now().UTC())
 		}
 	}
 }

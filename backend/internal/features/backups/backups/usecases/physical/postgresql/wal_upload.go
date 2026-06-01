@@ -100,6 +100,60 @@ func (u *WalUploader) ProcessSegment(ctx context.Context, localPath, walFilename
 	return u.uploadAndCommit(ctx, localPath, claim)
 }
 
+// RecoverSegment runs the insert-first flow for a leftover finalized segment
+// found in watch_dir at supervisor startup (crash recovery). It differs from
+// ProcessSegment in exactly one branch: a pre-existing claim with file_name NULL
+// is taken over and uploaded rather than left in place. Under the
+// single-supervisor-per-DB invariant such a claim is always THIS database's own
+// pre-crash claim (no concurrent uploader can exist), so finishing it is safe and
+// avoids leaving the segment stuck NULL until the cleaner's 1h grace sweep.
+func (u *WalUploader) RecoverSegment(ctx context.Context, localPath, walFilename string) error {
+	timelineID, startLSN, endLSN, err := segmentBounds(walFilename, u.deps.WalSegmentSizeBytes)
+	if err != nil {
+		return err
+	}
+
+	claim := &physical_models.PhysicalWalSegment{
+		ID:          uuid.New(),
+		DatabaseID:  u.deps.DatabaseID,
+		StorageID:   u.deps.StorageID,
+		TimelineID:  timelineID,
+		WalFilename: walFilename,
+		StartLSN:    startLSN,
+		EndLSN:      endLSN,
+		Encryption:  u.deps.Encryption,
+		ReceivedAt:  time.Now().UTC(),
+		ClaimedAt:   time.Now().UTC(),
+	}
+
+	inserted, err := u.deps.WalSegmentRepo.ClaimInsert(claim)
+	if err != nil {
+		return fmt.Errorf("claim wal segment: %w", err)
+	}
+
+	if inserted {
+		return u.uploadAndCommit(ctx, localPath, claim)
+	}
+
+	existing, err := u.deps.WalSegmentRepo.FindByChainKey(claim.DatabaseID, claim.TimelineID, claim.StartLSN)
+	if err != nil {
+		return fmt.Errorf("probe existing wal claim: %w", err)
+	}
+
+	if existing == nil {
+		return nil
+	}
+
+	if existing.FileName != nil {
+		u.removeLocal(localPath, claim.WalFilename)
+
+		return nil
+	}
+
+	// Own pre-crash NULL claim: take it over by uploading against the existing row.
+	return u.uploadAndCommit(ctx, localPath, existing)
+}
+
 // handleClaimConflict resolves a lost ClaimInsert race by probing the existing
 // row: a durably-completed segment (file_name NOT NULL) means our local copy is
 // redundant; an in-flight claim (file_name NULL) means a live or
@@ -219,13 +273,20 @@ func (u *WalUploader) probeChainGap(claim *physical_models.PhysicalWalSegment) {
 	}
 	u.mu.Unlock()
 
+	// Log and notify once per outage: a drained backlog re-enters this path for
+	// the first segment past the gap only (later segments are contiguous and
+	// returned above), and the lastNotifiedGapEnd guard covers re-processing.
+	if alreadyNotified {
+		return
+	}
+
 	u.deps.Logger.Warn(
 		fmt.Sprintf("wal_gap_detected_post_upload: gap [%s, %s)", prevEnd.String(), claim.StartLSN.String()),
 		"database_id", claim.DatabaseID,
 		"timeline_id", claim.TimelineID,
 	)
 
-	if alreadyNotified || u.deps.OnGapDetected == nil {
+	if u.deps.OnGapDetected == nil {
 		return
 	}
 

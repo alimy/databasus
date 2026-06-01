@@ -68,7 +68,7 @@ var physicalBackupsScheduler = &PhysicalBackupsScheduler{
 	tasks_cancellation.GetTaskCancelManager(),
 	nodes.NewNodeAssignmentCoordinator(physicalBackupNodesRegistry, logger.GetLogger()),
 	billing.GetBillingService(),
-	time.Now().UTC(),
+	atomicTime{},
 	logger.GetLogger(),
 	atomic.Bool{},
 	atomic.Bool{},
@@ -105,7 +105,7 @@ var physicalWalStreamSupervisor = &PhysicalWalStreamSupervisor{
 	logger.GetLogger(),
 	sync.Mutex{},
 	make(map[uuid.UUID]*runningStreamer),
-	time.Time{},
+	atomicTime{},
 	atomic.Bool{},
 	atomic.Bool{},
 }
