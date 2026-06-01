@@ -79,6 +79,62 @@ func SetupPhysicalDBForStreamMtls(t *testing.T) *PhysicalDBFixture {
 	})
 }
 
+// SetupPhysicalDBForBackupNoSummary builds a PG17 fixture against the
+// summarize_wal=off cluster, so the incremental pre-check reaches the
+// SUMMARIZER_OFF branch deterministically.
+func SetupPhysicalDBForBackupNoSummary(t *testing.T) *PhysicalDBFixture {
+	t.Helper()
+
+	return setupPhysicalFixture(t, func(workspaceID uuid.UUID, notifier *notifiers.Notifier) *databases.Database {
+		return databases.CreateTestPhysicalPostgresDatabaseNoSummary(workspaceID, notifier, "17")
+	})
+}
+
+// BuildAndClaimIncremental seeds an IN_PROGRESS incremental row rooted on the
+// fixture's FULL (fixture.BackupID) and takes the per-database in-flight claim,
+// mirroring what the scheduler does before dispatching an INCR. parentIncrID is
+// nil for the first incremental (parent is the root FULL). Both the row and the
+// claim are cleaned up at test end. Returns the new incremental's ID.
+func BuildAndClaimIncremental(
+	t *testing.T,
+	fixture *PhysicalDBFixture,
+	parentIncrID *uuid.UUID,
+) uuid.UUID {
+	t.Helper()
+
+	incrID := uuid.New()
+	incrRow := &physical_models.PhysicalIncrementalBackup{
+		ID:                        incrID,
+		DatabaseID:                fixture.DB.ID,
+		StorageID:                 fixture.Storage.ID,
+		RootFullBackupID:          fixture.BackupID,
+		ParentIncrementalBackupID: parentIncrID,
+		TimelineID:                1,
+		Status:                    physical_enums.PhysicalBackupStatusInProgress,
+		Encryption:                backups_core_enums.BackupEncryptionNone,
+		CreatedAt:                 time.Now().UTC(),
+	}
+
+	require.NoError(t, physical_repositories.GetIncrementalBackupRepository().Save(incrRow))
+	t.Cleanup(func() {
+		_ = physical_repositories.GetIncrementalBackupRepository().DeleteByID(incrID)
+	})
+
+	claimed, err := physical_repositories.GetInFlightBackupRepository().Claim(
+		storage.GetDb(), physical_repositories.ClaimSpec{
+			DatabaseID: fixture.DB.ID,
+			BackupType: physical_enums.PhysicalBackupTypeIncremental,
+			BackupID:   incrID,
+		})
+	require.NoError(t, err)
+	require.True(t, claimed, "INCR in-flight claim must succeed after the FULL released the slot")
+	t.Cleanup(func() {
+		_ = physical_repositories.GetInFlightBackupRepository().Release(fixture.DB.ID)
+	})
+
+	return incrID
+}
+
 // setupPhysicalFixture is the shared body behind the version / mTLS fixtures:
 // it wires workspace, storage, notifier, DB (via createDB), then populates DB
 // data, enables backups, and seeds an IN_PROGRESS FULL row + in-flight claim.
@@ -585,4 +641,46 @@ func WaitForCommittedWalSegmentCount(
 	}
 
 	t.Fatalf("did not observe %d committed wal segments for %s within %s", minCount, databaseID, timeout)
+}
+
+// StartWalStreamerForTest runs a WalStreamSupervisor against the fixture's
+// source PG in a goroutine, archiving rotated segments into store, and returns a
+// stop func that cancels and waits for a clean drain (so pg_receivewal releases
+// the slot before the DB and its slot are torn down). Cross-package backup→
+// restore tests pass the real fixture.Storage so archived segments can be read
+// back and replayed.
+func StartWalStreamerForTest(t *testing.T, fixture *PhysicalDBFixture, store storages.StorageFileSaver) func() {
+	t.Helper()
+
+	supervisor := NewWalStreamSupervisor(WalStreamSpec{
+		DatabaseID:     fixture.DB.ID,
+		SourceDB:       fixture.DB.PostgresqlPhysical,
+		StorageID:      fixture.Storage.ID,
+		Storage:        store,
+		Encryption:     backups_core_enums.BackupEncryptionNone,
+		FieldEncryptor: encryption.GetFieldEncryptor(),
+		WalSegmentRepo: physical_repositories.GetWalSegmentRepository(),
+		HistoryRepo:    physical_repositories.GetWalHistoryRepository(),
+		WatchDirRoot:   t.TempDir(),
+		Logger:         logger.GetLogger(),
+	})
+
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan struct{})
+
+	go func() {
+		defer close(done)
+
+		_ = supervisor.Run(ctx)
+	}()
+
+	return func() {
+		cancel()
+
+		select {
+		case <-done:
+		case <-time.After(30 * time.Second):
+			t.Log("streamer did not stop within timeout")
+		}
+	}
 }

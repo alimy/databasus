@@ -58,6 +58,12 @@ const (
 	PhysicalBackupErrorSummariesExpired      PhysicalBackupErrorReason = "SUMMARIES_EXPIRED"
 	PhysicalBackupErrorSummarizerOff         PhysicalBackupErrorReason = "SUMMARIZER_OFF"
 	PhysicalBackupErrorParentManifestMissing PhysicalBackupErrorReason = "PARENT_MANIFEST_MISSING"
+
+	// The summarizer is on and covers the parent, but trails current WAL by
+	// more than the lag threshold (or stayed behind for the whole bounded
+	// wait): pushing an INCR would race a moving target, so the chain is closed
+	// and the next tick opens a fresh FULL.
+	PhysicalBackupErrorSummarizerFallingBehind PhysicalBackupErrorReason = "SUMMARIZER_FALLING_BEHIND"
 )
 
 type PhysicalWalStreamerStatus string

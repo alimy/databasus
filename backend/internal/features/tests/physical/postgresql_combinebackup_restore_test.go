@@ -18,12 +18,9 @@ import (
 
 	"databasus-backend/internal/config"
 	backuping_physical "databasus-backend/internal/features/backups/backups/backuping/physical"
-	backups_core_enums "databasus-backend/internal/features/backups/backups/core/enums"
 	physical_enums "databasus-backend/internal/features/backups/backups/core/physical/enums"
-	physical_models "databasus-backend/internal/features/backups/backups/core/physical/models"
 	physical_repositories "databasus-backend/internal/features/backups/backups/core/physical/repositories"
 	postgresql_executor "databasus-backend/internal/features/backups/backups/usecases/physical/postgresql"
-	"databasus-backend/internal/storage"
 	"databasus-backend/internal/util/encryption"
 	"databasus-backend/internal/util/walmath"
 )
@@ -215,7 +212,7 @@ func createNextIncremental(
 
 	require.NoError(t, postgresql_executor.WaitForWalSummaries(ctx, conn, spec.Parent.StopLSN, 2*time.Minute))
 
-	childID := buildAndClaimIncrementalBackup(t, spec.Fixture, spec.Parent.IncrID)
+	childID := postgresql_executor.BuildAndClaimIncremental(t, spec.Fixture, spec.Parent.IncrID)
 
 	backuping_physical.CreateTestPhysicalBackuper(nil).MakeBackup(childID, false)
 	postgresql_executor.WaitForBackupStatus(t, childID, physical_enums.PhysicalBackupTypeIncremental,
@@ -236,46 +233,6 @@ func createNextIncremental(
 		StopLSN:    *childRow.StopLSN,
 		ExtractDir: childExtractDir,
 	}
-}
-
-func buildAndClaimIncrementalBackup(
-	t *testing.T,
-	fixture *postgresql_executor.PhysicalDBFixture,
-	parentIncrID *uuid.UUID,
-) uuid.UUID {
-	t.Helper()
-
-	incrID := uuid.New()
-	incrRow := &physical_models.PhysicalIncrementalBackup{
-		ID:                        incrID,
-		DatabaseID:                fixture.DB.ID,
-		StorageID:                 fixture.Storage.ID,
-		RootFullBackupID:          fixture.BackupID,
-		ParentIncrementalBackupID: parentIncrID,
-		TimelineID:                1,
-		Status:                    physical_enums.PhysicalBackupStatusInProgress,
-		Encryption:                backups_core_enums.BackupEncryptionNone,
-		CreatedAt:                 time.Now().UTC(),
-	}
-
-	require.NoError(t, physical_repositories.GetIncrementalBackupRepository().Save(incrRow))
-	t.Cleanup(func() {
-		_ = physical_repositories.GetIncrementalBackupRepository().DeleteByID(incrID)
-	})
-
-	claimed, err := physical_repositories.GetInFlightBackupRepository().Claim(
-		storage.GetDb(), physical_repositories.ClaimSpec{
-			DatabaseID: fixture.DB.ID,
-			BackupType: physical_enums.PhysicalBackupTypeIncremental,
-			BackupID:   incrID,
-		})
-	require.NoError(t, err)
-	require.True(t, claimed, "INCR in-flight claim must succeed after the previous backup released the slot")
-	t.Cleanup(func() {
-		_ = physical_repositories.GetInFlightBackupRepository().Release(fixture.DB.ID)
-	})
-
-	return incrID
 }
 
 // decompressorFor maps the recorded codec to the in-container decompressor and the

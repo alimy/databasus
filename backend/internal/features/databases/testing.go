@@ -322,6 +322,33 @@ func CreateTestPhysicalPostgresDatabase(
 	return database
 }
 
+// CreateTestPhysicalPostgresDatabaseNoSummary points at the cluster started
+// with summarize_wal=off, so incremental pre-checks reach the SUMMARIZER_OFF
+// branch deterministically (ALTER SYSTEM cannot override a command-line GUC on
+// the standard fixture).
+func CreateTestPhysicalPostgresDatabaseNoSummary(
+	workspaceID uuid.UUID,
+	notifier *notifiers.Notifier,
+	versionTag string,
+) *Database {
+	database := &Database{
+		WorkspaceID:        &workspaceID,
+		Name:               "test-physical-pg-no-summary " + uuid.New().String(),
+		Type:               DatabaseTypePostgresPhysical,
+		PostgresqlPhysical: GetTestPhysicalPostgresConfigNoSummary(versionTag),
+		Notifiers: []notifiers.Notifier{
+			*notifier,
+		},
+	}
+
+	database, err := databaseRepository.Save(database)
+	if err != nil {
+		panic(err)
+	}
+
+	return database
+}
+
 func CreateTestMariadbDatabase(
 	workspaceID uuid.UUID,
 	notifier *notifiers.Notifier,

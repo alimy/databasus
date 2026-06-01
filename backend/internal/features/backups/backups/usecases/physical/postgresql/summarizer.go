@@ -43,11 +43,19 @@ const (
 	// summarizerWaitCap — DecisionWait timeout is min(cadence/4, this).
 	summarizerWaitCap = 30 * time.Minute
 
-	// summarizerLagThresholdBytes — if the summarizer is falling behind by
-	// more than this much WAL between the two samples, we don't bother
-	// waiting: spawn FULL on the same chain (no chain-break). 256 MB ≈ 16
-	// segments at the default segsize — a clearly degraded summarizer.
-	summarizerLagThresholdBytes int64 = 256 * 1024 * 1024
+	// summarizerFullThresholdBytes — once the summarizer trails current WAL by
+	// more than this, we stop waiting and spawn a FULL: a gap this large would
+	// stall pg_basebackup --incremental for too long, so a fresh FULL is the
+	// cheaper recovery. Generous on purpose — we'd rather wait out a temporary
+	// summarizer backlog (DecisionWait) than rotate to FULL prematurely.
+	summarizerFullThresholdBytes int64 = 1024 * 1024 * 1024
+
+	// summarizerGoSegments — the summarizer never summarizes the currently
+	// active segment (and may have one more in flight), so a trailing lag of a
+	// couple of segments is the healthy steady state, not "behind". A lag below
+	// summarizerGoSegments × wal_segment_size means "caught up": go incremental
+	// directly and let pg_basebackup wait out the last sliver itself.
+	summarizerGoSegments int64 = 2
 )
 
 // CheckSummarizerReadiness classifies the state of the WAL summarizer relative to
@@ -93,19 +101,112 @@ func CheckSummarizerReadiness(
 		return SummarizerResult{}, err
 	}
 
-	if lag >= summarizerLagThresholdBytes {
+	if lag >= summarizerFullThresholdBytes {
 		return SummarizerResult{Decision: DecisionFullSameChain}, nil
 	}
 
-	if lag > 0 {
-		return SummarizerResult{
-			Decision:  DecisionWait,
-			WaitFor:   waitWindowForCadence(incrementalCadence),
-			PollEvery: summarizerWaitPollInterval,
-		}, nil
+	goThreshold, err := summarizerGoThresholdBytes(ctx, conn)
+	if err != nil {
+		return SummarizerResult{}, err
 	}
 
-	return SummarizerResult{Decision: DecisionGoIncremental}, nil
+	// A trailing lag within the active-segment band is the healthy steady
+	// state — go incremental. pg_basebackup --incremental needs summaries only
+	// from prevStopLSN onward (verified above) and waits for the last segment
+	// to be summarized itself.
+	if lag < goThreshold {
+		return SummarizerResult{Decision: DecisionGoIncremental}, nil
+	}
+
+	return SummarizerResult{
+		Decision:  DecisionWait,
+		WaitFor:   waitWindowForCadence(incrementalCadence),
+		PollEvery: summarizerWaitPollInterval,
+	}, nil
+}
+
+// summarizerGoThresholdBytes is the lag (in bytes) below which the summarizer
+// counts as caught up: summarizerGoSegments × the cluster's wal_segment_size.
+// wal_segment_size is a server GUC reported in bytes by current_setting.
+func summarizerGoThresholdBytes(ctx context.Context, conn *pgx.Conn) (int64, error) {
+	var segmentSizeBytes int64
+
+	// current_setting reports the GUC with its display unit (e.g. "16MB"), so
+	// run it through pg_size_bytes rather than a raw ::bigint cast.
+	if err := conn.QueryRow(ctx,
+		"SELECT pg_size_bytes(current_setting('wal_segment_size'))::bigint",
+	).Scan(&segmentSizeBytes); err != nil {
+		return 0, fmt.Errorf("read wal_segment_size: %w", err)
+	}
+
+	return summarizerGoSegments * segmentSizeBytes, nil
+}
+
+// summarizerCheck is the readiness probe behind a package var so the
+// bounded-wait loop can be unit-tested without a live summarizer.
+var summarizerCheck = CheckSummarizerReadiness
+
+// resolveSummarizerDecision runs the readiness probe and, when it reports
+// DecisionWait (summarizer on and covering, but trailing current WAL), polls
+// until the summarizer catches up, falls definitively behind, or the bounded
+// window elapses. The returned decision is never DecisionWait: a window that
+// expires while still lagging collapses to DecisionFullSameChain so the caller
+// closes the chain rather than racing a moving target.
+func resolveSummarizerDecision(
+	ctx context.Context,
+	conn *pgx.Conn,
+	prevStopLSN walmath.LSN,
+	cadence time.Duration,
+) (SummarizerResult, error) {
+	result, err := summarizerCheck(ctx, conn, prevStopLSN, cadence)
+	if err != nil {
+		return SummarizerResult{}, err
+	}
+
+	if result.Decision != DecisionWait {
+		return result, nil
+	}
+
+	return waitForSummarizer(ctx, conn, prevStopLSN, cadence, result)
+}
+
+// waitForSummarizer polls the readiness probe on result.PollEvery until the
+// summarizer reaches a terminal decision or result.WaitFor elapses. It never
+// writes any catalog state — the INCR row stays IN_PROGRESS throughout, so a
+// recovery within the window proceeds to a normal incremental with no
+// intermediate CHAIN_BROKEN.
+func waitForSummarizer(
+	ctx context.Context,
+	conn *pgx.Conn,
+	prevStopLSN walmath.LSN,
+	cadence time.Duration,
+	initial SummarizerResult,
+) (SummarizerResult, error) {
+	deadline := time.Now().UTC().Add(initial.WaitFor)
+
+	ticker := time.NewTicker(initial.PollEvery)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return SummarizerResult{}, ctx.Err()
+
+		case <-ticker.C:
+			result, err := summarizerCheck(ctx, conn, prevStopLSN, cadence)
+			if err != nil {
+				return SummarizerResult{}, err
+			}
+
+			if result.Decision != DecisionWait {
+				return result, nil
+			}
+
+			if time.Now().UTC().After(deadline) {
+				return SummarizerResult{Decision: DecisionFullSameChain}, nil
+			}
+		}
+	}
 }
 
 func isSummarizerEnabled(ctx context.Context, conn *pgx.Conn) (bool, error) {
@@ -147,11 +248,12 @@ func summarizerCoversLSN(ctx context.Context, conn *pgx.Conn, lsn walmath.LSN) (
 }
 
 // measureSummarizerLag returns how far the summarizer's coverage trails
-// pg_current_wal_lsn. Two samples taken summarizerSampleInterval apart give
-// the scheduler the data to distinguish "lagging but catching up" (delta
-// shrinking) from "falling behind" (delta growing). For PR 2 we report the
-// instantaneous delta only; the rate refinement (delta1 vs delta2) belongs
-// to PR 3 where the scheduler maintains the per-DB state.
+// pg_current_wal_lsn, in bytes. This is an instantaneous snapshot: the
+// "catching up vs falling behind" distinction is made not from a rate but by
+// re-sampling — CheckSummarizerReadiness maps the snapshot to GoIncremental /
+// Wait / FullSameChain, and waitForSummarizer re-checks on each poll, so a lag
+// that shrinks back under the go-threshold within the window proceeds and one
+// that stays high collapses to a FULL.
 func measureSummarizerLag(ctx context.Context, conn *pgx.Conn) (int64, error) {
 	var lagBytes int64
 

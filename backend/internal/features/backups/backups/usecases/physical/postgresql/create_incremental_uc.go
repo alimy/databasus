@@ -48,6 +48,16 @@ func (uc *CreateIncrementalBackupUsecase) Execute(
 		return refusalResult, nil
 	}
 
+	// Gate on WAL-summarizer readiness BEFORE any work: a doomed
+	// pg_basebackup --incremental (summarizer off / summaries expired / falling
+	// behind) is turned into a deterministic CHAIN_BROKEN here, so the next
+	// scheduler tick re-anchors on a fresh FULL instead of looping transient
+	// ERRORs. Runs before the parent-manifest download so a bail costs nothing.
+	preCheckResult, canProceed := runSummarizerPreCheck(ctx, spec)
+	if !canProceed {
+		return preCheckResult, nil
+	}
+
 	// Manifest System-Identifier from the stored row (see create_full_uc.go Execute).
 	systemID := spec.SourceDB.SystemIdentifierUint64()
 
@@ -143,6 +153,70 @@ func verifyIncrTimelineCompatibility(
 				CompletedAt: time.Now().UTC(),
 			}, false
 		})
+}
+
+// runSummarizerPreCheck opens an inspection connection and resolves the
+// WAL-summarizer decision (including the bounded wait for a lagging-but-catching-up
+// summarizer). It returns proceed=true to run the incremental, or a terminal
+// result the caller must return verbatim:
+//   - DecisionGoIncremental         → proceed
+//   - DecisionFullSameChain / wait timeout → CHAIN_BROKEN / SUMMARIZER_FALLING_BEHIND
+//   - DecisionFullNewChain          → CHAIN_BROKEN / SUMMARIZER_OFF | SUMMARIES_EXPIRED
+//   - ctx cancelled mid-wait        → CANCELED / CANCELED_BY_USER
+func runSummarizerPreCheck(ctx context.Context, spec IncrementalBackupSpec) (PhysicalBackupResult, bool) {
+	conn, err := spec.SourceDB.OpenInspectionConn(ctx, spec.FieldEncryptor)
+	if err != nil {
+		return errorResult(physical_enums.PhysicalBackupErrorNetworkFailure,
+			"open inspection conn for summarizer pre-check", err), false
+	}
+	defer func() { _ = conn.Close(context.Background()) }()
+
+	decision, err := resolveSummarizerDecision(ctx, conn, spec.ParentManifest.StopLSN, spec.IncrementalCadence)
+	if err != nil {
+		if ctx.Err() != nil {
+			return canceledResult(physical_enums.PhysicalBackupErrorCanceledByUser,
+				"incremental cancelled during summarizer wait"), false
+		}
+
+		return errorResult(physical_enums.PhysicalBackupErrorNetworkFailure, "summarizer pre-check", err), false
+	}
+
+	switch decision.Decision {
+	case DecisionGoIncremental:
+		return PhysicalBackupResult{}, true
+
+	case DecisionFullSameChain:
+		return summarizerChainBroken(physical_enums.PhysicalBackupErrorSummarizerFallingBehind,
+			"summarizer trailing current WAL; closing chain, new FULL required"), false
+
+	default: // DecisionFullNewChain — Reason is always set on this branch
+		return summarizerChainBroken(*decision.Reason,
+			"summarizer pre-check refused incremental; new FULL required"), false
+	}
+}
+
+func summarizerChainBroken(
+	reason physical_enums.PhysicalBackupErrorReason,
+	message string,
+) PhysicalBackupResult {
+	return PhysicalBackupResult{
+		Status:       physical_enums.PhysicalBackupStatusChainBroken,
+		ErrorReason:  &reason,
+		ErrorMessage: message,
+		CompletedAt:  time.Now().UTC(),
+	}
+}
+
+func canceledResult(
+	reason physical_enums.PhysicalBackupErrorReason,
+	message string,
+) PhysicalBackupResult {
+	return PhysicalBackupResult{
+		Status:       physical_enums.PhysicalBackupStatusCanceled,
+		ErrorReason:  &reason,
+		ErrorMessage: message,
+		CompletedAt:  time.Now().UTC(),
+	}
 }
 
 func downloadParentManifest(

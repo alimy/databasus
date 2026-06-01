@@ -40,6 +40,11 @@ type IncrementalBackupSpec struct {
 	Backup         *physical_models.PhysicalIncrementalBackup
 	ParentManifest ParentManifestRef
 	IncrRepo       *physical_repositories.PhysicalIncrementalBackupRepository
+
+	// IncrementalCadence is the configured INCR interval, used only to size the
+	// bounded summarizer wait window (min(cadence/4, cap)). Zero is acceptable —
+	// the executor then waits only up to its own cap.
+	IncrementalCadence time.Duration
 }
 
 type PhysicalBackupResult struct {
@@ -69,12 +74,14 @@ type PhysicalBackupResult struct {
 	CompletedAt time.Time
 }
 
-// ParentManifestRef is everything an incremental needs to fetch and decrypt its
-// parent's reconstructed manifest sidecar.
+// ParentManifestRef is everything an incremental needs about its parent: the
+// reconstructed manifest sidecar to fetch+decrypt, plus the parent's stop_lsn
+// (the lower bound the WAL summarizer must cover before this INCR can run).
 type ParentManifestRef struct {
 	BackupID   uuid.UUID
 	FileName   string
 	Encryption backups_core_enums.BackupEncryption
 	Salt       string
 	IV         string
+	StopLSN    walmath.LSN
 }

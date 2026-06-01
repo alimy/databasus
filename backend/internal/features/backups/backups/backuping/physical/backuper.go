@@ -262,9 +262,10 @@ func (n *PhysicalBackuperNode) runIncrementalBackup(
 			HistoryRepo:    n.historyRepo,
 			Logger:         logger,
 		},
-		Backup:         incrBackup,
-		ParentManifest: parentRef,
-		IncrRepo:       n.incrRepo,
+		Backup:             incrBackup,
+		ParentManifest:     parentRef,
+		IncrRepo:           n.incrRepo,
+		IncrementalCadence: backupCtx.Config.IncrementalBackupInterval.ApproxPeriod(),
 	}
 
 	backupResult, err := n.incrExecutor.Execute(ctx, incrBackupSpec)
@@ -355,9 +356,9 @@ func (n *PhysicalBackuperNode) resolveParentManifest(
 			return postgresql_executor.ParentManifestRef{}, fmt.Errorf("look up parent incr: %w", lookupErr)
 		}
 
-		if parent == nil || parent.ManifestFileName == nil {
+		if parent == nil || parent.ManifestFileName == nil || parent.StopLSN == nil {
 			return postgresql_executor.ParentManifestRef{}, errors.New(
-				"parent incremental row missing or has no manifest_file_name",
+				"parent incremental row missing or has no manifest_file_name / stop_lsn",
 			)
 		}
 
@@ -367,6 +368,7 @@ func (n *PhysicalBackuperNode) resolveParentManifest(
 			Encryption: parent.Encryption,
 			Salt:       derefString(parent.ManifestEncryptionSalt),
 			IV:         derefString(parent.ManifestEncryptionIV),
+			StopLSN:    *parent.StopLSN,
 		}, nil
 	}
 
@@ -375,8 +377,9 @@ func (n *PhysicalBackuperNode) resolveParentManifest(
 		return postgresql_executor.ParentManifestRef{}, fmt.Errorf("look up root full: %w", lookupErr)
 	}
 
-	if parent == nil || parent.ManifestFileName == nil {
-		return postgresql_executor.ParentManifestRef{}, errors.New("root full row missing or has no manifest_file_name")
+	if parent == nil || parent.ManifestFileName == nil || parent.StopLSN == nil {
+		return postgresql_executor.ParentManifestRef{}, errors.New(
+			"root full row missing or has no manifest_file_name / stop_lsn")
 	}
 
 	return postgresql_executor.ParentManifestRef{
@@ -385,6 +388,7 @@ func (n *PhysicalBackuperNode) resolveParentManifest(
 		Encryption: parent.Encryption,
 		Salt:       derefString(parent.ManifestEncryptionSalt),
 		IV:         derefString(parent.ManifestEncryptionIV),
+		StopLSN:    *parent.StopLSN,
 	}, nil
 }
 

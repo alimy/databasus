@@ -2,9 +2,11 @@ package usecases_physical_postgresql
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/require"
 
 	physical_enums "databasus-backend/internal/features/backups/backups/core/physical/enums"
@@ -69,4 +71,110 @@ func Test_CheckSummarizerReadiness_WhenSummariesDoNotCoverTarget_FallsBackToFull
 	require.Equal(t, DecisionFullNewChain, result.Decision)
 	require.NotNil(t, result.Reason)
 	require.Equal(t, physical_enums.PhysicalBackupErrorSummariesExpired, *result.Reason)
+}
+
+// stubSummarizerCheck installs a scripted readiness probe in place of the live
+// CheckSummarizerReadiness and restores the original when the test ends. Each
+// call returns the next scripted step; the final step repeats once the script
+// is exhausted so an over-eager wait loop sees a stable terminal value rather
+// than a panic.
+func stubSummarizerCheck(t *testing.T, steps ...summarizerStep) {
+	t.Helper()
+
+	original := summarizerCheck
+	t.Cleanup(func() { summarizerCheck = original })
+
+	callIndex := 0
+	summarizerCheck = func(
+		_ context.Context, _ *pgx.Conn, _ walmath.LSN, _ time.Duration,
+	) (SummarizerResult, error) {
+		step := steps[min(callIndex, len(steps)-1)]
+		callIndex++
+
+		return step.result, step.err
+	}
+}
+
+type summarizerStep struct {
+	result SummarizerResult
+	err    error
+}
+
+func waitStep(waitFor, pollEvery time.Duration) summarizerStep {
+	return summarizerStep{result: SummarizerResult{
+		Decision:  DecisionWait,
+		WaitFor:   waitFor,
+		PollEvery: pollEvery,
+	}}
+}
+
+func decisionStep(decision SummarizerDecision, reason *physical_enums.PhysicalBackupErrorReason) summarizerStep {
+	return summarizerStep{result: SummarizerResult{Decision: decision, Reason: reason}}
+}
+
+func Test_WaitForSummarizer_LaggingThenCatchesUp_ProceedsNoChainBroken(t *testing.T) {
+	stubSummarizerCheck(t,
+		waitStep(2*time.Second, 5*time.Millisecond), // first probe: lagging, opens a generous window
+		waitStep(2*time.Second, 5*time.Millisecond), // still lagging
+		decisionStep(DecisionGoIncremental, nil),    // caught up within the window
+	)
+
+	result, err := resolveSummarizerDecision(context.Background(), nil, walmath.LSN(0), time.Hour)
+
+	require.NoError(t, err)
+	require.Equal(t, DecisionGoIncremental, result.Decision,
+		"a summarizer that catches up within the window must proceed with the incremental")
+}
+
+func Test_WaitForSummarizer_StaysLaggingPastDeadline_FallsBackToFullSameChain(t *testing.T) {
+	// WaitFor is tiny and every probe keeps reporting Wait, so the window
+	// expires while still lagging — the loop must collapse to FullSameChain.
+	stubSummarizerCheck(t, waitStep(20*time.Millisecond, 5*time.Millisecond))
+
+	result, err := resolveSummarizerDecision(context.Background(), nil, walmath.LSN(0), time.Hour)
+
+	require.NoError(t, err)
+	require.Equal(t, DecisionFullSameChain, result.Decision,
+		"a summarizer that never catches up within the window must fall back to a FULL")
+}
+
+func Test_WaitForSummarizer_SummariesExpireMidWait_FallsBackToFullNewChain(t *testing.T) {
+	expired := physical_enums.PhysicalBackupErrorSummariesExpired
+
+	stubSummarizerCheck(t,
+		waitStep(2*time.Second, 5*time.Millisecond),
+		decisionStep(DecisionFullNewChain, &expired), // summaries aged out during the wait
+	)
+
+	result, err := resolveSummarizerDecision(context.Background(), nil, walmath.LSN(0), time.Hour)
+
+	require.NoError(t, err)
+	require.Equal(t, DecisionFullNewChain, result.Decision)
+	require.NotNil(t, result.Reason)
+	require.Equal(t, expired, *result.Reason,
+		"a terminal decision reached mid-wait must propagate its reason verbatim")
+}
+
+func Test_WaitForSummarizer_ContextCanceled_ReturnsError(t *testing.T) {
+	stubSummarizerCheck(t, waitStep(time.Hour, time.Hour)) // open window; only ctx ends the wait
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := resolveSummarizerDecision(ctx, nil, walmath.LSN(0), time.Hour)
+
+	require.True(t, errors.Is(err, context.Canceled),
+		"a cancelled context during the wait must surface as context.Canceled")
+}
+
+func Test_ResolveSummarizerDecision_TerminalOnFirstProbe_DoesNotWait(t *testing.T) {
+	off := physical_enums.PhysicalBackupErrorSummarizerOff
+
+	stubSummarizerCheck(t, decisionStep(DecisionFullNewChain, &off))
+
+	result, err := resolveSummarizerDecision(context.Background(), nil, walmath.LSN(0), time.Hour)
+
+	require.NoError(t, err)
+	require.Equal(t, DecisionFullNewChain, result.Decision)
+	require.Equal(t, off, *result.Reason)
 }
