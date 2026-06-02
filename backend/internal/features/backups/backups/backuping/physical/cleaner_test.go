@@ -13,6 +13,7 @@ import (
 	physical_models "databasus-backend/internal/features/backups/backups/core/physical/models"
 	physical_repositories "databasus-backend/internal/features/backups/backups/core/physical/repositories"
 	physical_testing "databasus-backend/internal/features/backups/backups/core/physical/testing"
+	postgresql_executor "databasus-backend/internal/features/backups/backups/usecases/physical/postgresql"
 	backups_config_physical "databasus-backend/internal/features/backups/config/physical"
 	billing_models "databasus-backend/internal/features/billing/models"
 	"databasus-backend/internal/features/intervals"
@@ -82,6 +83,91 @@ func Test_IsBackupSlotProtected_WhenClaimHasNoOwner_ReturnsFalse(t *testing.T) {
 	protected, err := cleaner.isBackupSlotProtected(prereqs.DB.ID, map[uuid.UUID]bool{})
 	require.NoError(t, err)
 	assert.False(t, protected, "a claim with no recorded owner cannot be proven live, so it is droppable")
+}
+
+// Test_RunStartupSlotCleanup_WhenClaimOwnerDead_DropsOrphanSlot is the end-to-end
+// proof of the "Databasus crashed mid-backup" path: the source keeps the per-backup
+// slot, the in-flight claim survives the crash, and on restart the owning node is
+// gone. The startup sweep must read the claim, see the owner is not a live node, and
+// drop the orphan against the real source PG — wiring the protection predicate to an
+// actual pg_drop_replication_slot, which the isolated isBackupSlotProtected tests
+// above do not.
+func Test_RunStartupSlotCleanup_WhenClaimOwnerDead_DropsOrphanSlot(t *testing.T) {
+	fixture := postgresql_executor.SetupPhysicalDBForBackup(t)
+	cleaner := CreateTestPhysicalCleaner(activeBilling())
+
+	slotName := postgresql_executor.SlotName(fixture.DB.PostgresqlPhysical.ID)
+	adminConn := postgresql_executor.OpenAdminConn(t, fixture)
+
+	_, err := adminConn.Exec(context.Background(),
+		"SELECT pg_create_physical_replication_slot($1, true)", slotName)
+	require.NoError(t, err, "pre-create the orphan slot a crashed backup left behind")
+	t.Cleanup(func() {
+		_, _ = adminConn.Exec(context.Background(),
+			`SELECT pg_drop_replication_slot(slot_name)
+			   FROM pg_replication_slots WHERE slot_name = $1`, slotName)
+	})
+
+	// Re-claim under a node id that was never registered, so the claim's owner is a
+	// dead node (the fixture seeds a NULL-owner claim).
+	require.NoError(t, physical_repositories.GetInFlightBackupRepository().Release(fixture.DB.ID))
+	_, err = physical_repositories.GetInFlightBackupRepository().Claim(
+		storage.GetDb(), physical_repositories.ClaimSpec{
+			DatabaseID: fixture.DB.ID,
+			BackupType: physical_enums.PhysicalBackupTypeFull,
+			BackupID:   fixture.BackupID,
+			NodeID:     uuid.New(),
+		})
+	require.NoError(t, err)
+
+	cleaner.runStartupSlotCleanup(t.Context())
+
+	assert.False(t, postgresql_executor.SlotExists(t, adminConn, slotName),
+		"a per-backup orphan whose claim owner is a dead node must be dropped at startup")
+}
+
+// Test_RunStartupSlotCleanup_WhenClaimOwnerAlive_PreservesUntilClaimReleased pins the
+// fast-restart convergence: if the previous owner's heartbeat is still fresh when the
+// process comes back, the one-shot startup sweep must NOT drop the slot (a running
+// pg_basebackup may still need the pinned WAL). Once the per-tick dead-node sweep later
+// releases the stale claim, the same sweep would reclaim the now-unprotected orphan.
+func Test_RunStartupSlotCleanup_WhenClaimOwnerAlive_PreservesUntilClaimReleased(t *testing.T) {
+	fixture := postgresql_executor.SetupPhysicalDBForBackup(t)
+	cleaner := CreateTestPhysicalCleaner(activeBilling())
+
+	slotName := postgresql_executor.SlotName(fixture.DB.PostgresqlPhysical.ID)
+	adminConn := postgresql_executor.OpenAdminConn(t, fixture)
+
+	_, err := adminConn.Exec(context.Background(),
+		"SELECT pg_create_physical_replication_slot($1, true)", slotName)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_, _ = adminConn.Exec(context.Background(),
+			`SELECT pg_drop_replication_slot(slot_name)
+			   FROM pg_replication_slots WHERE slot_name = $1`, slotName)
+	})
+
+	liveOwner := registerFakePhysicalNode(t)
+	require.NoError(t, physical_repositories.GetInFlightBackupRepository().Release(fixture.DB.ID))
+	_, err = physical_repositories.GetInFlightBackupRepository().Claim(
+		storage.GetDb(), physical_repositories.ClaimSpec{
+			DatabaseID: fixture.DB.ID,
+			BackupType: physical_enums.PhysicalBackupTypeFull,
+			BackupID:   fixture.BackupID,
+			NodeID:     liveOwner,
+		})
+	require.NoError(t, err)
+
+	cleaner.runStartupSlotCleanup(t.Context())
+	require.True(t, postgresql_executor.SlotExists(t, adminConn, slotName),
+		"slot must be preserved while its claim owner still looks alive")
+
+	// The dead-node sweep eventually fails the backup and releases the claim.
+	require.NoError(t, physical_repositories.GetInFlightBackupRepository().Release(fixture.DB.ID))
+
+	cleaner.runStartupSlotCleanup(t.Context())
+	assert.False(t, postgresql_executor.SlotExists(t, adminConn, slotName),
+		"once the stale claim is released, the orphan slot must be reclaimed")
 }
 
 func cappedBilling(storageGB int) *mockBillingService {

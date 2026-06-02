@@ -1,13 +1,15 @@
-package backups_download
+package bandwidth
 
 import (
 	"fmt"
 	"sync"
 
 	"github.com/google/uuid"
+
+	"databasus-backend/internal/features/backups/backups/download/ratelimit"
 )
 
-type BandwidthManager struct {
+type Manager struct {
 	mu                        sync.RWMutex
 	activeDownloads           map[uuid.UUID]*activeDownload
 	maxTotalBytesPerSecond    int64
@@ -16,21 +18,21 @@ type BandwidthManager struct {
 
 type activeDownload struct {
 	userID      uuid.UUID
-	rateLimiter *RateLimiter
+	rateLimiter *ratelimit.Limiter
 }
 
-func NewBandwidthManager(throughputMBs int) *BandwidthManager {
+func NewManager(throughputMBs int) *Manager {
 	// Use 75% of total throughput
 	maxBytes := int64(throughputMBs) * 1024 * 1024 * 75 / 100
 
-	return &BandwidthManager{
+	return &Manager{
 		activeDownloads:           make(map[uuid.UUID]*activeDownload),
 		maxTotalBytesPerSecond:    maxBytes,
 		bytesPerSecondPerDownload: maxBytes,
 	}
 }
 
-func (bm *BandwidthManager) RegisterDownload(userID uuid.UUID) (*RateLimiter, error) {
+func (bm *Manager) RegisterDownload(userID uuid.UUID) (*ratelimit.Limiter, error) {
 	bm.mu.Lock()
 	defer bm.mu.Unlock()
 
@@ -38,7 +40,7 @@ func (bm *BandwidthManager) RegisterDownload(userID uuid.UUID) (*RateLimiter, er
 		return nil, fmt.Errorf("download already registered for user %s", userID)
 	}
 
-	rateLimiter := NewRateLimiter(bm.bytesPerSecondPerDownload)
+	rateLimiter := ratelimit.NewLimiter(bm.bytesPerSecondPerDownload)
 
 	bm.activeDownloads[userID] = &activeDownload{
 		userID:      userID,
@@ -50,7 +52,7 @@ func (bm *BandwidthManager) RegisterDownload(userID uuid.UUID) (*RateLimiter, er
 	return rateLimiter, nil
 }
 
-func (bm *BandwidthManager) UnregisterDownload(userID uuid.UUID) {
+func (bm *Manager) UnregisterDownload(userID uuid.UUID) {
 	bm.mu.Lock()
 	defer bm.mu.Unlock()
 
@@ -58,13 +60,13 @@ func (bm *BandwidthManager) UnregisterDownload(userID uuid.UUID) {
 	bm.recalculateRates()
 }
 
-func (bm *BandwidthManager) GetActiveDownloadCount() int {
+func (bm *Manager) GetActiveDownloadCount() int {
 	bm.mu.RLock()
 	defer bm.mu.RUnlock()
 	return len(bm.activeDownloads)
 }
 
-func (bm *BandwidthManager) recalculateRates() {
+func (bm *Manager) recalculateRates() {
 	activeCount := len(bm.activeDownloads)
 
 	if activeCount == 0 {

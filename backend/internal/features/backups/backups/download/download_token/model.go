@@ -1,4 +1,4 @@
-package backups_download
+package download_token
 
 import (
 	"time"
@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 )
 
-type DownloadToken struct {
+type Token struct {
 	ID        uuid.UUID `json:"id"        gorm:"column:id;primaryKey"`
 	Token     string    `json:"token"     gorm:"column:token;uniqueIndex;not null"`
 	BackupID  uuid.UUID `json:"backupId"  gorm:"column:backup_id;not null"`
@@ -16,6 +16,6 @@ type DownloadToken struct {
 	CreatedAt time.Time `json:"createdAt" gorm:"column:created_at;not null"`
 }
 
-func (DownloadToken) TableName() string {
+func (Token) TableName() string {
 	return "download_tokens"
 }

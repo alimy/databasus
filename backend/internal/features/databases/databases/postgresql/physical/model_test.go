@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"os/exec"
 	"strconv"
 	"testing"
 	"time"
@@ -1292,6 +1293,180 @@ func Test_DropWalSlot_ErrorsOnEmptySlotName(t *testing.T) {
 	err := m.DropWalSlot(t.Context(), testLogger(), nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "empty")
+}
+
+func Test_DropWalSlotForRemoval_DropsExistingInactiveSlot(t *testing.T) {
+	for _, fx := range physicalFixtures() {
+		t.Run(fx.name, func(t *testing.T) {
+			if fx.port() == "" {
+				t.Fatalf("%s port not configured", fx.name)
+			}
+
+			m := newTestModel(t, fx.port())
+			adminConn := openTestConn(t, fx.port())
+
+			t.Cleanup(func() {
+				dropSlotIfExists(t, adminConn, m.ReplicationSlotName)
+			})
+
+			_, err := adminConn.Exec(t.Context(),
+				"SELECT pg_create_physical_replication_slot($1)",
+				m.ReplicationSlotName,
+			)
+			require.NoError(t, err)
+
+			require.NoError(t, m.DropWalSlotForRemoval(t.Context(), testLogger(), nil))
+
+			assert.False(t, slotExists(t, adminConn, m.ReplicationSlotName))
+		})
+	}
+}
+
+// Test_DropWalSlotForRemoval_TerminatesConsumerAndDropsActiveSlot pins the behavior
+// that separates DropWalSlotForRemoval from DropWalSlot: an active slot (a real
+// pg_receivewal still attached) is force-dropped — its consumer is evicted and the
+// slot removed — rather than refused. This is what guarantees a deleted database
+// never leaves WAL pinned. The consumer runs with --no-loop so it does not reconnect
+// and re-activate the slot mid-drop.
+func Test_DropWalSlotForRemoval_TerminatesConsumerAndDropsActiveSlot(t *testing.T) {
+	for _, fx := range physicalFixtures() {
+		t.Run(fx.name, func(t *testing.T) {
+			if fx.port() == "" {
+				t.Fatalf("%s port not configured", fx.name)
+			}
+
+			m := newTestModel(t, fx.port())
+			adminConn := openTestConn(t, fx.port())
+
+			t.Cleanup(func() {
+				dropSlotIfExists(t, adminConn, m.ReplicationSlotName)
+			})
+
+			_, err := adminConn.Exec(t.Context(),
+				"SELECT pg_create_physical_replication_slot($1, true)",
+				m.ReplicationSlotName,
+			)
+			require.NoError(t, err)
+
+			stopConsumer := startSlotConsumer(t, fx, m.ReplicationSlotName)
+			defer stopConsumer()
+
+			waitForSlotActive(t, adminConn, m.ReplicationSlotName, 15*time.Second)
+
+			require.NoError(t, m.DropWalSlotForRemoval(t.Context(), testLogger(), nil))
+
+			assert.False(t, slotExists(t, adminConn, m.ReplicationSlotName),
+				"an active slot must be force-dropped when its database is removed")
+		})
+	}
+}
+
+func Test_DropWalSlotForRemoval_NoOpIfSlotMissing(t *testing.T) {
+	for _, fx := range physicalFixtures() {
+		t.Run(fx.name, func(t *testing.T) {
+			if fx.port() == "" {
+				t.Fatalf("%s port not configured", fx.name)
+			}
+
+			m := newTestModel(t, fx.port())
+
+			assert.NoError(t, m.DropWalSlotForRemoval(t.Context(), testLogger(), nil))
+		})
+	}
+}
+
+func Test_DropWalSlotForRemoval_RefusesLogicalSlotWithSameName(t *testing.T) {
+	for _, fx := range physicalFixtures() {
+		t.Run(fx.name, func(t *testing.T) {
+			if fx.port() == "" {
+				t.Fatalf("%s port not configured", fx.name)
+			}
+
+			m := newTestModel(t, fx.port())
+			adminConn := openTestConn(t, fx.port())
+			skipIfNotLogicalWalLevel(t, adminConn)
+
+			_, err := adminConn.Exec(t.Context(),
+				"SELECT pg_create_logical_replication_slot($1, 'test_decoding')",
+				m.ReplicationSlotName,
+			)
+			require.NoError(t, err)
+
+			t.Cleanup(func() {
+				dropSlotIfExists(t, adminConn, m.ReplicationSlotName)
+			})
+
+			err = m.DropWalSlotForRemoval(t.Context(), testLogger(), nil)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "expected physical")
+
+			assert.True(t, slotExists(t, adminConn, m.ReplicationSlotName),
+				"a same-named logical slot must never be dropped")
+		})
+	}
+}
+
+func Test_DropWalSlotForRemoval_ErrorsOnEmptySlotName(t *testing.T) {
+	m := &PostgresqlPhysicalDatabase{ReplicationSlotName: ""}
+
+	err := m.DropWalSlotForRemoval(t.Context(), testLogger(), nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "empty")
+}
+
+// startSlotConsumer attaches a real pg_receivewal to slotName so the slot reports
+// active, returning a stop func. It runs with --no-loop (-n) so that once
+// DropWalSlotForRemoval terminates the backend, pg_receivewal exits instead of
+// reconnecting and re-activating the slot.
+func startSlotConsumer(t *testing.T, fx pgFixture, slotName string) func() {
+	t.Helper()
+
+	pgBin := tools.GetPostgresqlExecutable(fx.version, tools.PostgresqlExecutablePgReceivewal)
+	dsn := fmt.Sprintf(
+		"host=%s port=%s user=testuser password=testpassword dbname=postgres sslmode=disable",
+		config.GetEnv().TestLocalhost, fx.port(),
+	)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cmd := exec.CommandContext(ctx, pgBin, "-n", "-D", t.TempDir(), "-S", slotName, "-d", dsn)
+	require.NoError(t, cmd.Start())
+
+	return func() {
+		cancel()
+		_ = cmd.Wait()
+	}
+}
+
+// waitForSlotActive blocks until slotName has an attached consumer (active = true).
+func waitForSlotActive(t *testing.T, conn *pgx.Conn, slotName string, timeout time.Duration) {
+	t.Helper()
+
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		var isActive bool
+		err := conn.QueryRow(context.Background(),
+			"SELECT active FROM pg_replication_slots WHERE slot_name = $1", slotName,
+		).Scan(&isActive)
+		if err == nil && isActive {
+			return
+		}
+
+		time.Sleep(200 * time.Millisecond)
+	}
+
+	t.Fatalf("replication slot %q never became active within %s", slotName, timeout)
+}
+
+func slotExists(t *testing.T, conn *pgx.Conn, slotName string) bool {
+	t.Helper()
+
+	var exists bool
+	require.NoError(t, conn.QueryRow(context.Background(),
+		"SELECT EXISTS(SELECT 1 FROM pg_replication_slots WHERE slot_name = $1)",
+		slotName,
+	).Scan(&exists))
+
+	return exists
 }
 
 func Test_TestReplicationConnection_LeavesNoProbeSlotsBehind(t *testing.T) {

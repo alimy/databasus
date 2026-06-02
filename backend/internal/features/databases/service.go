@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 
 	"databasus-backend/internal/config"
 	audit_logs "databasus-backend/internal/features/audit_logs"
@@ -243,6 +244,10 @@ func (s *DatabaseService) DeleteDatabase(
 // permission checks or audit logging. The path matters because listeners
 // own external cleanup (backup rows, replication slots on source PG); tests
 // that DELETE'd through raw SQL used to leak those resources.
+//
+// Idempotent: a missing row is treated as success so a test that already
+// deleted the database through the public API does not crash on the fixture's
+// teardown re-delete.
 func (s *DatabaseService) DeleteForTest(id uuid.UUID) error {
 	for _, listener := range s.dbRemoveListener {
 		if err := listener.OnBeforeDatabaseRemove(id); err != nil {
@@ -250,7 +255,11 @@ func (s *DatabaseService) DeleteForTest(id uuid.UUID) error {
 		}
 	}
 
-	return s.dbRepository.Delete(id)
+	if err := s.dbRepository.Delete(id); err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+
+	return nil
 }
 
 func (s *DatabaseService) GetDatabase(

@@ -25,7 +25,7 @@ import (
 type VerificationService struct {
 	verificationRepository *VerificationRepository
 	databaseService        *databases.DatabaseService
-	backupService          *backups_services.BackupService
+	backupService          *backups_services.LogicalBackupService
 	configService          *verification_config.VerificationConfigService
 	notifierService        NotificationSender
 	workspaceService       *workspaces_services.WorkspaceService

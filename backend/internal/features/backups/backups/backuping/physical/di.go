@@ -120,15 +120,27 @@ var physicalSlotCleanupListener = postgresql_executor.NewPhysicalSlotCleanupList
 	logger.GetLogger(),
 )
 
-var physicalBackupCancellationListener = &PhysicalBackupCancellationListener{
+var physicalBackupCanceller = NewPhysicalBackupCanceller(
 	physical_repositories.GetInFlightBackupRepository(),
+	tasks_cancellation.GetTaskCancelManager(),
+	logger.GetLogger(),
+)
+
+func GetPhysicalBackupCanceller() *PhysicalBackupCanceller { return physicalBackupCanceller }
+
+var physicalBackupCancellationListener = &PhysicalBackupCancellationListener{
+	physicalBackupCanceller,
 	physical_repositories.GetWalStreamerRepository(),
 	tasks_cancellation.GetTaskCancelManager(),
 	logger.GetLogger(),
 }
 
 var SetupDependencies = sync.OnceFunc(func() {
-	databases.GetDatabaseService().AddDbRemoveListener(physicalSlotCleanupListener)
+	// Order matters: the cancellation listener stops the local pg_receivewal and
+	// deletes the streamer row first, so the slot cleanup listener that runs next
+	// can drop the (now detaching) WAL slot instead of refusing it as active and
+	// leaving it to pin WAL forever.
 	databases.GetDatabaseService().AddDbRemoveListener(physicalBackupCancellationListener)
+	databases.GetDatabaseService().AddDbRemoveListener(physicalSlotCleanupListener)
 	backups_config_physical.GetBackupConfigService().SetBackupConfigChangeListener(physicalBackupCancellationListener)
 })

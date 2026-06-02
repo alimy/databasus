@@ -31,6 +31,22 @@ func NewTestCompletedFullBackup(
 	}
 }
 
+// NewTestInProgressFullBackup builds a FULL that is still running: no
+// start/stop LSN, no stored file, status IN_PROGRESS. Pair it with
+// CreateTestInFlightClaim to exercise cancel / delete-while-running paths.
+func NewTestInProgressFullBackup(
+	databaseID, storageID uuid.UUID,
+	timelineID int,
+) *physical_models.PhysicalFullBackup {
+	return &physical_models.PhysicalFullBackup{
+		DatabaseID: databaseID,
+		StorageID:  storageID,
+		TimelineID: timelineID,
+		Status:     physical_enums.PhysicalBackupStatusInProgress,
+		CreatedAt:  time.Now().UTC(),
+	}
+}
+
 func NewTestCompletedIncrementalBackup(
 	databaseID, storageID, rootFullBackupID uuid.UUID,
 	parentIncrementalBackupID *uuid.UUID,
@@ -139,6 +155,30 @@ func CreateTestWalHistoryFile(
 	}
 
 	return walHistoryFile
+}
+
+// CreateTestInFlightClaim reserves the cross-table single-in-flight slot for a
+// database, simulating a running backup so cancel / delete paths have something
+// to stop.
+func CreateTestInFlightClaim(
+	t *testing.T,
+	databaseID, backupID uuid.UUID,
+	backupType physical_enums.PhysicalBackupType,
+) {
+	t.Helper()
+
+	claimed, err := physical_repositories.GetInFlightBackupRepository().
+		Claim(storage.GetDb(), physical_repositories.ClaimSpec{
+			DatabaseID: databaseID,
+			BackupType: backupType,
+			BackupID:   backupID,
+		})
+	if err != nil {
+		t.Fatalf("claim test in-flight backup: %v", err)
+	}
+	if !claimed {
+		t.Fatalf("claim test in-flight backup: database already has an in-flight claim")
+	}
 }
 
 // Call from t.Cleanup; deletes in FK-safe order so the cascade can't fight

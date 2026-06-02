@@ -31,7 +31,8 @@ type PhysicalBackupConfig struct {
 
 	WalLagThresholdBytes int64 `json:"walLagThresholdBytes" gorm:"column:wal_lag_threshold_bytes;type:bigint;not null;default:0"`
 
-	ForceFullRequestedAt *time.Time `json:"-" gorm:"column:force_full_requested_at;type:timestamptz"`
+	ForceFullRequestedAt        *time.Time `json:"-" gorm:"column:force_full_requested_at;type:timestamptz"`
+	ForceIncrementalRequestedAt *time.Time `json:"-" gorm:"column:force_incremental_requested_at;type:timestamptz"`
 
 	Storage   *storages.Storage `json:"storage"   gorm:"foreignKey:StorageID"`
 	StorageID *uuid.UUID        `json:"storageId" gorm:"column:storage_id;type:uuid"`

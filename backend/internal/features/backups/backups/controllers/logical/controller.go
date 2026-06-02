@@ -12,7 +12,8 @@ import (
 	"github.com/google/uuid"
 
 	backups_core_logical "databasus-backend/internal/features/backups/backups/core/logical"
-	backups_download "databasus-backend/internal/features/backups/backups/download"
+	"databasus-backend/internal/features/backups/backups/download/ratelimit"
+	"databasus-backend/internal/features/backups/backups/download/stream_guard"
 	backups_dto_logical "databasus-backend/internal/features/backups/backups/dto/logical"
 	backups_services "databasus-backend/internal/features/backups/backups/services"
 	"databasus-backend/internal/features/databases"
@@ -21,7 +22,7 @@ import (
 )
 
 type BackupController struct {
-	backupService *backups_services.BackupService
+	backupService *backups_services.LogicalBackupService
 }
 
 func (c *BackupController) RegisterRoutes(router *gin.RouterGroup) {
@@ -184,7 +185,7 @@ func (c *BackupController) CancelBackup(ctx *gin.Context) {
 // @Description Generate a token for downloading a backup file (valid for 5 minutes)
 // @Tags backups
 // @Param id path string true "Backup ID"
-// @Success 200 {object} backups_download.GenerateDownloadTokenResponse
+// @Success 200 {object} download_token.GenerateTokenResponse
 // @Failure 400
 // @Failure 401
 // @Failure 409 {object} map[string]string "Download already in progress"
@@ -204,7 +205,7 @@ func (c *BackupController) GenerateDownloadToken(ctx *gin.Context) {
 
 	response, err := c.backupService.GenerateDownloadToken(user, id)
 	if err != nil {
-		if errors.Is(err, backups_download.ErrDownloadAlreadyInProgress) {
+		if errors.Is(err, stream_guard.ErrDownloadAlreadyInProgress) {
 			ctx.JSON(
 				http.StatusConflict,
 				gin.H{
@@ -255,7 +256,7 @@ func (c *BackupController) GetFile(ctx *gin.Context) {
 
 	downloadToken, rateLimiter, err := c.backupService.ValidateDownloadToken(token)
 	if err != nil {
-		if errors.Is(err, backups_download.ErrDownloadAlreadyInProgress) {
+		if errors.Is(err, stream_guard.ErrDownloadAlreadyInProgress) {
 			ctx.JSON(
 				http.StatusConflict,
 				gin.H{
@@ -284,7 +285,7 @@ func (c *BackupController) GetFile(ctx *gin.Context) {
 		return
 	}
 
-	rateLimitedReader := backups_download.NewRateLimitedReader(fileReader, rateLimiter)
+	rateLimitedReader := ratelimit.NewLimitedReader(fileReader, rateLimiter)
 
 	heartbeatCtx, cancelHeartbeat := context.WithCancel(context.Background())
 	defer func() {
@@ -352,7 +353,7 @@ func (c *BackupController) getBackupExtension(
 }
 
 func (c *BackupController) startDownloadHeartbeat(ctx context.Context, userID uuid.UUID) {
-	ticker := time.NewTicker(backups_download.GetDownloadHeartbeatInterval())
+	ticker := time.NewTicker(stream_guard.GetDownloadHeartbeatInterval())
 	defer ticker.Stop()
 
 	for {

@@ -22,9 +22,11 @@ import (
 	backups_config_logical "databasus-backend/internal/features/backups/config/logical"
 	backups_config_physical "databasus-backend/internal/features/backups/config/physical"
 	"databasus-backend/internal/features/databases"
+	postgresql_physical "databasus-backend/internal/features/databases/databases/postgresql/physical"
 	"databasus-backend/internal/features/intervals"
 	"databasus-backend/internal/features/notifiers"
 	"databasus-backend/internal/features/storages"
+	users_dto "databasus-backend/internal/features/users/dto"
 	users_enums "databasus-backend/internal/features/users/enums"
 	users_testing "databasus-backend/internal/features/users/testing"
 	workspaces_controllers "databasus-backend/internal/features/workspaces/controllers"
@@ -42,6 +44,7 @@ import (
 // most tests need; the rest are kept so tests can mutate config or hit the
 // source PG.
 type PhysicalDBFixture struct {
+	Owner     *users_dto.SignInResponseDTO
 	Workspace *workspaces_models.Workspace
 	Storage   *storages.Storage
 	Notifier  *notifiers.Notifier
@@ -136,10 +139,33 @@ func BuildAndClaimIncremental(
 	return incrID
 }
 
-// setupPhysicalFixture is the shared body behind the version / mTLS fixtures:
-// it wires workspace, storage, notifier, DB (via createDB), then populates DB
-// data, enables backups, and seeds an IN_PROGRESS FULL row + in-flight claim.
-func setupPhysicalFixture(
+// SetupPhysicalDBForScheduledBackupVersion wires a physical fixture for the
+// scheduler-driven, HTTP-API E2E tests. Unlike SetupPhysicalDBForBackup* it
+// leaves backups DISABLED and seeds no backup row (BackupID is uuid.Nil): the
+// test enables backups and triggers FULL/INCR through the controller while the
+// scheduler + backuper node started in TestMain execute them. backupType lands
+// on the source DB (FULL_AND_INCREMENTAL to build chains, or
+// FULL_INCREMENTAL_AND_WAL_STREAM to also stream WAL) because the scheduler's
+// incremental eligibility reads that DB-level field, which the config API can't
+// set.
+func SetupPhysicalDBForScheduledBackupVersion(
+	t *testing.T,
+	version string,
+	backupType postgresql_physical.BackupType,
+) *PhysicalDBFixture {
+	t.Helper()
+
+	return wirePhysicalDBFixture(t, func(workspaceID uuid.UUID, notifier *notifiers.Notifier) *databases.Database {
+		return databases.CreateTestPhysicalPostgresDatabaseWithType(workspaceID, notifier, version, backupType)
+	})
+}
+
+// wirePhysicalDBFixture provisions the scaffolding every physical fixture needs —
+// workspace, storage, notifier, the source DB (via createDB), populated data, and
+// the persisted system_identifier — returning it with backups still disabled and
+// no backup row seeded (BackupID is uuid.Nil). setupPhysicalFixture builds on it
+// for the direct-MakeBackup pattern; the scheduler-driven fixture returns it as is.
+func wirePhysicalDBFixture(
 	t *testing.T,
 	createDB func(workspaceID uuid.UUID, notifier *notifiers.Notifier) *databases.Database,
 ) *PhysicalDBFixture {
@@ -180,16 +206,36 @@ func setupPhysicalFixture(
 		Model(db.PostgresqlPhysical).
 		Update("system_identifier", db.PostgresqlPhysical.SystemIdentifier).Error)
 
+	return &PhysicalDBFixture{
+		Owner:     owner,
+		Workspace: workspace,
+		Storage:   testStorage,
+		Notifier:  notifier,
+		DB:        db,
+	}
+}
+
+// setupPhysicalFixture is the shared body behind the version / mTLS fixtures:
+// it wires the DB, enables backups, and seeds an IN_PROGRESS FULL row + in-flight
+// claim for the direct-MakeBackup pattern.
+func setupPhysicalFixture(
+	t *testing.T,
+	createDB func(workspaceID uuid.UUID, notifier *notifiers.Notifier) *databases.Database,
+) *PhysicalDBFixture {
+	t.Helper()
+
+	fixture := wirePhysicalDBFixture(t, createDB)
+
 	cfgService := backups_config_physical.GetBackupConfigService()
 
-	cfg, err := cfgService.GetBackupConfigByDbId(db.ID)
+	cfg, err := cfgService.GetBackupConfigByDbId(fixture.DB.ID)
 	require.NoError(t, err)
 
 	cfg.IsBackupsEnabled = true
-	cfg.StorageID = &testStorage.ID
-	cfg.Storage = testStorage
+	cfg.StorageID = &fixture.Storage.ID
+	cfg.Storage = fixture.Storage
 	cfg.Encryption = backups_core_enums.BackupEncryptionNone
-	cfg.PostgresqlPhysical = db.PostgresqlPhysical
+	cfg.PostgresqlPhysical = fixture.DB.PostgresqlPhysical
 	cfg.FullBackupInterval = intervals.Interval{
 		Type:      intervals.IntervalDaily,
 		TimeOfDay: new("04:00"),
@@ -201,8 +247,8 @@ func setupPhysicalFixture(
 	backupID := uuid.New()
 	backupRow := &physical_models.PhysicalFullBackup{
 		ID:         backupID,
-		DatabaseID: db.ID,
-		StorageID:  testStorage.ID,
+		DatabaseID: fixture.DB.ID,
+		StorageID:  fixture.Storage.ID,
 		TimelineID: 1,
 		Status:     physical_enums.PhysicalBackupStatusInProgress,
 		Encryption: backups_core_enums.BackupEncryptionNone,
@@ -216,23 +262,19 @@ func setupPhysicalFixture(
 
 	claimed, err := physical_repositories.GetInFlightBackupRepository().Claim(
 		storage.GetDb(), physical_repositories.ClaimSpec{
-			DatabaseID: db.ID,
+			DatabaseID: fixture.DB.ID,
 			BackupType: physical_enums.PhysicalBackupTypeFull,
 			BackupID:   backupID,
 		})
 	require.NoError(t, err)
 	require.True(t, claimed)
 	t.Cleanup(func() {
-		_ = physical_repositories.GetInFlightBackupRepository().Release(db.ID)
+		_ = physical_repositories.GetInFlightBackupRepository().Release(fixture.DB.ID)
 	})
 
-	return &PhysicalDBFixture{
-		Workspace: workspace,
-		Storage:   testStorage,
-		Notifier:  notifier,
-		DB:        db,
-		BackupID:  backupID,
-	}
+	fixture.BackupID = backupID
+
+	return fixture
 }
 
 // OpenAdminConn returns an inspection connection to the source PG with
@@ -668,6 +710,16 @@ func CountCommittedWalSegments(t *testing.T, databaseID uuid.UUID) int64 {
 // back and replayed.
 func StartWalStreamerForTest(t *testing.T, fixture *PhysicalDBFixture, store storages.StorageFileSaver) func() {
 	t.Helper()
+
+	// A replication slot is meant to outlive a streamer restart (so WAL is never
+	// lost), so the supervisor deliberately does NOT drop it on shutdown. In tests
+	// that would leak one slot per run until max_replication_slots is exhausted, so
+	// drop this streamer's slot here. Registered before the caller's stop cleanup,
+	// it runs (LIFO) right after the streamer has stopped and before the conn closes.
+	adminConn := OpenAdminConn(t, fixture)
+	t.Cleanup(func() {
+		DropReplicationSlotExternally(t, adminConn, fixture.DB.PostgresqlPhysical.ReplicationSlotName)
+	})
 
 	supervisor := NewWalStreamSupervisor(WalStreamSpec{
 		DatabaseID:     fixture.DB.ID,

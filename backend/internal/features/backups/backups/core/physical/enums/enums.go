@@ -86,4 +86,10 @@ type PhysicalBackupType string
 const (
 	PhysicalBackupTypeFull        PhysicalBackupType = "FULL"
 	PhysicalBackupTypeIncremental PhysicalBackupType = "INCREMENTAL"
+
+	// PhysicalBackupTypeWal tags a committed WAL segment in the flat backup
+	// list. WAL has no dedicated backup table-row identity beyond the segment,
+	// so this value exists only as a list/UI discriminator, never as a backup
+	// the scheduler creates.
+	PhysicalBackupTypeWal PhysicalBackupType = "WAL"
 )

@@ -25,7 +25,7 @@ const (
 
 type RestoresScheduler struct {
 	restoreRepository        *restores_core.RestoreRepository
-	backupService            *backups_services.BackupService
+	backupService            *backups_services.LogicalBackupService
 	storageService           *storages.StorageService
 	backupConfigService      *backups_config_logical.BackupConfigService
 	restoreNodesRegistry     *RestoreNodesRegistry

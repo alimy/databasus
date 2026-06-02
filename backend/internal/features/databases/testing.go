@@ -44,6 +44,18 @@ func GetTestPostgresConfig() *postgresql_logical.PostgresqlLogicalDatabase {
 // only parse the value — a missing container DSN fails the run there, never here
 // and never as a skip.
 func GetTestPhysicalPostgresConfig(versionTag string) *postgresql_physical.PostgresqlPhysicalDatabase {
+	return GetTestPhysicalPostgresConfigWithType(versionTag, postgresql_physical.BackupTypeFullOnly)
+}
+
+// GetTestPhysicalPostgresConfigWithType is GetTestPhysicalPostgresConfig with an
+// explicit BackupType, so scheduler-driven tests can build chains
+// (FULL_AND_INCREMENTAL) or stream WAL (FULL_INCREMENTAL_AND_WAL_STREAM) — the
+// scheduler's incremental decision keys off this DB-level field, which the
+// backup-config API cannot change.
+func GetTestPhysicalPostgresConfigWithType(
+	versionTag string,
+	backupType postgresql_physical.BackupType,
+) *postgresql_physical.PostgresqlPhysicalDatabase {
 	env := config.GetEnv()
 
 	var portStr string
@@ -71,7 +83,7 @@ func GetTestPhysicalPostgresConfig(versionTag string) *postgresql_physical.Postg
 		Port:       port,
 		Username:   "testuser",
 		Password:   "testpassword",
-		BackupType: postgresql_physical.BackupTypeFullOnly,
+		BackupType: backupType,
 	}
 }
 
@@ -304,11 +316,24 @@ func CreateTestPhysicalPostgresDatabase(
 	notifier *notifiers.Notifier,
 	versionTag string,
 ) *Database {
+	return CreateTestPhysicalPostgresDatabaseWithType(
+		workspaceID, notifier, versionTag, postgresql_physical.BackupTypeFullOnly)
+}
+
+// CreateTestPhysicalPostgresDatabaseWithType is CreateTestPhysicalPostgresDatabase
+// with an explicit BackupType, for scheduler-driven incremental / WAL-stream
+// chains whose eligibility the scheduler reads from this DB-level field.
+func CreateTestPhysicalPostgresDatabaseWithType(
+	workspaceID uuid.UUID,
+	notifier *notifiers.Notifier,
+	versionTag string,
+	backupType postgresql_physical.BackupType,
+) *Database {
 	database := &Database{
 		WorkspaceID:        &workspaceID,
 		Name:               "test-physical-pg " + uuid.New().String(),
 		Type:               DatabaseTypePostgresPhysical,
-		PostgresqlPhysical: GetTestPhysicalPostgresConfig(versionTag),
+		PostgresqlPhysical: GetTestPhysicalPostgresConfigWithType(versionTag, backupType),
 		Notifiers: []notifiers.Notifier{
 			*notifier,
 		},

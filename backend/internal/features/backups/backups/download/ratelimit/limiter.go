@@ -1,12 +1,11 @@
-package backups_download
+package ratelimit
 
 import (
-	"io"
 	"sync"
 	"time"
 )
 
-type RateLimiter struct {
+type Limiter struct {
 	mu              sync.Mutex
 	bytesPerSecond  int64
 	bucketSize      int64
@@ -14,12 +13,12 @@ type RateLimiter struct {
 	lastRefill      time.Time
 }
 
-func NewRateLimiter(bytesPerSecond int64) *RateLimiter {
+func NewLimiter(bytesPerSecond int64) *Limiter {
 	if bytesPerSecond <= 0 {
 		bytesPerSecond = 1024 * 1024 * 100
 	}
 
-	return &RateLimiter{
+	return &Limiter{
 		bytesPerSecond:  bytesPerSecond,
 		bucketSize:      bytesPerSecond * 2,
 		availableTokens: float64(bytesPerSecond * 2),
@@ -27,7 +26,7 @@ func NewRateLimiter(bytesPerSecond int64) *RateLimiter {
 	}
 }
 
-func (rl *RateLimiter) UpdateRate(bytesPerSecond int64) {
+func (rl *Limiter) UpdateRate(bytesPerSecond int64) {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
 
@@ -43,7 +42,17 @@ func (rl *RateLimiter) UpdateRate(bytesPerSecond int64) {
 	}
 }
 
-func (rl *RateLimiter) Wait(bytes int64) {
+// GetBytesPerSecond reports the limiter's current sustained rate. The
+// BandwidthManager owns this value and rebalances it as streams come and go;
+// exposed so other packages (and its tests) can observe the live rate.
+func (rl *Limiter) GetBytesPerSecond() int64 {
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+
+	return rl.bytesPerSecond
+}
+
+func (rl *Limiter) Wait(bytes int64) {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
 
@@ -72,28 +81,4 @@ func (rl *RateLimiter) Wait(bytes int64) {
 		time.Sleep(waitTime)
 		rl.mu.Lock()
 	}
-}
-
-type RateLimitedReader struct {
-	reader      io.ReadCloser
-	rateLimiter *RateLimiter
-}
-
-func NewRateLimitedReader(reader io.ReadCloser, limiter *RateLimiter) *RateLimitedReader {
-	return &RateLimitedReader{
-		reader:      reader,
-		rateLimiter: limiter,
-	}
-}
-
-func (r *RateLimitedReader) Read(p []byte) (n int, err error) {
-	n, err = r.reader.Read(p)
-	if n > 0 {
-		r.rateLimiter.Wait(int64(n))
-	}
-	return n, err
-}
-
-func (r *RateLimitedReader) Close() error {
-	return r.reader.Close()
 }

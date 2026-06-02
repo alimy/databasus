@@ -24,6 +24,7 @@ import (
 	backuping_logical "databasus-backend/internal/features/backups/backups/backuping/logical"
 	backups_core_logical "databasus-backend/internal/features/backups/backups/core/logical"
 	backups_download "databasus-backend/internal/features/backups/backups/download"
+	"databasus-backend/internal/features/backups/backups/download/download_token"
 	backups_dto_logical "databasus-backend/internal/features/backups/backups/dto/logical"
 	backups_services "databasus-backend/internal/features/backups/backups/services"
 	backups_config_logical "databasus-backend/internal/features/backups/config/logical"
@@ -684,7 +685,7 @@ func Test_GenerateDownloadToken_PermissionsEnforced(t *testing.T) {
 			)
 
 			if tt.expectSuccess {
-				var response backups_download.GenerateDownloadTokenResponse
+				var response download_token.GenerateTokenResponse
 				err := json.Unmarshal(testResp.Body, &response)
 				assert.NoError(t, err)
 				assert.NotEmpty(t, response.Token)
@@ -711,7 +712,7 @@ func Test_DownloadBackup_WithValidToken_Success(t *testing.T) {
 	database, backup, storage := createTestDatabaseWithBackups(workspace, owner, router)
 
 	// Generate download token
-	var tokenResponse backups_download.GenerateDownloadTokenResponse
+	var tokenResponse download_token.GenerateTokenResponse
 	test_utils.MakePostRequestAndUnmarshal(
 		t,
 		router,
@@ -856,7 +857,7 @@ func Test_DownloadBackup_TokenUsedOnce_CannotReuseToken(t *testing.T) {
 	database, backup, storage := createTestDatabaseWithBackups(workspace, owner, router)
 
 	// Generate download token
-	var tokenResponse backups_download.GenerateDownloadTokenResponse
+	var tokenResponse download_token.GenerateTokenResponse
 	test_utils.MakePostRequestAndUnmarshal(
 		t,
 		router,
@@ -925,7 +926,7 @@ func Test_DownloadBackup_WithDifferentBackupToken_Unauthorized(t *testing.T) {
 	backup2 := createTestBackup(database2, owner)
 
 	// Generate token for backup1
-	var tokenResponse backups_download.GenerateDownloadTokenResponse
+	var tokenResponse download_token.GenerateTokenResponse
 	test_utils.MakePostRequestAndUnmarshal(
 		t,
 		router,
@@ -963,7 +964,7 @@ func Test_DownloadBackup_AuditLogWritten(t *testing.T) {
 	database, backup, storage := createTestDatabaseWithBackups(workspace, owner, router)
 
 	// Generate download token
-	var tokenResponse backups_download.GenerateDownloadTokenResponse
+	var tokenResponse download_token.GenerateTokenResponse
 	test_utils.MakePostRequestAndUnmarshal(
 		t,
 		router,
@@ -1061,7 +1062,7 @@ func Test_DownloadBackup_ProperFilenameForPostgreSQL(t *testing.T) {
 			backup := createTestBackup(database, owner)
 
 			// Generate download token
-			var tokenResponse backups_download.GenerateDownloadTokenResponse
+			var tokenResponse download_token.GenerateTokenResponse
 			test_utils.MakePostRequestAndUnmarshal(
 				t,
 				router,
@@ -1223,7 +1224,7 @@ func Test_ConcurrentDownloadPrevention(t *testing.T) {
 
 	database, backup, storage := createTestDatabaseWithBackups(workspace, owner, router)
 
-	var token1Response backups_download.GenerateDownloadTokenResponse
+	var token1Response download_token.GenerateTokenResponse
 	test_utils.MakePostRequestAndUnmarshal(
 		t,
 		router,
@@ -1234,7 +1235,7 @@ func Test_ConcurrentDownloadPrevention(t *testing.T) {
 		&token1Response,
 	)
 
-	var token2Response backups_download.GenerateDownloadTokenResponse
+	var token2Response download_token.GenerateTokenResponse
 	test_utils.MakePostRequestAndUnmarshal(
 		t,
 		router,
@@ -1298,7 +1299,7 @@ func Test_ConcurrentDownloadPrevention(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	var token3Response backups_download.GenerateDownloadTokenResponse
+	var token3Response download_token.GenerateTokenResponse
 	test_utils.MakePostRequestAndUnmarshal(
 		t,
 		router,
@@ -1336,7 +1337,7 @@ func Test_GenerateDownloadToken_BlockedWhenDownloadInProgress(t *testing.T) {
 
 	database, backup, storage := createTestDatabaseWithBackups(workspace, owner, router)
 
-	var token1Response backups_download.GenerateDownloadTokenResponse
+	var token1Response download_token.GenerateTokenResponse
 	test_utils.MakePostRequestAndUnmarshal(
 		t,
 		router,
@@ -1397,7 +1398,7 @@ func Test_GenerateDownloadToken_BlockedWhenDownloadInProgress(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	var token2Response backups_download.GenerateDownloadTokenResponse
+	var token2Response download_token.GenerateTokenResponse
 	test_utils.MakePostRequestAndUnmarshal(
 		t,
 		router,
@@ -1683,7 +1684,7 @@ func createExpiredDownloadToken(backupID, userID uuid.UUID) string {
 	}
 
 	// Manually update the token to be expired
-	repo := &backups_download.DownloadTokenRepository{}
+	repo := &download_token.Repository{}
 	downloadToken, err := repo.FindByToken(token)
 	if err != nil || downloadToken == nil {
 		panic(fmt.Sprintf("Failed to find generated token: %v", err))
@@ -1708,7 +1709,7 @@ func Test_BandwidthThrottling_SingleDownload_Uses75Percent(t *testing.T) {
 	bandwidthManager := backups_download.GetBandwidthManager()
 	initialCount := bandwidthManager.GetActiveDownloadCount()
 
-	var tokenResponse backups_download.GenerateDownloadTokenResponse
+	var tokenResponse download_token.GenerateTokenResponse
 	test_utils.MakePostRequestAndUnmarshal(
 		t,
 		router,
@@ -1800,7 +1801,7 @@ func Test_BandwidthThrottling_MultipleDownloads_ShareBandwidth(t *testing.T) {
 	backup2 := createTestBackup(database, owner2)
 	backup3 := createTestBackup(database, owner3)
 
-	var token1, token2, token3 backups_download.GenerateDownloadTokenResponse
+	var token1, token2, token3 download_token.GenerateTokenResponse
 	test_utils.MakePostRequestAndUnmarshal(
 		t,
 		router,
@@ -1916,7 +1917,7 @@ func Test_BandwidthThrottling_DynamicAdjustment(t *testing.T) {
 	backup1 := createTestBackup(database, owner1)
 	backup2 := createTestBackup(database, owner2)
 
-	var token1, token2 backups_download.GenerateDownloadTokenResponse
+	var token1, token2 download_token.GenerateTokenResponse
 	test_utils.MakePostRequestAndUnmarshal(
 		t,
 		router,

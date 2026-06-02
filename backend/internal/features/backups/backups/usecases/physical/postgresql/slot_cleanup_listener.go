@@ -16,8 +16,10 @@ import (
 // metadata-level delete still goes through; RunStartupCleanup will not
 // recover the WAL streamer slot (which lives until that source disappears),
 // but the per-backup slot is recoverable on the next run that touches that
-// source.
-const slotCleanupDeadline = 5 * time.Second
+// source. The budget covers terminating a still-attached pg_receivewal and
+// waiting for the WAL streamer slot to detach before dropping it, so it is
+// larger than a plain query timeout.
+const slotCleanupDeadline = 20 * time.Second
 
 // PhysicalSlotCleanupListener drops the per-backup and WAL streamer slots
 // owned by a physical PostgreSQL database before the database row is
@@ -70,12 +72,17 @@ func (l *PhysicalSlotCleanupListener) OnBeforeDatabaseRemove(databaseID uuid.UUI
 	}
 	defer func() { _ = conn.Close(context.Background()) }()
 
-	slotName := SlotName(databaseID)
+	// The per-backup slot is keyed by the PostgresqlPhysical ID (see
+	// WithBackupSlot / RunStartupCleanup), NOT the parent Database ID — the two are
+	// distinct UUIDs. Using databaseID here would drop a name that never existed and
+	// leave the real slot orphaned forever (the DB row is about to be deleted, so
+	// RunStartupCleanup can never recover it).
+	slotName := SlotName(database.PostgresqlPhysical.ID)
 	if dropErr := dropBackupSlotIfExists(ctx, conn, slotName); dropErr != nil {
 		logger.Warn("physical slot cleanup: per-backup slot drop failed", "slot_name", slotName, "error", dropErr)
 	}
 
-	if dropErr := database.PostgresqlPhysical.DropWalSlot(ctx, logger, l.fieldEncryptor); dropErr != nil {
+	if dropErr := database.PostgresqlPhysical.DropWalSlotForRemoval(ctx, logger, l.fieldEncryptor); dropErr != nil {
 		logger.Warn("physical slot cleanup: WAL streamer slot drop failed",
 			"slot_name", database.PostgresqlPhysical.ReplicationSlotName,
 			"error", dropErr,

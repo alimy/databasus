@@ -216,6 +216,14 @@ func (s *BackupConfigService) ClearFullBackupRequest(databaseID uuid.UUID, reque
 	return s.backupConfigRepository.ClearFullBackupRequest(databaseID, requestedAt)
 }
 
+func (s *BackupConfigService) RequestIncrementalBackupNow(databaseID uuid.UUID) error {
+	return s.backupConfigRepository.RequestIncrementalBackupNow(databaseID)
+}
+
+func (s *BackupConfigService) ClearIncrementalBackupRequest(databaseID uuid.UUID, requestedAt *time.Time) error {
+	return s.backupConfigRepository.ClearIncrementalBackupRequest(databaseID, requestedAt)
+}
+
 func (s *BackupConfigService) OnDatabaseCopied(originalDatabaseID, newDatabaseID uuid.UUID) {
 	originalConfig, err := s.backupConfigRepository.FindByDatabaseID(originalDatabaseID)
 	if err != nil || originalConfig == nil {

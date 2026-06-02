@@ -3,12 +3,12 @@ package backuping_physical
 import "time"
 
 const (
-	// Scheduler tick and failover sweep share this cadence. User-configured
-	// FULL/INCR intervals span hours to days, so sub-minute polling is ample; the
-	// tighter bound comes from failover, where 15 s keeps detect-to-fail under
-	// ~2 min after a node dies. Each tick is a handful of cheap indexed queries
-	// per enabled DB.
-	schedulerTickInterval = 15 * time.Second
+	// Scheduler tick and failover sweep share this cadence. Each tick is a handful
+	// of cheap indexed queries per enabled DB, so a 1 s cadence keeps out-of-cadence
+	// backup triggers and dead-node failover near-immediate without meaningful load
+	// (user-configured FULL/INCR intervals still span hours to days — the tick only
+	// decides whether one is due).
+	schedulerTickInterval = 1 * time.Second
 
 	// In many-nodes mode, peer nodes need time to register in the backup registry
 	// before the first tick so node selection has candidates.

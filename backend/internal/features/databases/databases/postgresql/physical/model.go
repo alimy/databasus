@@ -497,6 +497,94 @@ func (p *PostgresqlPhysicalDatabase) DropWalSlot(
 	return nil
 }
 
+// DropWalSlotForRemoval drops the persistent WAL slot when its owning database is
+// being removed. Unlike DropWalSlot it does NOT refuse an active slot: on database
+// deletion the local pg_receivewal is torn down concurrently (cancelled by the
+// removal listener), so the consumer may still be attached or mid-detach when this
+// runs. It terminates any remaining consumer of *this* slot — safe because the slot
+// name (databasus_slot_<uuid>) is owned exclusively by this database — waits for the
+// slot to go inactive, then drops it. This guarantees a deleted database never
+// leaves a slot pinning WAL on the source. Bounded by ctx; the caller passes a
+// deadline. Refuses on logical-slot collision (same reasoning as VerifyWalSlot).
+func (p *PostgresqlPhysicalDatabase) DropWalSlotForRemoval(
+	ctx context.Context,
+	logger *slog.Logger,
+	encryptor encryption.FieldEncryptor,
+) error {
+	if p.ReplicationSlotName == "" {
+		return errors.New("replication slot name is empty; row corruption or BeforeCreate bypassed")
+	}
+
+	conn, err := openConn(ctx, p, encryptor)
+	if err != nil {
+		return fmt.Errorf("open conn: %w", err)
+	}
+	defer closeConnQuietly(ctx, conn, logger)
+
+	for {
+		var slotType string
+		var isActive bool
+		var activePID *int
+		err = conn.QueryRow(ctx,
+			"SELECT slot_type, active, active_pid FROM pg_replication_slots WHERE slot_name = $1",
+			p.ReplicationSlotName,
+		).Scan(&slotType, &isActive, &activePID)
+
+		switch {
+		case errors.Is(err, pgx.ErrNoRows):
+			logger.Debug("replication slot already absent", "slot_name", p.ReplicationSlotName)
+
+			return nil
+
+		case err != nil:
+			return fmt.Errorf("query pg_replication_slots: %w", err)
+		}
+
+		if slotType != "physical" {
+			return fmt.Errorf(
+				"replication slot %q exists with type %q (expected physical); refusing to drop",
+				p.ReplicationSlotName, slotType,
+			)
+		}
+
+		if !isActive {
+			break
+		}
+
+		// The slot is ours and the database is going away — evict the consumer.
+		// pg_receivewal clears the active flag a moment after SIGTERM, so poll
+		// rather than assume the detach is instantaneous.
+		if activePID != nil {
+			if _, termErr := conn.Exec(ctx, "SELECT pg_terminate_backend($1)", *activePID); termErr != nil {
+				logger.Warn("failed to terminate replication slot consumer",
+					"slot_name", p.ReplicationSlotName, "active_pid", *activePID, "error", termErr)
+			}
+		}
+
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("waiting for replication slot %q to detach: %w", p.ReplicationSlotName, ctx.Err())
+		case <-time.After(250 * time.Millisecond):
+		}
+	}
+
+	_, err = conn.Exec(ctx, "SELECT pg_drop_replication_slot($1)", p.ReplicationSlotName)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "42704" {
+			logger.Debug("replication slot dropped by concurrent caller", "slot_name", p.ReplicationSlotName)
+
+			return nil
+		}
+
+		return fmt.Errorf("drop replication slot: %w", err)
+	}
+
+	logger.Info("replication slot dropped", "slot_name", p.ReplicationSlotName)
+
+	return nil
+}
+
 func (p *PostgresqlPhysicalDatabase) GetClusterSizeMb(
 	ctx context.Context,
 	logger *slog.Logger,

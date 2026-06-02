@@ -15,6 +15,7 @@ import (
 	physical_service "databasus-backend/internal/features/backups/backups/core/physical/service"
 	postgresql_executor "databasus-backend/internal/features/backups/backups/usecases/physical/postgresql"
 	backups_config_physical "databasus-backend/internal/features/backups/config/physical"
+	"databasus-backend/internal/features/billing"
 	"databasus-backend/internal/features/databases"
 	encryption_secrets "databasus-backend/internal/features/encryption/secrets"
 	"databasus-backend/internal/features/notifiers"
@@ -180,4 +181,91 @@ func StartPhysicalBackuperForTest(
 // wrapper to keep test code symmetric.
 func StopPhysicalBackuperForTest(_ *testing.T, cancel context.CancelFunc) {
 	cancel()
+}
+
+// StartPhysicalSchedulerForTest starts a fresh scheduler's Run loop in a
+// goroutine and waits until it has subscribed to completions (IsRunning). It
+// mirrors the single-node production wiring where the same process runs the
+// scheduler and a backuper node, coordinating through the shared physical node
+// registry — so a backup requested over HTTP is picked up on the next tick and
+// handed to StartPhysicalBackuperForTest's node. The production billing seam is
+// injected; outside cloud mode it is never consulted. Returns a cancel func the
+// caller defers; it cancels and waits for the goroutine to drain.
+func StartPhysicalSchedulerForTest(t *testing.T) context.CancelFunc {
+	t.Helper()
+
+	scheduler := CreateTestPhysicalScheduler(billing.GetBillingService())
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	done := make(chan struct{})
+
+	go func() {
+		scheduler.Run(ctx)
+		close(done)
+	}()
+
+	deadline := time.Now().UTC().Add(5 * time.Second)
+	for time.Now().UTC().Before(deadline) {
+		if scheduler.IsRunning() {
+			return func() {
+				cancel()
+
+				select {
+				case <-done:
+				case <-time.After(2 * time.Second):
+					t.Log("physical scheduler stop timeout")
+				}
+			}
+		}
+
+		time.Sleep(50 * time.Millisecond)
+	}
+
+	t.Fatalf("physical scheduler failed to start within timeout")
+
+	return nil
+}
+
+// StartPhysicalWalStreamSupervisorForTest starts a fresh WAL stream supervisor's
+// Run loop in a goroutine and waits until it is ready (IsRunning). It mirrors the
+// processing-node wiring in cmd/main.go: with the supervisor up, enabling
+// WAL-stream backups over the HTTP config API causes it to claim the database and
+// create its replication slot on the next reconcile tick — so tests drive the slot
+// lifecycle through the API instead of starting a streamer by hand. Returns a
+// cancel func the caller defers; it cancels and waits for the goroutine to drain.
+func StartPhysicalWalStreamSupervisorForTest(t *testing.T) context.CancelFunc {
+	t.Helper()
+
+	supervisor := CreateTestWalStreamSupervisor()
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	done := make(chan struct{})
+
+	go func() {
+		supervisor.Run(ctx)
+		close(done)
+	}()
+
+	deadline := time.Now().UTC().Add(5 * time.Second)
+	for time.Now().UTC().Before(deadline) {
+		if supervisor.IsRunning() {
+			return func() {
+				cancel()
+
+				select {
+				case <-done:
+				case <-time.After(5 * time.Second):
+					t.Log("physical wal stream supervisor stop timeout")
+				}
+			}
+		}
+
+		time.Sleep(50 * time.Millisecond)
+	}
+
+	t.Fatalf("physical wal stream supervisor failed to start within timeout")
+
+	return nil
 }

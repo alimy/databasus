@@ -1,4 +1,4 @@
-package backups_download
+package download_token
 
 import (
 	"context"
@@ -8,14 +8,21 @@ import (
 	"time"
 )
 
-type DownloadTokenBackgroundService struct {
-	downloadTokenService *DownloadTokenService
+type BackgroundService struct {
+	downloadTokenService *Service
 	logger               *slog.Logger
 
 	hasRun atomic.Bool
 }
 
-func (s *DownloadTokenBackgroundService) Run(ctx context.Context) {
+func NewBackgroundService(downloadTokenService *Service, logger *slog.Logger) *BackgroundService {
+	return &BackgroundService{
+		downloadTokenService: downloadTokenService,
+		logger:               logger,
+	}
+}
+
+func (s *BackgroundService) Run(ctx context.Context) {
 	if s.hasRun.Swap(true) {
 		panic(fmt.Sprintf("%T.Run() called multiple times", s))
 	}

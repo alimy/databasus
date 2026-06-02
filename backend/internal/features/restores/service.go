@@ -27,7 +27,7 @@ import (
 )
 
 type RestoreService struct {
-	backupService        *backups_services.BackupService
+	backupService        *backups_services.LogicalBackupService
 	restoreRepository    *restores_core.RestoreRepository
 	storageService       *storages.StorageService
 	backupConfigService  *backups_config_logical.BackupConfigService

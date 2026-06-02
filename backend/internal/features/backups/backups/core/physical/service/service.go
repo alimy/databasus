@@ -2,6 +2,7 @@ package physical_service
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -17,6 +18,7 @@ import (
 	"databasus-backend/internal/features/storages"
 	"databasus-backend/internal/storage"
 	util_encryption "databasus-backend/internal/util/encryption"
+	"databasus-backend/internal/util/walmath"
 )
 
 const (
@@ -27,6 +29,11 @@ const (
 	// One DELETE transaction never removes more than this many WAL rows per
 	// batch, so the anchor-FULL lock is not held across an unbounded delete.
 	maxWalDeleteBatchRows = 50
+
+	// unboundedWalBudgetMB is the budget a user-initiated delete passes so the
+	// WAL byte cap never trips: the user expects the target gone now, not
+	// drained over many cleaner ticks. Far above any real catalog's WAL volume.
+	unboundedWalBudgetMB = 1e18
 )
 
 // PhysicalBackupService owns the transactional, multi-table operations over the
@@ -37,6 +44,7 @@ const (
 type PhysicalBackupService struct {
 	fullBackupRepository        *physical_repositories.PhysicalFullBackupRepository
 	incrementalBackupRepository *physical_repositories.PhysicalIncrementalBackupRepository
+	walSegmentRepository        *physical_repositories.PhysicalWalSegmentRepository
 	walHistoryRepository        *physical_repositories.PhysicalWalHistoryRepository
 	chainViewService            *chain_view.ChainViewService
 	storageService              *storages.StorageService
@@ -55,6 +63,40 @@ func (s *PhysicalBackupService) DeleteFull(
 	walByteBudgetMB float64,
 ) (DeletedSummary, error) {
 	return s.cascadeDelete(ctx, rootFullBackupID, walByteBudgetMB, false)
+}
+
+// DeleteFullCompletely removes a whole chain in one user-initiated call, looping
+// DeleteFull with an unbounded budget until the FULL row is gone. The cleaner
+// uses the budgeted DeleteFull to spread work across ticks; the API delete path
+// uses this so the user sees the chain fully removed rather than partially.
+func (s *PhysicalBackupService) DeleteFullCompletely(
+	ctx context.Context,
+	rootFullBackupID uuid.UUID,
+) (DeletedSummary, error) {
+	total := DeletedSummary{RootFullBackupID: rootFullBackupID}
+
+	for {
+		summary, err := s.DeleteFull(ctx, rootFullBackupID, unboundedWalBudgetMB)
+		if err != nil {
+			return total, err
+		}
+
+		total.WalSegments += summary.WalSegments
+		total.Incrementals += summary.Incrementals
+		total.HistoryFiles += summary.HistoryFiles
+		total.BytesDeletedMB += summary.BytesDeletedMB
+		total.ChainFullyDeleted = summary.ChainFullyDeleted
+
+		if summary.ChainFullyDeleted {
+			return total, nil
+		}
+
+		// Nothing left to delete and the FULL is still not gone means a peer
+		// already removed it (idempotent no-op) — stop rather than spin.
+		if summary.WalSegments == 0 && summary.Incrementals == 0 {
+			return total, nil
+		}
+	}
 }
 
 // DeleteChainDependentsKeepFull strips a chain's INCRs and WAL but leaves the
@@ -93,6 +135,94 @@ func (s *PhysicalBackupService) DeleteWalSegmentsInSpan(
 	}
 
 	return deletedRows, deletedMB, nil
+}
+
+// DeleteIncrementalCascade removes one incremental and every incremental that
+// descends from it (its children, their children, …), leaves first so the
+// RESTRICT FK on parent_incremental_backup_id is never violated. The chain's
+// FULL and WAL are deliberately left intact — an incremental delete only sheds
+// the sub-tree rooted at the target. Idempotent: a missing incremental is a
+// no-op (a peer already deleted it).
+func (s *PhysicalBackupService) DeleteIncrementalCascade(
+	ctx context.Context,
+	incrementalID uuid.UUID,
+) (DeletedSummary, error) {
+	summary := DeletedSummary{}
+
+	txErr := storage.GetDb().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var target physical_models.PhysicalIncrementalBackup
+
+		findErr := tx.Where("id = ?", incrementalID).First(&target).Error
+		if errors.Is(findErr, gorm.ErrRecordNotFound) {
+			s.logger.Debug("incremental already deleted by peer", "incremental_backup_id", incrementalID)
+
+			return nil
+		}
+		if findErr != nil {
+			return findErr
+		}
+
+		// Lock the anchor FULL FOR UPDATE to serialize with the cleaner and the
+		// WAL uploader, mirroring the full-chain cascade. The FULL may already be
+		// gone in rare races; that is harmless here since we touch only INCR rows.
+		var full physical_models.PhysicalFullBackup
+
+		lockErr := tx.
+			Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("id = ?", target.RootFullBackupID).
+			First(&full).Error
+		if lockErr != nil && !errors.Is(lockErr, gorm.ErrRecordNotFound) {
+			return lockErr
+		}
+
+		var chain []*physical_models.PhysicalIncrementalBackup
+
+		if err := tx.
+			Where("root_full_backup_id = ?", target.RootFullBackupID).
+			Find(&chain).Error; err != nil {
+			return err
+		}
+
+		subtree := collectIncrementalSubtree(chain, incrementalID)
+
+		count, mb, err := s.deleteIncrementalSet(tx, reverseTopoOrderIncrementals(subtree))
+		summary.Incrementals = count
+		summary.BytesDeletedMB = mb
+
+		return err
+	})
+	if txErr != nil {
+		return DeletedSummary{}, txErr
+	}
+
+	return summary, nil
+}
+
+// DeleteWalSegment removes one WAL segment and every later WAL segment on its
+// timeline up to (not including) the next FULL/INCR anchor LSN — the span
+// [segment.start_lsn, nextAnchor). Deleting a WAL segment makes every PITR
+// target after it unreachable until the next backup re-anchors replay, so the
+// now-dead tail goes with it. Earlier WAL and all backups stay. Idempotent.
+func (s *PhysicalBackupService) DeleteWalSegment(
+	ctx context.Context,
+	walSegmentID uuid.UUID,
+) (int, float64, error) {
+	segment, err := s.walSegmentRepository.FindByID(walSegmentID)
+	if err != nil {
+		return 0, 0, err
+	}
+	if segment == nil {
+		return 0, 0, nil
+	}
+
+	end, err := s.findNextAnchorLSNAfter(ctx, segment.DatabaseID, segment.TimelineID, segment.StartLSN)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	span := chain_view.LSNRange{Start: segment.StartLSN, End: end}
+
+	return s.DeleteWalSegmentsInSpan(ctx, segment.DatabaseID, segment.TimelineID, span, unboundedWalBudgetMB)
 }
 
 // GetDependentsSummary counts a chain's dependents and total size without
@@ -177,6 +307,128 @@ func (s *PhysicalBackupService) GetTotalUsageMBByDatabase(databaseID uuid.UUID) 
 	).Scan(&totalMB).Error
 
 	return totalMB, err
+}
+
+// backupsUnionSubquery merges the FULL, incremental and committed-WAL tables into
+// one result set with a common shape, projecting synthetic type ('FULL' /
+// 'INCREMENTAL' / 'WAL') and, for WAL, a synthetic 'COMPLETED' status. The three
+// database_id placeholders bind first; an outer WHERE (the list filter) and
+// pagination wrap it. WAL ordering uses received_at as the row's created_at.
+const backupsUnionSubquery = `
+	FROM (
+		SELECT id, 'FULL' AS type, status, timeline_id,
+		       COALESCE(start_lsn::text, '') AS start_lsn,
+		       COALESCE(stop_lsn::text, '') AS stop_lsn,
+		       NULL::uuid AS root_full_backup_id,
+		       NULL::uuid AS parent_incremental_backup_id,
+		       NULL::text AS wal_filename,
+		       COALESCE(backup_size_mb, 0) AS size_mb,
+		       created_at, completed_at
+		FROM physical_full_backups
+		WHERE database_id = ?
+		UNION ALL
+		SELECT id, 'INCREMENTAL', status, timeline_id,
+		       COALESCE(start_lsn::text, ''), COALESCE(stop_lsn::text, ''),
+		       root_full_backup_id, parent_incremental_backup_id, NULL::text,
+		       COALESCE(backup_size_mb, 0),
+		       created_at, completed_at
+		FROM physical_incremental_backups
+		WHERE database_id = ?
+		UNION ALL
+		SELECT id, 'WAL', 'COMPLETED', timeline_id,
+		       start_lsn::text, end_lsn::text,
+		       NULL::uuid, NULL::uuid, wal_filename,
+		       compressed_size_mb,
+		       received_at, NULL::timestamptz
+		FROM physical_wal_segments
+		WHERE database_id = ? AND file_name IS NOT NULL
+	) backups`
+
+// ListBackups returns one page of the database's backups — FULLs, incrementals
+// and committed WAL segments merged into a single list newest-first by creation
+// time (WAL ordered by received_at), optionally narrowed by filter. It UNIONs the
+// three tables and paginates in SQL so a database with many WAL segments does not
+// load its whole catalog per request. id breaks ties for a stable page boundary.
+func (s *PhysicalBackupService) ListBackups(
+	databaseID uuid.UUID,
+	filter BackupListFilter,
+	limit, offset int,
+) ([]PhysicalBackupListRow, error) {
+	var rows []PhysicalBackupListRow
+
+	filterClause, filterArgs := filter.buildClause()
+
+	args := []any{databaseID, databaseID, databaseID}
+	args = append(args, filterArgs...)
+	args = append(args, limit, offset)
+
+	query := `
+		SELECT id, type, status, timeline_id, start_lsn, stop_lsn,
+		       root_full_backup_id, parent_incremental_backup_id, wal_filename,
+		       size_mb, created_at, completed_at` +
+		backupsUnionSubquery + filterClause + `
+		ORDER BY created_at DESC, id DESC
+		LIMIT ? OFFSET ?`
+
+	err := storage.GetDb().Raw(query, args...).Scan(&rows).Error
+
+	return rows, err
+}
+
+// CountBackups returns the number of backups (every type) for a database that
+// match the same filter ListBackups uses — the denominator for pagination.
+func (s *PhysicalBackupService) CountBackups(
+	databaseID uuid.UUID,
+	filter BackupListFilter,
+) (int64, error) {
+	var total int64
+
+	filterClause, filterArgs := filter.buildClause()
+
+	args := []any{databaseID, databaseID, databaseID}
+	args = append(args, filterArgs...)
+
+	query := `SELECT COUNT(*)` + backupsUnionSubquery + filterClause
+
+	err := storage.GetDb().Raw(query, args...).Scan(&total).Error
+
+	return total, err
+}
+
+// findNextAnchorLSNAfter returns the smallest start_lsn among the database's
+// FULL and INCR backups on the timeline that sits strictly after afterLSN — the
+// boundary a WAL delete stops at. LSNMax when no later anchor exists (the tail
+// of the timeline).
+func (s *PhysicalBackupService) findNextAnchorLSNAfter(
+	ctx context.Context,
+	databaseID uuid.UUID,
+	timelineID int,
+	afterLSN walmath.LSN,
+) (walmath.LSN, error) {
+	row := storage.GetDb().WithContext(ctx).Raw(`
+		SELECT MIN(start_lsn)::text FROM (
+			SELECT start_lsn FROM physical_full_backups
+			WHERE database_id = ? AND timeline_id = ? AND start_lsn IS NOT NULL AND start_lsn > ?::pg_lsn
+			UNION ALL
+			SELECT start_lsn FROM physical_incremental_backups
+			WHERE database_id = ? AND timeline_id = ? AND start_lsn IS NOT NULL AND start_lsn > ?::pg_lsn
+		) anchors
+	`,
+		databaseID, timelineID, afterLSN.String(),
+		databaseID, timelineID, afterLSN.String(),
+	).Row()
+
+	var anchorText sql.NullString
+
+	if err := row.Scan(&anchorText); err != nil {
+		return 0, err
+	}
+
+	if !anchorText.Valid {
+		return chain_view.LSNMax, nil
+	}
+
+	return walmath.ParseLSN(anchorText.String)
 }
 
 func (s *PhysicalBackupService) cascadeDelete(
@@ -338,9 +590,22 @@ func (s *PhysicalBackupService) deleteIncrementals(tx *gorm.DB, rootFullBackupID
 		return 0, err
 	}
 
-	deleted := 0
+	deleted, _, err := s.deleteIncrementalSet(tx, reverseTopoOrderIncrementals(incrementals))
 
-	for _, incremental := range reverseTopoOrderIncrementals(incrementals) {
+	return deleted, err
+}
+
+// deleteIncrementalSet deletes the given incrementals in the order received
+// (callers pass them leaves-first), each artifact before its row. Returns the
+// number of rows removed and the MB freed.
+func (s *PhysicalBackupService) deleteIncrementalSet(
+	tx *gorm.DB,
+	ordered []*physical_models.PhysicalIncrementalBackup,
+) (int, float64, error) {
+	deleted := 0
+	var deletedMB float64
+
+	for _, incremental := range ordered {
 		if incremental.FileName != nil {
 			s.deleteStorageObjectFailOpen(incremental.StorageID, *incremental.FileName+metadataSuffix)
 
@@ -352,13 +617,58 @@ func (s *PhysicalBackupService) deleteIncrementals(tx *gorm.DB, rootFullBackupID
 		}
 
 		if err := tx.Delete(&physical_models.PhysicalIncrementalBackup{}, "id = ?", incremental.ID).Error; err != nil {
-			return deleted, err
+			return deleted, deletedMB, err
 		}
 
 		deleted++
+
+		if incremental.BackupSizeMb != nil {
+			deletedMB += *incremental.BackupSizeMb
+		}
 	}
 
-	return deleted, nil
+	return deleted, deletedMB, nil
+}
+
+// collectIncrementalSubtree returns the target incremental plus every descendant
+// (children, their children, …) found within chain, walking the
+// parent_incremental_backup_id links breadth-first. Returns nil when the target
+// is not in the chain. Order is not significant — callers re-order leaves-first.
+func collectIncrementalSubtree(
+	chain []*physical_models.PhysicalIncrementalBackup,
+	targetID uuid.UUID,
+) []*physical_models.PhysicalIncrementalBackup {
+	childrenByParent := make(map[uuid.UUID][]*physical_models.PhysicalIncrementalBackup)
+	byID := make(map[uuid.UUID]*physical_models.PhysicalIncrementalBackup, len(chain))
+
+	for _, incremental := range chain {
+		byID[incremental.ID] = incremental
+
+		if incremental.ParentIncrementalBackupID != nil {
+			parent := *incremental.ParentIncrementalBackupID
+			childrenByParent[parent] = append(childrenByParent[parent], incremental)
+		}
+	}
+
+	target, ok := byID[targetID]
+	if !ok {
+		return nil
+	}
+
+	subtree := []*physical_models.PhysicalIncrementalBackup{target}
+	queue := []uuid.UUID{targetID}
+
+	for len(queue) > 0 {
+		parentID := queue[0]
+		queue = queue[1:]
+
+		for _, child := range childrenByParent[parentID] {
+			subtree = append(subtree, child)
+			queue = append(queue, child.ID)
+		}
+	}
+
+	return subtree
 }
 
 // deleteOrphanedHistoryFiles drops the history files of the FULL's timeline only

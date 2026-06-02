@@ -311,6 +311,49 @@ func Test_RunStartupCleanup_SkipsUnreachableSource_DoesNotFail(t *testing.T) {
 		"unreachable source must be logged + skipped, not surfaced as a failure")
 }
 
+// Test_RunStartupCleanup_RecoversOrphanWhenSourceBecomesReachable covers the
+// "source DB was down" path: WithBackupSlot's defer drop reuses the same connection,
+// so when the source went down mid-backup the drop could not run and the slot was
+// left behind. The first boot still cannot reach the source (skip, slot survives);
+// the next boot after the source returns must drop the orphan. Without this, a
+// transient source outage during a backup would orphan a slot until the next backup.
+func Test_RunStartupCleanup_RecoversOrphanWhenSourceBecomesReachable(t *testing.T) {
+	fixture := postgresql_executor.SetupPhysicalDBForBackup(t)
+
+	slotName := postgresql_executor.SlotName(fixture.DB.PostgresqlPhysical.ID)
+	adminConn := postgresql_executor.OpenAdminConn(t, fixture)
+
+	_, err := adminConn.Exec(context.Background(),
+		"SELECT pg_create_physical_replication_slot($1, true)", slotName)
+	require.NoError(t, err, "pre-create the orphan a defer-drop against a down source could not remove")
+	t.Cleanup(func() {
+		_, _ = adminConn.Exec(context.Background(),
+			`SELECT pg_drop_replication_slot(slot_name)
+			   FROM pg_replication_slots WHERE slot_name = $1`, slotName)
+	})
+
+	originalHost := fixture.DB.PostgresqlPhysical.Host
+	originalPort := fixture.DB.PostgresqlPhysical.Port
+
+	// First boot: source still unreachable — cleanup skips, the orphan survives.
+	fixture.DB.PostgresqlPhysical.Host = "127.0.0.1"
+	fixture.DB.PostgresqlPhysical.Port = 1
+	require.NoError(t, storage.GetDb().Save(fixture.DB.PostgresqlPhysical).Error)
+
+	require.NoError(t, postgresql_executor.RunStartupCleanup(t.Context(), logger.GetLogger(), neverProtected))
+	require.True(t, postgresql_executor.SlotExists(t, adminConn, slotName),
+		"unreachable source: the orphan slot must survive the first boot")
+
+	// Second boot: source is back — the orphan must now be dropped.
+	fixture.DB.PostgresqlPhysical.Host = originalHost
+	fixture.DB.PostgresqlPhysical.Port = originalPort
+	require.NoError(t, storage.GetDb().Save(fixture.DB.PostgresqlPhysical).Error)
+
+	require.NoError(t, postgresql_executor.RunStartupCleanup(t.Context(), logger.GetLogger(), neverProtected))
+	assert.False(t, postgresql_executor.SlotExists(t, adminConn, slotName),
+		"reachable source: the orphan slot must be dropped on the next boot")
+}
+
 func Test_BackupSlot_PresentDuringIncrementalRun_GoneAfterFinish(t *testing.T) {
 	fixture := postgresql_executor.SetupPhysicalDBForBackup(t)
 
@@ -323,55 +366,104 @@ func Test_BackupSlot_PresentDuringIncrementalRun_GoneAfterFinish(t *testing.T) {
 
 	fullRow, err := physical_repositories.GetFullBackupRepository().FindByID(fixture.BackupID)
 	require.NoError(t, err)
-	require.NotNil(t, fullRow)
-	require.NotNil(t, fullRow.FileName)
+	require.NotNil(t, fullRow.StopLSN, "FULL must have stop_lsn for the INCR to anchor on")
 
-	fakeManifest := "fake-manifest-bytes-pg_basebackup-will-reject-this"
-	require.NoError(t, fixture.Storage.SaveFile(
-		t.Context(),
-		encryption.GetFieldEncryptor(),
-		logger.GetLogger(),
-		*fullRow.FileName+".manifest",
-		strings.NewReader(fakeManifest),
-	))
+	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Minute)
+	defer cancel()
 
-	incrID := uuid.New()
-	incrRow := &physical_models.PhysicalIncrementalBackup{
-		ID:               incrID,
-		DatabaseID:       fixture.DB.ID,
-		StorageID:        fixture.Storage.ID,
-		RootFullBackupID: fixture.BackupID,
-		TimelineID:       1,
-		Status:           physical_enums.PhysicalBackupStatusInProgress,
-		Encryption:       backups_core_enums.BackupEncryptionNone,
-		CreatedAt:        time.Now().UTC(),
-	}
-
-	require.NoError(t, physical_repositories.GetIncrementalBackupRepository().Save(incrRow))
-	t.Cleanup(func() {
-		_ = physical_repositories.GetIncrementalBackupRepository().DeleteByID(incrID)
-	})
-
-	claimed, err := physical_repositories.GetInFlightBackupRepository().Claim(
-		storage.GetDb(), physical_repositories.ClaimSpec{
-			DatabaseID: fixture.DB.ID,
-			BackupType: physical_enums.PhysicalBackupTypeIncremental,
-			BackupID:   incrID,
-		})
+	// The INCR opens WithBackupSlot only after the summarizer pre-check clears, so
+	// cross a segment boundary and flush a summary past the FULL's stop_lsn first;
+	// without it the pre-check turns the INCR into CHAIN_BROKEN before any slot is
+	// created and the slot could never be observed.
+	_, err = postgresql_executor.GenerateWalActivity(ctx, adminConn, 32*1024*1024)
 	require.NoError(t, err)
-	require.True(t, claimed, "INCR in-flight claim must succeed after FULL completes")
-	t.Cleanup(func() {
-		_ = physical_repositories.GetInFlightBackupRepository().Release(fixture.DB.ID)
-	})
+
+	_, err = adminConn.Exec(ctx, "CHECKPOINT")
+	require.NoError(t, err)
+
+	_, err = adminConn.Exec(ctx, "SELECT pg_switch_wal()")
+	require.NoError(t, err)
+
+	require.NoError(t, postgresql_executor.WaitForWalSummaries(ctx, adminConn, *fullRow.StopLSN, 2*time.Minute))
+
+	incrID := postgresql_executor.BuildAndClaimIncremental(t, fixture, nil)
 
 	observed := postgresql_executor.RunBackupAndPoll(t, fixture, slotName, func() {
 		backuping_physical.CreateTestPhysicalBackuper(nil).MakeBackup(incrID, false)
 	})
 
-	assert.True(t, observed,
-		"per-backup slot must be observed during INCR run (slot wrap is the same helper as FULL)")
+	postgresql_executor.WaitForBackupStatus(t, incrID, physical_enums.PhysicalBackupTypeIncremental,
+		physical_enums.PhysicalBackupStatusCompleted, nil, 3*time.Minute)
+
+	assert.True(
+		t,
+		observed,
+		"per-backup slot must be observed during the INCR run (the INCR wraps pg_basebackup in the same WithBackupSlot helper as the FULL)",
+	)
 	assert.False(t, postgresql_executor.SlotExists(t, adminConn, slotName),
-		"slot must be dropped after INCR ends regardless of pg_basebackup success/failure")
+		"per-backup slot must be dropped after the INCR finishes")
+}
+
+// Test_BackupSlot_DroppedAfterFailedIncrementalRun pins the failure-path drop for
+// the incremental: the summarizer pre-check clears so the INCR opens
+// WithBackupSlot, but a corrupted parent manifest makes pg_basebackup --incremental
+// reject the backup. The per-backup slot must still be gone afterwards, since the
+// WithBackupSlot defer drops it on the failure path too. This asserts only the
+// post-run drop — observing the slot mid-run is racy when the backup fails fast.
+func Test_BackupSlot_DroppedAfterFailedIncrementalRun(t *testing.T) {
+	fixture := postgresql_executor.SetupPhysicalDBForBackup(t)
+
+	slotName := postgresql_executor.SlotName(fixture.DB.PostgresqlPhysical.ID)
+	adminConn := postgresql_executor.OpenAdminConn(t, fixture)
+
+	backuping_physical.CreateTestPhysicalBackuper(nil).MakeBackup(fixture.BackupID, false)
+	postgresql_executor.WaitForBackupStatus(t, fixture.BackupID, physical_enums.PhysicalBackupTypeFull,
+		physical_enums.PhysicalBackupStatusCompleted, nil, 3*time.Minute)
+
+	fullRow, err := physical_repositories.GetFullBackupRepository().FindByID(fixture.BackupID)
+	require.NoError(t, err)
+	require.NotNil(t, fullRow.StopLSN, "FULL must have stop_lsn for the INCR to anchor on")
+	require.NotNil(t, fullRow.ManifestFileName, "FULL must have a manifest file the INCR anchors on")
+
+	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Minute)
+	defer cancel()
+
+	// Clear the summarizer pre-check so the INCR reaches WithBackupSlot (otherwise
+	// it bails to CHAIN_BROKEN before any slot is created and this test would prove
+	// nothing about the failure-path drop).
+	_, err = postgresql_executor.GenerateWalActivity(ctx, adminConn, 32*1024*1024)
+	require.NoError(t, err)
+
+	_, err = adminConn.Exec(ctx, "CHECKPOINT")
+	require.NoError(t, err)
+
+	_, err = adminConn.Exec(ctx, "SELECT pg_switch_wal()")
+	require.NoError(t, err)
+
+	require.NoError(t, postgresql_executor.WaitForWalSummaries(ctx, adminConn, *fullRow.StopLSN, 2*time.Minute))
+
+	// Overwrite the parent manifest with garbage so pg_basebackup --incremental
+	// rejects it inside WithBackupSlot. The pre-check reads stop_lsn from the row,
+	// not this file, so it still clears and the slot is still created.
+	require.NoError(t, fixture.Storage.SaveFile(
+		t.Context(),
+		encryption.GetFieldEncryptor(),
+		logger.GetLogger(),
+		*fullRow.ManifestFileName,
+		strings.NewReader("fake-manifest-bytes-pg_basebackup-will-reject-this"),
+	))
+
+	incrID := postgresql_executor.BuildAndClaimIncremental(t, fixture, nil)
+
+	backuping_physical.CreateTestPhysicalBackuper(nil).MakeBackup(incrID, false)
+
+	incrRow, err := physical_repositories.GetIncrementalBackupRepository().FindByID(incrID)
+	require.NoError(t, err)
+	require.NotEqual(t, physical_enums.PhysicalBackupStatusCompleted, incrRow.Status,
+		"a corrupted parent manifest must fail the incremental; got status=%s", incrRow.Status)
+
+	assert.False(t, postgresql_executor.SlotExists(t, adminConn, slotName),
+		"per-backup slot must be dropped after a failed INCR (the WithBackupSlot defer runs on the failure path)")
 }
 
 func Test_BackupSlot_HasExpectedCharacteristics(t *testing.T) {

@@ -14,7 +14,8 @@ import (
 	backuping_logical "databasus-backend/internal/features/backups/backups/backuping/logical"
 	backups_core_enums "databasus-backend/internal/features/backups/backups/core/enums"
 	backups_core_logical "databasus-backend/internal/features/backups/backups/core/logical"
-	backups_download "databasus-backend/internal/features/backups/backups/download"
+	"databasus-backend/internal/features/backups/backups/download/download_token"
+	"databasus-backend/internal/features/backups/backups/download/ratelimit"
 	backups_dto_logical "databasus-backend/internal/features/backups/backups/dto/logical"
 	"databasus-backend/internal/features/backups/backups/encryption"
 	backups_config_logical "databasus-backend/internal/features/backups/config/logical"
@@ -29,7 +30,7 @@ import (
 	files_utils "databasus-backend/internal/util/files"
 )
 
-type BackupService struct {
+type LogicalBackupService struct {
 	databaseService     *databases.DatabaseService
 	storageService      *storages.StorageService
 	backupRepository    *backups_core_logical.BackupRepository
@@ -48,29 +49,29 @@ type BackupService struct {
 	workspaceService       *workspaces_services.WorkspaceService
 	auditLogService        *audit_logs.AuditLogService
 	taskCancelManager      *task_cancellation.TaskCancelManager
-	downloadTokenService   *backups_download.DownloadTokenService
+	downloadTokenService   *download_token.Service
 	backupSchedulerService *backuping_logical.BackupsScheduler
 	backupCleaner          *backuping_logical.BackupCleaner
 }
 
-func (s *BackupService) AddBackupRemoveListener(listener backups_core_logical.BackupRemoveListener) {
+func (s *LogicalBackupService) AddBackupRemoveListener(listener backups_core_logical.BackupRemoveListener) {
 	s.backupRemoveListeners = append(s.backupRemoveListeners, listener)
 }
 
-func (s *BackupService) HasSuccessfulBackupSince(
+func (s *LogicalBackupService) HasSuccessfulBackupSince(
 	databaseID uuid.UUID,
 	since time.Time,
 ) (bool, error) {
 	return s.backupRepository.ExistsCompletedSince(databaseID, since)
 }
 
-func (s *BackupService) GetLatestCompletedBackup(
+func (s *LogicalBackupService) GetLatestCompletedBackup(
 	databaseID uuid.UUID,
 ) (*backups_core_logical.LogicalBackup, error) {
 	return s.backupRepository.FindLatestCompleted(databaseID)
 }
 
-func (s *BackupService) OnBeforeBackupsStorageChange(databaseID uuid.UUID) error {
+func (s *LogicalBackupService) OnBeforeBackupsStorageChange(databaseID uuid.UUID) error {
 	err := s.deleteDbBackups(databaseID)
 	if err != nil {
 		return err
@@ -79,7 +80,7 @@ func (s *BackupService) OnBeforeBackupsStorageChange(databaseID uuid.UUID) error
 	return nil
 }
 
-func (s *BackupService) OnBeforeDatabaseRemove(databaseID uuid.UUID) error {
+func (s *LogicalBackupService) OnBeforeDatabaseRemove(databaseID uuid.UUID) error {
 	err := s.deleteDbBackups(databaseID)
 	if err != nil {
 		return err
@@ -88,7 +89,7 @@ func (s *BackupService) OnBeforeDatabaseRemove(databaseID uuid.UUID) error {
 	return nil
 }
 
-func (s *BackupService) MakeBackupWithAuth(
+func (s *LogicalBackupService) MakeBackupWithAuth(
 	user *users_models.User,
 	databaseID uuid.UUID,
 ) error {
@@ -120,7 +121,7 @@ func (s *BackupService) MakeBackupWithAuth(
 	return nil
 }
 
-func (s *BackupService) GetBackups(
+func (s *LogicalBackupService) GetBackups(
 	user *users_models.User,
 	databaseID uuid.UUID,
 	limit, offset int,
@@ -170,7 +171,7 @@ func (s *BackupService) GetBackups(
 	}, nil
 }
 
-func (s *BackupService) DeleteBackup(
+func (s *LogicalBackupService) DeleteBackup(
 	user *users_models.User,
 	backupID uuid.UUID,
 ) error {
@@ -209,18 +210,18 @@ func (s *BackupService) DeleteBackup(
 	return s.backupCleaner.DeleteBackup(backup)
 }
 
-func (s *BackupService) GetBackup(backupID uuid.UUID) (*backups_core_logical.LogicalBackup, error) {
+func (s *LogicalBackupService) GetBackup(backupID uuid.UUID) (*backups_core_logical.LogicalBackup, error) {
 	return s.backupRepository.FindByID(backupID)
 }
 
-func (s *BackupService) SetRestoreVerificationStatus(
+func (s *LogicalBackupService) SetRestoreVerificationStatus(
 	backupID uuid.UUID,
 	status backups_core_logical.RestoreVerificationStatus,
 ) error {
 	return s.backupRepository.UpdateRestoreVerificationStatus(backupID, status)
 }
 
-func (s *BackupService) CancelBackup(
+func (s *LogicalBackupService) CancelBackup(
 	user *users_models.User,
 	backupID uuid.UUID,
 ) error {
@@ -263,7 +264,7 @@ func (s *BackupService) CancelBackup(
 	return nil
 }
 
-func (s *BackupService) GetBackupFile(
+func (s *LogicalBackupService) GetBackupFile(
 	user *users_models.User,
 	backupID uuid.UUID,
 ) (io.ReadCloser, *backups_core_logical.LogicalBackup, *databases.Database, error) {
@@ -310,7 +311,7 @@ func (s *BackupService) GetBackupFile(
 
 // GetBackupReader returns a reader for the backup file.
 // If encrypted, wraps with DecryptionReader.
-func (s *BackupService) GetBackupReader(backupID uuid.UUID) (io.ReadCloser, error) {
+func (s *LogicalBackupService) GetBackupReader(backupID uuid.UUID) (io.ReadCloser, error) {
 	backup, err := s.backupRepository.FindByID(backupID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find backup: %w", err)
@@ -396,10 +397,10 @@ func (s *BackupService) GetBackupReader(backupID uuid.UUID) (io.ReadCloser, erro
 	}, nil
 }
 
-func (s *BackupService) GenerateDownloadToken(
+func (s *LogicalBackupService) GenerateDownloadToken(
 	user *users_models.User,
 	backupID uuid.UUID,
-) (*backups_download.GenerateDownloadTokenResponse, error) {
+) (*download_token.GenerateTokenResponse, error) {
 	backup, err := s.backupRepository.FindByID(backupID)
 	if err != nil {
 		return nil, err
@@ -435,26 +436,26 @@ func (s *BackupService) GenerateDownloadToken(
 		database.WorkspaceID,
 	)
 
-	return &backups_download.GenerateDownloadTokenResponse{
+	return &download_token.GenerateTokenResponse{
 		Token:    token,
 		Filename: filename,
 		BackupID: backupID,
 	}, nil
 }
 
-func (s *BackupService) ValidateDownloadToken(
+func (s *LogicalBackupService) ValidateDownloadToken(
 	token string,
-) (*backups_download.DownloadToken, *backups_download.RateLimiter, error) {
+) (*download_token.Token, *ratelimit.Limiter, error) {
 	return s.downloadTokenService.ValidateAndConsume(token)
 }
 
-func (s *BackupService) GetLatestVerifiableBackup(
+func (s *LogicalBackupService) GetLatestVerifiableBackup(
 	databaseID uuid.UUID,
 ) (*backups_core_logical.LogicalBackup, error) {
 	return s.backupRepository.FindLatestCompleted(databaseID)
 }
 
-func (s *BackupService) GetBackupFileWithoutAuth(
+func (s *LogicalBackupService) GetBackupFileWithoutAuth(
 	backupID uuid.UUID,
 ) (io.ReadCloser, *backups_core_logical.LogicalBackup, *databases.Database, error) {
 	backup, err := s.backupRepository.FindByID(backupID)
@@ -475,7 +476,7 @@ func (s *BackupService) GetBackupFileWithoutAuth(
 	return reader, backup, database, nil
 }
 
-func (s *BackupService) WriteAuditLogForDownload(
+func (s *LogicalBackupService) WriteAuditLogForDownload(
 	userID uuid.UUID,
 	backup *backups_core_logical.LogicalBackup,
 	database *databases.Database,
@@ -487,23 +488,23 @@ func (s *BackupService) WriteAuditLogForDownload(
 	)
 }
 
-func (s *BackupService) RefreshDownloadLock(userID uuid.UUID) {
+func (s *LogicalBackupService) RefreshDownloadLock(userID uuid.UUID) {
 	s.downloadTokenService.RefreshDownloadLock(userID)
 }
 
-func (s *BackupService) ReleaseDownloadLock(userID uuid.UUID) {
+func (s *LogicalBackupService) ReleaseDownloadLock(userID uuid.UUID) {
 	s.downloadTokenService.ReleaseDownloadLock(userID)
 }
 
-func (s *BackupService) IsDownloadInProgress(userID uuid.UUID) bool {
+func (s *LogicalBackupService) IsDownloadInProgress(userID uuid.UUID) bool {
 	return s.downloadTokenService.IsDownloadInProgress(userID)
 }
 
-func (s *BackupService) UnregisterDownload(userID uuid.UUID) {
+func (s *LogicalBackupService) UnregisterDownload(userID uuid.UUID) {
 	s.downloadTokenService.UnregisterDownload(userID)
 }
 
-func (s *BackupService) deleteDbBackups(databaseID uuid.UUID) error {
+func (s *LogicalBackupService) deleteDbBackups(databaseID uuid.UUID) error {
 	dbBackupsInProgress, err := s.backupRepository.FindByDatabaseIdAndStatus(
 		databaseID,
 		backups_core_logical.BackupStatusInProgress,
@@ -533,7 +534,7 @@ func (s *BackupService) deleteDbBackups(databaseID uuid.UUID) error {
 	return nil
 }
 
-func (s *BackupService) generateBackupFilename(
+func (s *LogicalBackupService) generateBackupFilename(
 	backup *backups_core_logical.LogicalBackup,
 	database *databases.Database,
 ) string {
@@ -543,7 +544,7 @@ func (s *BackupService) generateBackupFilename(
 	return fmt.Sprintf("%s_backup_%s%s", safeName, timestamp, extension)
 }
 
-func (s *BackupService) getBackupExtension(dbType databases.DatabaseType) string {
+func (s *LogicalBackupService) getBackupExtension(dbType databases.DatabaseType) string {
 	switch dbType {
 	case databases.DatabaseTypeMysql, databases.DatabaseTypeMariadb:
 		return ".sql.zst"

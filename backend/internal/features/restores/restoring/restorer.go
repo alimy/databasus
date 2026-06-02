@@ -31,7 +31,7 @@ type RestorerNode struct {
 	nodeID uuid.UUID
 
 	databaseService      *databases.DatabaseService
-	backupService        *backups_services.BackupService
+	backupService        *backups_services.LogicalBackupService
 	fieldEncryptor       util_encryption.FieldEncryptor
 	restoreRepository    *restores_core.RestoreRepository
 	backupConfigService  *backups_config_logical.BackupConfigService

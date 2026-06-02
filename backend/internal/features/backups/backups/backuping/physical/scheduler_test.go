@@ -431,6 +431,100 @@ func Test_DecideBackupKind_WhenFullRequested_ChoosesFullBeforeCadence(t *testing
 	assert.Equal(t, requestedAt, *decision.forceFullRequestedAt)
 }
 
+func Test_DecideBackupKind_WhenIncrementalRequested_ChoosesIncrementalOutOfCadence(t *testing.T) {
+	prereqs := seedBackupPrereqs(t)
+	makeIncrementalDue(prereqs)
+	// A just-completed full means the INCR cadence is NOT due; the forced request
+	// must override cadence and still pick an incremental on the existing chain.
+	full := seedFullWithStatusAndAge(t, prereqs, physical_enums.PhysicalBackupStatusCompleted, 1, 0)
+
+	requestedAt := time.Now().UTC()
+	prereqs.Config.ForceIncrementalRequestedAt = &requestedAt
+
+	scheduler := CreateTestPhysicalScheduler(activeBilling())
+
+	decision, ok := scheduler.decideBackupKind(logger.GetLogger(), time.Now().UTC(), prereqs.Config)
+
+	require.True(t, ok)
+	assert.Equal(t, physical_enums.PhysicalBackupTypeIncremental, decision.kind)
+	assert.Equal(t, full.ID, decision.incrRootFullBackupID)
+	require.NotNil(t, decision.forceIncrementalRequestedAt)
+	assert.Equal(t, requestedAt, *decision.forceIncrementalRequestedAt)
+}
+
+func Test_DecideBackupKind_WhenIncrementalRequestedButNoExtendableChain_ClearsRequestAndFallsThrough(t *testing.T) {
+	prereqs := seedBackupPrereqs(t)
+	makeIncrementalDue(prereqs) // incrementals enabled, but no full backup exists yet
+
+	require.NoError(t, backups_config_physical.GetBackupConfigService().RequestIncrementalBackupNow(prereqs.DB.ID))
+	requested, err := backups_config_physical.GetBackupConfigService().GetBackupConfigByDbId(prereqs.DB.ID)
+	require.NoError(t, err)
+	require.NotNil(t, requested.ForceIncrementalRequestedAt)
+	prereqs.Config.ForceIncrementalRequestedAt = requested.ForceIncrementalRequestedAt
+
+	scheduler := CreateTestPhysicalScheduler(activeBilling())
+
+	decision, ok := scheduler.decideBackupKind(logger.GetLogger(), time.Now().UTC(), prereqs.Config)
+
+	require.True(t, ok)
+	assert.Equal(t, physical_enums.PhysicalBackupTypeFull, decision.kind,
+		"with no chain the forced incremental can't run, so the decision falls through to a bootstrap full")
+
+	cleared, err := backups_config_physical.GetBackupConfigService().GetBackupConfigByDbId(prereqs.DB.ID)
+	require.NoError(t, err)
+	assert.Nil(t, cleared.ForceIncrementalRequestedAt,
+		"an unsatisfiable forced incremental must be cleared so it can't loop forever")
+}
+
+func Test_DecideBackupKind_WhenIncrementalRequestedButIncrementalsDisabled_ClearsRequest(t *testing.T) {
+	prereqs := seedBackupPrereqs(t)
+	// Default config is FULL_ONLY (incrementals disabled). A completed full means a
+	// chain exists, isolating the "disabled" clear branch from the "no chain" one.
+	seedFullWithStatusAndAge(t, prereqs, physical_enums.PhysicalBackupStatusCompleted, 1, 0)
+
+	require.NoError(t, backups_config_physical.GetBackupConfigService().RequestIncrementalBackupNow(prereqs.DB.ID))
+	requested, err := backups_config_physical.GetBackupConfigService().GetBackupConfigByDbId(prereqs.DB.ID)
+	require.NoError(t, err)
+	require.NotNil(t, requested.ForceIncrementalRequestedAt)
+	prereqs.Config.ForceIncrementalRequestedAt = requested.ForceIncrementalRequestedAt
+
+	scheduler := CreateTestPhysicalScheduler(activeBilling())
+
+	_, ok := scheduler.decideBackupKind(logger.GetLogger(), time.Now().UTC(), prereqs.Config)
+
+	assert.False(t, ok, "a forced incremental on a FULL_ONLY config schedules nothing this tick")
+
+	cleared, err := backups_config_physical.GetBackupConfigService().GetBackupConfigByDbId(prereqs.DB.ID)
+	require.NoError(t, err)
+	assert.Nil(t, cleared.ForceIncrementalRequestedAt,
+		"a forced incremental on a FULL_ONLY config must be cleared")
+}
+
+func Test_ScheduleBackup_WhenForcedIncrementalAssigned_ClearsIncrementalRequest(t *testing.T) {
+	prereqs := seedBackupPrereqs(t)
+	nodeID := registerFakePhysicalNode(t)
+	// The incremental claim needs a real chain root to satisfy the FK.
+	rootFull := seedFullWithStatusAndAge(t, prereqs, physical_enums.PhysicalBackupStatusCompleted, 1, 1)
+	scheduler := CreateTestPhysicalScheduler(activeBilling())
+
+	require.NoError(t, backups_config_physical.GetBackupConfigService().RequestIncrementalBackupNow(prereqs.DB.ID))
+	config, err := backups_config_physical.GetBackupConfigService().GetBackupConfigByDbId(prereqs.DB.ID)
+	require.NoError(t, err)
+	require.NotNil(t, config.ForceIncrementalRequestedAt)
+	requestedAt := *config.ForceIncrementalRequestedAt
+
+	scheduler.scheduleBackup(logger.GetLogger(), prereqs.Config, backupDecision{
+		kind:                        physical_enums.PhysicalBackupTypeIncremental,
+		incrRootFullBackupID:        rootFull.ID,
+		forceIncrementalRequestedAt: &requestedAt,
+	})
+
+	config, err = backups_config_physical.GetBackupConfigService().GetBackupConfigByDbId(prereqs.DB.ID)
+	require.NoError(t, err)
+	assert.Nil(t, config.ForceIncrementalRequestedAt)
+	assert.True(t, scheduler.assignmentCoordinator.IsNodeTrackedForTest(nodeID))
+}
+
 func Test_ScheduleBackup_WhenForcedFullAssigned_ClearsFullRequest(t *testing.T) {
 	prereqs := seedBackupPrereqs(t)
 	nodeID := registerFakePhysicalNode(t)

@@ -11,6 +11,7 @@ import (
 var physicalBackupService = &PhysicalBackupService{
 	physical_repositories.GetFullBackupRepository(),
 	physical_repositories.GetIncrementalBackupRepository(),
+	physical_repositories.GetWalSegmentRepository(),
 	physical_repositories.GetWalHistoryRepository(),
 	chain_view.GetChainViewService(),
 	storages.GetStorageService(),

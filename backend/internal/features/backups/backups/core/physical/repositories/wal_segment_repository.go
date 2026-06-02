@@ -50,6 +50,13 @@ func (r *PhysicalWalSegmentRepository) FindByID(id uuid.UUID) (*physical_models.
 	return &segment, nil
 }
 
+// FindByChainSpan returns the timeline's WAL segments overlapping [startLSN,
+// endLSN), ordered by start_lsn. Overlap (end_lsn > startLSN) — not start_lsn >=
+// startLSN — is deliberate: a FULL's start_lsn is usually mid-segment, so the
+// segment that physically holds the bytes from the chain's start onward has a
+// file-boundary start_lsn BELOW startLSN. Excluding it would drop the very
+// segment that bridges the FULL's stop_lsn into the next segment, manufacturing
+// a false WAL gap at the start of every restore replay window.
 func (r *PhysicalWalSegmentRepository) FindByChainSpan(
 	databaseID uuid.UUID,
 	timelineID int,
@@ -60,7 +67,7 @@ func (r *PhysicalWalSegmentRepository) FindByChainSpan(
 	if err := storage.
 		GetDb().
 		Where(
-			"database_id = ? AND timeline_id = ? AND start_lsn >= ?::pg_lsn AND start_lsn < ?::pg_lsn",
+			"database_id = ? AND timeline_id = ? AND end_lsn > ?::pg_lsn AND start_lsn < ?::pg_lsn",
 			databaseID, timelineID, startLSN.String(), endLSN.String(),
 		).
 		Order("start_lsn ASC").

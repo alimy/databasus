@@ -15,7 +15,7 @@ import (
 // demoted from WAL_STREAM) and a database removal. It implements both the
 // config-change and db-remove listener seams.
 type PhysicalBackupCancellationListener struct {
-	inFlightRepo      *physical_repositories.PhysicalInFlightBackupRepository
+	canceller         *PhysicalBackupCanceller
 	walStreamerRepo   *physical_repositories.PhysicalWalStreamerRepository
 	taskCancelManager *tasks_cancellation.TaskCancelManager
 	logger            *slog.Logger
@@ -33,7 +33,7 @@ func (l *PhysicalBackupCancellationListener) OnBackupConfigChanged(
 	logger := l.logger.With("database_id", databaseID)
 
 	if oldConfig.IsBackupsEnabled && !newConfig.IsBackupsEnabled {
-		l.cancelInFlightBackup(logger, databaseID)
+		l.canceller.CancelInFlightForDatabase(databaseID)
 	}
 
 	l.deleteStreamerRow(logger, databaseID)
@@ -44,31 +44,10 @@ func (l *PhysicalBackupCancellationListener) OnBackupConfigChanged(
 func (l *PhysicalBackupCancellationListener) OnBeforeDatabaseRemove(databaseID uuid.UUID) error {
 	logger := l.logger.With("database_id", databaseID)
 
-	l.cancelInFlightBackup(logger, databaseID)
+	l.canceller.CancelInFlightForDatabase(databaseID)
 	l.deleteStreamerRow(logger, databaseID)
 
 	return nil
-}
-
-func (l *PhysicalBackupCancellationListener) cancelInFlightBackup(logger *slog.Logger, databaseID uuid.UUID) {
-	claim, err := l.inFlightRepo.FindByDatabaseID(databaseID)
-	if err != nil {
-		logger.Error("failed to look up in-flight backup for cancel", "error", err)
-
-		return
-	}
-
-	if claim == nil {
-		return
-	}
-
-	if err := l.taskCancelManager.CancelTask(claim.BackupID); err != nil {
-		logger.Error("failed to cancel in-flight backup task", "backup_id", claim.BackupID, "error", err)
-	}
-
-	if err := l.inFlightRepo.ReleaseOwned(databaseID, claim.BackupID); err != nil {
-		logger.Error("failed to release in-flight claim", "error", err)
-	}
 }
 
 // deleteStreamerRow tears the WAL streamer down: it first cancels the

@@ -98,6 +98,26 @@ func (r *BackupConfigRepository) ClearFullBackupRequest(databaseID uuid.UUID, re
 	return query.Update("force_full_requested_at", nil).Error
 }
 
+func (r *BackupConfigRepository) RequestIncrementalBackupNow(databaseID uuid.UUID) error {
+	return storage.
+		GetDb().
+		Model(&PhysicalBackupConfig{}).
+		Where("database_id = ?", databaseID).
+		Update("force_incremental_requested_at", time.Now().UTC()).Error
+}
+
+func (r *BackupConfigRepository) ClearIncrementalBackupRequest(databaseID uuid.UUID, requestedAt *time.Time) error {
+	query := storage.
+		GetDb().
+		Model(&PhysicalBackupConfig{}).
+		Where("database_id = ?", databaseID)
+	if requestedAt != nil {
+		query = query.Where("force_incremental_requested_at = ?", *requestedAt)
+	}
+
+	return query.Update("force_incremental_requested_at", nil).Error
+}
+
 func (r *BackupConfigRepository) IsStorageUsing(storageID uuid.UUID) (bool, error) {
 	var count int64
 

@@ -1,8 +1,8 @@
-package backups_download
+package download_token
 
 import "github.com/google/uuid"
 
-type GenerateDownloadTokenResponse struct {
+type GenerateTokenResponse struct {
 	Token    string    `json:"token"`
 	Filename string    `json:"filename"`
 	BackupID uuid.UUID `json:"backupId"`

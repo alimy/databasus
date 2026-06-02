@@ -181,10 +181,11 @@ func (s *PhysicalBackupsScheduler) canCreateBackups(logger *slog.Logger, databas
 
 // backupDecision is the outcome of the per-tick FULL-vs-INCR decision.
 type backupDecision struct {
-	kind                 physical_enums.PhysicalBackupType
-	incrRootFullBackupID uuid.UUID
-	incrParentIncrID     *uuid.UUID
-	forceFullRequestedAt *time.Time
+	kind                        physical_enums.PhysicalBackupType
+	incrRootFullBackupID        uuid.UUID
+	incrParentIncrID            *uuid.UUID
+	forceFullRequestedAt        *time.Time
+	forceIncrementalRequestedAt *time.Time
 }
 
 // decideBackupKind picks FULL or INCR purely from catalog state + cadence (no
@@ -210,6 +211,12 @@ func (s *PhysicalBackupsScheduler) decideBackupKind(
 			kind:                 physical_enums.PhysicalBackupTypeFull,
 			forceFullRequestedAt: backupConfig.ForceFullRequestedAt,
 		}, true
+	}
+
+	if backupConfig.ForceIncrementalRequestedAt != nil {
+		if decision, ok := s.decideForcedIncremental(logger, backupConfig); ok {
+			return decision, true
+		}
 	}
 
 	lastIncr, err := s.incrRepo.FindLastByDatabase(backupConfig.DatabaseID)
@@ -253,6 +260,62 @@ func (s *PhysicalBackupsScheduler) decideBackupKind(
 		incrRootFullBackupID: extendableChain.RootFull.ID,
 		incrParentIncrID:     parentIncrID,
 	}, true
+}
+
+// decideForcedIncremental honors an out-of-cadence incremental request. It can
+// only be satisfied when incrementals are enabled and an extendable chain
+// exists; otherwise the stale request is cleared (so it can't loop forever) and
+// ok=false lets the caller fall through to normal cadence evaluation. The
+// controller already rejects "incremental with no chain" up front, but the
+// chain can disappear between request and tick, so the scheduler must cope.
+func (s *PhysicalBackupsScheduler) decideForcedIncremental(
+	logger *slog.Logger,
+	backupConfig *backups_config_physical.PhysicalBackupConfig,
+) (backupDecision, bool) {
+	if !isIncrementalEnabled(backupConfig) {
+		s.clearIncrementalRequest(logger, backupConfig)
+
+		return backupDecision{}, false
+	}
+
+	extendableChain, err := s.chainViewService.FindLastExtendableChainByDatabase(backupConfig.DatabaseID)
+	if err != nil {
+		logger.Error("failed to find extendable chain for forced incremental", "error", err)
+
+		return backupDecision{}, false
+	}
+
+	if extendableChain == nil {
+		logger.Warn("forced incremental requested but no extendable chain exists; clearing request")
+		s.clearIncrementalRequest(logger, backupConfig)
+
+		return backupDecision{}, false
+	}
+
+	parentIncrID, err := s.resolveIncrParent(extendableChain.RootFull.ID)
+	if err != nil {
+		logger.Error("failed to resolve incremental parent for forced incremental", "error", err)
+
+		return backupDecision{}, false
+	}
+
+	return backupDecision{
+		kind:                        physical_enums.PhysicalBackupTypeIncremental,
+		incrRootFullBackupID:        extendableChain.RootFull.ID,
+		incrParentIncrID:            parentIncrID,
+		forceIncrementalRequestedAt: backupConfig.ForceIncrementalRequestedAt,
+	}, true
+}
+
+func (s *PhysicalBackupsScheduler) clearIncrementalRequest(
+	logger *slog.Logger,
+	backupConfig *backups_config_physical.PhysicalBackupConfig,
+) {
+	if err := s.backupConfigService.ClearIncrementalBackupRequest(
+		backupConfig.DatabaseID, backupConfig.ForceIncrementalRequestedAt,
+	); err != nil {
+		logger.Error("failed to clear incremental backup request", "error", err)
+	}
 }
 
 // resolveIncrParent returns the latest COMPLETED INCR in the chain as the new
@@ -321,6 +384,15 @@ func (s *PhysicalBackupsScheduler) scheduleBackup(
 			decision.forceFullRequestedAt,
 		); err != nil {
 			logger.Error("failed to clear forced full request", "error", err)
+		}
+	}
+
+	if decision.forceIncrementalRequestedAt != nil {
+		if err := s.backupConfigService.ClearIncrementalBackupRequest(
+			backupConfig.DatabaseID,
+			decision.forceIncrementalRequestedAt,
+		); err != nil {
+			logger.Error("failed to clear forced incremental request", "error", err)
 		}
 	}
 

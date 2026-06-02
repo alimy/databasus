@@ -25,6 +25,7 @@ import (
 	"databasus-backend/internal/features/backups/backups/backuping/logical"
 	backuping_physical "databasus-backend/internal/features/backups/backups/backuping/physical"
 	backups_controllers_logical "databasus-backend/internal/features/backups/backups/controllers/logical"
+	backups_controllers_physical "databasus-backend/internal/features/backups/backups/controllers/physical"
 	backups_download "databasus-backend/internal/features/backups/backups/download"
 	backups_services "databasus-backend/internal/features/backups/backups/services"
 	backups_config_logical "databasus-backend/internal/features/backups/config/logical"
@@ -230,6 +231,7 @@ func setUpRoutes(r *gin.Engine) {
 	system_version.GetVersionController().RegisterRoutes(v1)
 	system_agent.GetAgentController().RegisterRoutes(v1)
 	backups_controllers_logical.GetBackupController().RegisterPublicRoutes(v1)
+	backups_controllers_physical.GetPhysicalBackupController().RegisterPublicRoutes(v1)
 	databases.GetDatabaseController().RegisterPublicRoutes(v1)
 	verification_agents.GetAgentFacingController().RegisterRoutes(v1)
 	verification_runs.GetVerificationAgentController().RegisterRoutes(v1)
@@ -254,6 +256,7 @@ func setUpRoutes(r *gin.Engine) {
 	storages.GetStorageController().RegisterRoutes(protected)
 	databases.GetDatabaseController().RegisterRoutes(protected)
 	backups_controllers_logical.GetBackupController().RegisterRoutes(protected)
+	backups_controllers_physical.GetPhysicalBackupController().RegisterRoutes(protected)
 	restores.GetRestoreController().RegisterRoutes(protected)
 	healthcheck_config.GetHealthcheckConfigController().RegisterRoutes(protected)
 	healthcheck_attempt.GetHealthcheckAttemptController().RegisterRoutes(protected)

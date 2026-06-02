@@ -1,6 +1,68 @@
 package physical_service
 
-import "github.com/google/uuid"
+import (
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
+)
+
+// PhysicalBackupListRow is one row of the merged, paginated backup list across
+// the FULL, incremental and committed-WAL tables. Type-only columns are NULL for
+// the other types (scanned into the pointer fields); LSNs arrive as text. It is
+// the catalog-level shape the API maps to its presentation DTO.
+type PhysicalBackupListRow struct {
+	ID                        uuid.UUID  `gorm:"column:id"`
+	Type                      string     `gorm:"column:type"`
+	Status                    string     `gorm:"column:status"`
+	TimelineID                int        `gorm:"column:timeline_id"`
+	StartLSN                  string     `gorm:"column:start_lsn"`
+	StopLSN                   string     `gorm:"column:stop_lsn"`
+	RootFullBackupID          *uuid.UUID `gorm:"column:root_full_backup_id"`
+	ParentIncrementalBackupID *uuid.UUID `gorm:"column:parent_incremental_backup_id"`
+	WalFilename               *string    `gorm:"column:wal_filename"`
+	SizeMb                    float64    `gorm:"column:size_mb"`
+	CreatedAt                 time.Time  `gorm:"column:created_at"`
+	CompletedAt               *time.Time `gorm:"column:completed_at"`
+}
+
+// BackupListFilter narrows ListBackups / CountBackups. A nil field is "no filter
+// on that dimension". Type and Status match the synthetic columns the UNION
+// projects ('WAL'/'COMPLETED' for WAL rows); BeforeDate filters on created_at.
+type BackupListFilter struct {
+	Type       *string
+	Status     *string
+	BeforeDate *time.Time
+}
+
+// buildClause renders the filter as an outer WHERE applied to the merged
+// subquery. Returns an empty string (and no args) when nothing is set. All
+// values are bound, never interpolated.
+func (f BackupListFilter) buildClause() (string, []any) {
+	var conditions []string
+	var args []any
+
+	if f.Type != nil {
+		conditions = append(conditions, "type = ?")
+		args = append(args, *f.Type)
+	}
+
+	if f.Status != nil {
+		conditions = append(conditions, "status = ?")
+		args = append(args, *f.Status)
+	}
+
+	if f.BeforeDate != nil {
+		conditions = append(conditions, "created_at < ?")
+		args = append(args, *f.BeforeDate)
+	}
+
+	if len(conditions) == 0 {
+		return "", nil
+	}
+
+	return " WHERE " + strings.Join(conditions, " AND "), args
+}
 
 // DeletedSummary reports what a single DeleteFull / DeleteChainDependentsKeepFull
 // call removed. The cleaner logs it per tick. ChainFullyDeleted is false when
