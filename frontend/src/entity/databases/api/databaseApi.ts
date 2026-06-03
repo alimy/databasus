@@ -118,4 +118,13 @@ export const databaseApi = {
       requestOptions,
     );
   },
+
+  async createReplicationOnlyUser(database: Database) {
+    const requestOptions: RequestOptions = new RequestOptions();
+    requestOptions.setBody(JSON.stringify(database));
+    return apiHelper.fetchPostJson<CreateReadOnlyUserResponse>(
+      `${getApplicationServer()}/api/v1/databases/create-replication-only-user`,
+      requestOptions,
+    );
+  },
 };

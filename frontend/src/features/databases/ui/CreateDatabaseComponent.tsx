@@ -1,6 +1,15 @@
 import { useState } from 'react';
 
-import { type BackupConfig, backupConfigApi, backupsApi } from '../../../entity/backups';
+import {
+  type LogicalBackupConfig,
+  logicalBackupConfigApi,
+  logicalBackupsApi,
+} from '../../../entity/backups/logical';
+import {
+  type PhysicalBackupConfig,
+  physicalBackupConfigApi,
+  physicalBackupsApi,
+} from '../../../entity/backups/physical';
 import {
   type Database,
   DatabaseType,
@@ -8,11 +17,15 @@ import {
   type MongodbDatabase,
   type MysqlDatabase,
   Period,
-  type PostgresqlDatabase,
+  PhysicalDatabaseBackupType,
+  PostgresSslMode,
+  type PostgresqlLogicalDatabase,
+  type PostgresqlPhysicalDatabase,
   databaseApi,
 } from '../../../entity/databases';
 import type { UserProfile } from '../../../entity/users';
-import { EditBackupConfigComponent } from '../../backups';
+import { EditLogicalBackupConfigComponent } from '../../backups/logical';
+import { EditPhysicalBackupConfigComponent } from '../../backups/physical';
 import { CreateReadOnlyComponent } from './edit/CreateReadOnlyComponent';
 import { EditDatabaseBaseInfoComponent } from './edit/EditDatabaseBaseInfoComponent';
 import { EditDatabaseNotifiersComponent } from './edit/EditDatabaseNotifiersComponent';
@@ -44,6 +57,7 @@ const initializeDatabaseTypeData = (db: Database): Database => {
   const base = {
     ...db,
     postgresql: undefined,
+    postgresqlPhysical: undefined,
     mysql: undefined,
     mariadb: undefined,
     mongodb: undefined,
@@ -57,7 +71,17 @@ const initializeDatabaseTypeData = (db: Database): Database => {
           db.postgresqlLogical ??
           ({
             cpuCount: 1,
-          } as PostgresqlDatabase),
+          } as PostgresqlLogicalDatabase),
+      };
+    case DatabaseType.POSTGRES_PHYSICAL:
+      return {
+        ...base,
+        postgresqlPhysical:
+          db.postgresqlPhysical ??
+          ({
+            backupType: PhysicalDatabaseBackupType.FULL,
+            sslMode: PostgresSslMode.Disable,
+          } as PostgresqlPhysicalDatabase),
       };
     case DatabaseType.MYSQL:
       return { ...base, mysql: db.mysql ?? ({} as MysqlDatabase) };
@@ -72,25 +96,41 @@ const initializeDatabaseTypeData = (db: Database): Database => {
 
 export const CreateDatabaseComponent = ({ user, workspaceId, onCreated, onClose }: Props) => {
   const [isCreating, setIsCreating] = useState(false);
-  const [backupConfig, setBackupConfig] = useState<BackupConfig | undefined>();
+  const [backupConfig, setBackupConfig] = useState<LogicalBackupConfig | undefined>();
+  const [physicalBackupConfig, setPhysicalBackupConfig] = useState<
+    PhysicalBackupConfig | undefined
+  >();
   const [database, setDatabase] = useState<Database>(createInitialDatabase(workspaceId));
 
   const [step, setStep] = useState<
     'base-info' | 'db-settings' | 'create-readonly-user' | 'backup-config' | 'notifiers'
   >('base-info');
 
-  const createDatabase = async (database: Database, backupConfig: BackupConfig) => {
+  const isPhysical = database.type === DatabaseType.POSTGRES_PHYSICAL;
+
+  const createDatabase = async (database: Database) => {
+    if (isPhysical ? !physicalBackupConfig : !backupConfig) return;
+
     setIsCreating(true);
 
     try {
       const createdDatabase = await databaseApi.createDatabase(database);
       setDatabase({ ...createdDatabase });
 
-      backupConfig.databaseId = createdDatabase.id;
-      await backupConfigApi.saveBackupConfig(backupConfig);
+      if (isPhysical && physicalBackupConfig) {
+        physicalBackupConfig.databaseId = createdDatabase.id;
+        await physicalBackupConfigApi.savePhysicalBackupConfig(physicalBackupConfig);
 
-      if (backupConfig.isBackupsEnabled) {
-        await backupsApi.makeBackup(createdDatabase.id);
+        if (physicalBackupConfig.isBackupsEnabled) {
+          await physicalBackupsApi.triggerPhysicalBackup(createdDatabase.id, 'auto');
+        }
+      } else if (backupConfig) {
+        backupConfig.databaseId = createdDatabase.id;
+        await logicalBackupConfigApi.saveBackupConfig(backupConfig);
+
+        if (backupConfig.isBackupsEnabled) {
+          await logicalBackupsApi.makeBackup(createdDatabase.id);
+        }
       }
 
       onCreated(createdDatabase.id);
@@ -156,8 +196,27 @@ export const CreateDatabaseComponent = ({ user, workspaceId, onCreated, onClose 
   }
 
   if (step === 'backup-config') {
+    if (isPhysical) {
+      return (
+        <EditPhysicalBackupConfigComponent
+          user={user}
+          database={database}
+          isShowCancelButton={false}
+          onCancel={() => onClose()}
+          isShowBackButton
+          onBack={() => setStep('db-settings')}
+          saveButtonText="Continue"
+          isSaveToApi={false}
+          onSaved={(physicalBackupConfig) => {
+            setPhysicalBackupConfig(physicalBackupConfig);
+            setStep('notifiers');
+          }}
+        />
+      );
+    }
+
     return (
-      <EditBackupConfigComponent
+      <EditLogicalBackupConfigComponent
         user={user}
         database={database}
         isShowCancelButton={false}
@@ -194,7 +253,7 @@ export const CreateDatabaseComponent = ({ user, workspaceId, onCreated, onClose 
           if (isCreating) return;
 
           setDatabase({ ...database });
-          createDatabase(database, backupConfig!);
+          createDatabase(database);
         }}
       />
     );

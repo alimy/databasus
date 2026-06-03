@@ -2,7 +2,7 @@ import { InfoCircleOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
 
-import { backupConfigApi } from '../../../entity/backups';
+import { logicalBackupConfigApi } from '../../../entity/backups/logical';
 import { type Database } from '../../../entity/databases';
 import { HealthStatus } from '../../../entity/databases/model/HealthStatus';
 import type { Storage } from '../../../entity/storages';
@@ -24,7 +24,9 @@ export const DatabaseCardComponent = ({
   useEffect(() => {
     if (!database.id) return;
 
-    backupConfigApi.getBackupConfigByDbID(database.id).then((res) => setStorage(res?.storage));
+    logicalBackupConfigApi
+      .getBackupConfigByDbID(database.id)
+      .then((res) => setStorage(res?.storage));
   }, [database.id]);
 
   return (

@@ -7,7 +7,10 @@ import {
   type MariadbDatabase,
   type MongodbDatabase,
   type MysqlDatabase,
-  type PostgresqlDatabase,
+  PhysicalDatabaseBackupType,
+  PostgresSslMode,
+  type PostgresqlLogicalDatabase,
+  type PostgresqlPhysicalDatabase,
   databaseApi,
   getDatabaseLogoFromType,
 } from '../../../../entity/databases';
@@ -26,7 +29,8 @@ interface Props {
 }
 
 const databaseTypeOptions = [
-  { value: DatabaseType.POSTGRES_LOGICAL, label: 'PostgreSQL' },
+  { value: DatabaseType.POSTGRES_LOGICAL, label: 'PostgreSQL (logical)' },
+  { value: DatabaseType.POSTGRES_PHYSICAL, label: 'PostgreSQL (physical)' },
   { value: DatabaseType.MYSQL, label: 'MySQL' },
   { value: DatabaseType.MARIADB, label: 'MariaDB' },
   { value: DatabaseType.MONGODB, label: 'MongoDB' },
@@ -58,6 +62,7 @@ export const EditDatabaseBaseInfoComponent = ({
       ...editingDatabase,
       type: newType,
       postgresqlLogical: undefined,
+      postgresqlPhysical: undefined,
       mysql: undefined,
       mariadb: undefined,
       mongodb: undefined,
@@ -66,7 +71,15 @@ export const EditDatabaseBaseInfoComponent = ({
     switch (newType) {
       case DatabaseType.POSTGRES_LOGICAL:
         updatedDatabase.postgresqlLogical =
-          editingDatabase.postgresqlLogical ?? ({ cpuCount: 1 } as PostgresqlDatabase);
+          editingDatabase.postgresqlLogical ?? ({ cpuCount: 1 } as PostgresqlLogicalDatabase);
+        break;
+      case DatabaseType.POSTGRES_PHYSICAL:
+        updatedDatabase.postgresqlPhysical =
+          editingDatabase.postgresqlPhysical ??
+          ({
+            backupType: PhysicalDatabaseBackupType.FULL,
+            sslMode: PostgresSslMode.Disable,
+          } as PostgresqlPhysicalDatabase);
         break;
       case DatabaseType.MYSQL:
         updatedDatabase.mysql = editingDatabase.mysql ?? ({} as MysqlDatabase);

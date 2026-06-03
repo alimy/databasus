@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { IS_CLOUD } from '../../../constants';
 import { type Database, DatabaseType, databaseApi } from '../../../entity/databases';
 import type { UserProfile } from '../../../entity/users';
-import { BackupsComponent } from '../../backups';
+import { LogicalBackupsComponent } from '../../backups/logical';
+import { PhysicalBackupsComponent } from '../../backups/physical';
 import { BillingComponent } from '../../billing';
 import { HealthckeckAttemptsComponent } from '../../healthcheck';
 import { VerificationsComponent } from '../../verification/runs';
@@ -43,6 +44,7 @@ export const DatabaseComponent = ({
   };
 
   const isPostgresDatabase = database?.type === DatabaseType.POSTGRES_LOGICAL;
+  const isPhysicalDatabase = database?.type === DatabaseType.POSTGRES_PHYSICAL;
 
   const loadSettings = () => {
     setDatabase(undefined);
@@ -117,14 +119,25 @@ export const DatabaseComponent = ({
             database={database}
             onVisibilityChange={handleHealthcheckVisibilityChange}
           />
-          <BackupsComponent
-            database={database}
-            isCanManageDBs={isCanManageDBs}
-            isDirectlyUnderTab={!isHealthcheckVisible}
-            scrollContainerRef={scrollContainerRef}
-            onNavigateToBilling={() => setCurrentTab('billing')}
-            onNavigateToVerifications={() => setCurrentTab('verifications')}
-          />
+
+          {isPhysicalDatabase ? (
+            <PhysicalBackupsComponent
+              database={database}
+              isCanManageDBs={isCanManageDBs}
+              isDirectlyUnderTab={!isHealthcheckVisible}
+              scrollContainerRef={scrollContainerRef}
+              onNavigateToBilling={() => setCurrentTab('billing')}
+            />
+          ) : (
+            <LogicalBackupsComponent
+              database={database}
+              isCanManageDBs={isCanManageDBs}
+              isDirectlyUnderTab={!isHealthcheckVisible}
+              scrollContainerRef={scrollContainerRef}
+              onNavigateToBilling={() => setCurrentTab('billing')}
+              onNavigateToVerifications={() => setCurrentTab('verifications')}
+            />
+          )}
         </>
       )}
 

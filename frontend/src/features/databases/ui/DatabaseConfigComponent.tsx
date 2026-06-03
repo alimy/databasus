@@ -8,12 +8,20 @@ import {
 import { Button, Input } from 'antd';
 import { useEffect, useState } from 'react';
 
-import { backupConfigApi } from '../../../entity/backups';
+import { logicalBackupConfigApi } from '../../../entity/backups/logical';
+import { physicalBackupConfigApi } from '../../../entity/backups/physical';
 import { type Database, DatabaseType, databaseApi } from '../../../entity/databases';
 import type { UserProfile } from '../../../entity/users';
 import { ToastHelper } from '../../../shared/toast';
 import { ConfirmationComponent } from '../../../shared/ui';
-import { EditBackupConfigComponent, ShowBackupConfigComponent } from '../../backups';
+import {
+  EditLogicalBackupConfigComponent,
+  ShowLogicalBackupConfigComponent,
+} from '../../backups/logical';
+import {
+  EditPhysicalBackupConfigComponent,
+  ShowPhysicalBackupConfigComponent,
+} from '../../backups/physical';
 import { EditHealthcheckConfigComponent, ShowHealthcheckConfigComponent } from '../../healthcheck';
 import {
   EditBackupVerificationConfigComponent,
@@ -66,11 +74,17 @@ export const DatabaseConfigComponent = ({
   const [isShowTransferDialog, setIsShowTransferDialog] = useState(false);
   const [currentStorageId, setCurrentStorageId] = useState<string | undefined>();
 
+  const isPhysicalDatabase = database.type === DatabaseType.POSTGRES_PHYSICAL;
+
   useEffect(() => {
-    backupConfigApi.getBackupConfigByDbID(database.id).then((config) => {
+    const loadStorageId = isPhysicalDatabase
+      ? physicalBackupConfigApi.getPhysicalBackupConfigByDbId(database.id)
+      : logicalBackupConfigApi.getBackupConfigByDbID(database.id);
+
+    loadStorageId.then((config) => {
       setCurrentStorageId(config.storage?.id);
     });
-  }, [database.id]);
+  }, [database.id, isPhysicalDatabase]);
 
   const loadSettings = () => {
     setDatabase(undefined);
@@ -328,21 +342,39 @@ export const DatabaseConfigComponent = ({
           <div>
             <div className="mt-1 text-sm">
               {isEditBackupConfig ? (
-                <EditBackupConfigComponent
-                  database={database}
-                  user={user}
-                  isShowCancelButton
-                  onCancel={() => {
-                    setIsEditBackupConfig(false);
-                    loadSettings();
-                  }}
-                  isSaveToApi={true}
-                  onSaved={() => onDatabaseChanged(database)}
-                  isShowBackButton={false}
-                  onBack={() => {}}
-                />
+                isPhysicalDatabase ? (
+                  <EditPhysicalBackupConfigComponent
+                    database={database}
+                    user={user}
+                    isShowCancelButton
+                    onCancel={() => {
+                      setIsEditBackupConfig(false);
+                      loadSettings();
+                    }}
+                    isSaveToApi={true}
+                    onSaved={() => onDatabaseChanged(database)}
+                    isShowBackButton={false}
+                    onBack={() => {}}
+                  />
+                ) : (
+                  <EditLogicalBackupConfigComponent
+                    database={database}
+                    user={user}
+                    isShowCancelButton
+                    onCancel={() => {
+                      setIsEditBackupConfig(false);
+                      loadSettings();
+                    }}
+                    isSaveToApi={true}
+                    onSaved={() => onDatabaseChanged(database)}
+                    isShowBackButton={false}
+                    onBack={() => {}}
+                  />
+                )
+              ) : isPhysicalDatabase ? (
+                <ShowPhysicalBackupConfigComponent database={database} />
               ) : (
-                <ShowBackupConfigComponent database={database} />
+                <ShowLogicalBackupConfigComponent database={database} />
               )}
             </div>
           </div>

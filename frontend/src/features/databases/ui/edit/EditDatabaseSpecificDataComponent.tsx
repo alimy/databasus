@@ -6,7 +6,8 @@ import { CreateReadOnlyComponent } from './CreateReadOnlyComponent';
 import { EditMariaDbSpecificDataComponent } from './EditMariaDbSpecificDataComponent';
 import { EditMongoDbSpecificDataComponent } from './EditMongoDbSpecificDataComponent';
 import { EditMySqlSpecificDataComponent } from './EditMySqlSpecificDataComponent';
-import { EditPostgreSqlSpecificDataComponent } from './EditPostgreSqlSpecificDataComponent';
+import { EditPostgreSqlLogicalSpecificDataComponent } from './EditPostgreSqlLogicalSpecificDataComponent';
+import { EditPostgreSqlPhysicalSpecificDataComponent } from './EditPostgreSqlPhysicalSpecificDataComponent';
 
 interface Props {
   database: Database;
@@ -119,7 +120,14 @@ export const EditDatabaseSpecificDataComponent = ({
 
   switch (editingDatabase.type) {
     case DatabaseType.POSTGRES_LOGICAL:
-      return <EditPostgreSqlSpecificDataComponent {...commonProps} isRestoreMode={isRestoreMode} />;
+      return (
+        <EditPostgreSqlLogicalSpecificDataComponent
+          {...commonProps}
+          isRestoreMode={isRestoreMode}
+        />
+      );
+    case DatabaseType.POSTGRES_PHYSICAL:
+      return <EditPostgreSqlPhysicalSpecificDataComponent {...commonProps} />;
     case DatabaseType.MYSQL:
       return <EditMySqlSpecificDataComponent {...commonProps} />;
     case DatabaseType.MARIADB:
