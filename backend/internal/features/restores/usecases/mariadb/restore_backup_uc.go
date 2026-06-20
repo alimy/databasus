@@ -75,7 +75,9 @@ func (uc *RestoreMariadbBackupUsecase) Execute(
 	// "Maximum writeset size exceeded" errors on large restores.
 	// wsrep_on is available in MariaDB 10.1+ (all builds with Galera support).
 	// On non-Galera instances the variable still exists but is a no-op.
-	if mdb.Version != tools.MariadbVersion55 {
+	// Setting it requires the SUPER privilege, so it is skippable for managed
+	// clusters that deny SUPER (at the risk of writeset-size errors on big restores).
+	if mdb.Version != tools.MariadbVersion55 && !mdb.IsSkipGaleraDisable {
 		args = append(args, "--init-command=SET SESSION wsrep_on=OFF")
 	}
 
