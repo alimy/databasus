@@ -115,6 +115,10 @@ After each change run linting and formatting depending on folder you are working
 - backend and agent has `make lint` commands
 - frontend has `pnpm lint` and `pnpm format` commands
 
+### Comments are a last resort
+
+The default is **no comment**. Before writing one, reach for a clearer name or a smaller function first — self-explanatory code beats commented code every time. A comment is justified only when it carries something the code cannot: a *why* (business rule, hidden cross-system constraint, non-obvious algorithm or optimisation, ADR reference). Never write a comment that restates *what* the code does or narrates the obvious — if a `// Foo does X` comment sits above the code, that's a naming bug: rename until the comment is redundant, then delete it. This applies everywhere, tests included — a well-named test needs no header comment explaining what it checks.
+
 ### No "how it was" comments, no unrequested backward compatibility
 
 Don't write comments that explain previous behavior ("used to be X", "was renamed from Y", "kept for legacy callers"). Code shows the current state; history lives in git.

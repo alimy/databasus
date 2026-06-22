@@ -533,6 +533,20 @@ func Test_TestReplicationConnection_FailsForFullIncrementalWalStreamWhenSummariz
 	}
 }
 
+func Test_ReadReplicationSettings_OnPreSummarizeWalVersion_DefaultsSummarizeWalToOff(t *testing.T) {
+	source := containers.StartPostgres(t, "postgres:16")
+
+	conn := openTestConnAt(t, source.Host, source.Port)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	settings, err := readReplicationSettings(ctx, conn)
+
+	require.NoError(t, err)
+	assert.Equal(t, "off", settings.summarizeWal)
+}
+
 func Test_TestReplicationConnection_SucceedsForFullOnlyWhenSummarizeWalOff(t *testing.T) {
 	for _, fx := range physicalFixtures() {
 		t.Run(fx.name, func(t *testing.T) {
